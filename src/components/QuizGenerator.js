@@ -14,17 +14,75 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
   const hasExtractedTopics = useRef(false);
   const extractionInProgress = useRef(false);
 
-  // Extract topics using Gemini when component mounts
+  // Extract topics using Gemini when component mounts or when text/apiKey changes
   useEffect(() => {
-    // Reset extraction state when text changes (new upload)
-    if (extractedText && apiKey) {
-      // If we have new text, reset the extraction state
-      if (!hasExtractedTopics.current || topics.length === 0) {
-        hasExtractedTopics.current = false;
+    let cancelled = false;
+
+    const doExtraction = async () => {
+      if (!extractedText || !apiKey || hasExtractedTopics.current || extractionInProgress.current) return;
+      extractionInProgress.current = true;
+      setIsExtractingTopics(true);
+      try {
+        console.log('Starting topic extraction with Gemini...');
+        const res = await fetch('/api/gemini-generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: extractedText,
+            promptType: 'extractTopics',
+            geminiApiKey: apiKey,
+          }),
+        });
+        
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        
+        const data = await res.json();
+        console.log('Gemini API response:', data);
+        
+        if (data.error) {
+          throw new Error(`API error: ${data.error}`);
+        }
+        
+        if (data.result) {
+          console.log('Parsing topics from Gemini response...');
+          const extractedTopics = parseTopics(data);
+          console.log('Extracted topics:', extractedTopics);
+          if (!cancelled) {
+            setTopics(extractedTopics);
+            hasExtractedTopics.current = true; // Mark as completed
+          }
+        } else {
+          throw new Error('No result in API response');
+        }
+      } catch (error) {
+        console.error('Topic extraction error:', error);
+        console.log('Falling back to simple extraction...');
+        // Fallback to simple extraction
+        const fallbackTopics = extractTopicsSimple(extractedText);
+        console.log('Fallback topics:', fallbackTopics);
+        if (!cancelled) {
+          setTopics(fallbackTopics);
+          hasExtractedTopics.current = true; // Mark as completed even with fallback
+        }
+      } finally {
+        if (!cancelled) setIsExtractingTopics(false);
         extractionInProgress.current = false;
-        extractTopicsWithGemini();
       }
+    };
+
+    // Reset extraction state if new text is uploaded
+    if (extractedText && apiKey && (!hasExtractedTopics.current || topics.length === 0)) {
+      hasExtractedTopics.current = false;
+      extractionInProgress.current = false;
+      doExtraction();
     }
+
+    return () => {
+      cancelled = true;
+      extractionInProgress.current = false;
+    };
   }, [extractedText, apiKey]);
 
   // Reset extraction state when component unmounts or when text/apiKey changes significantly

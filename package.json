@@ -1,6 +1,6 @@
 {
-  "name": "exam-study",
-  "version": "0.1.0",
+  "name": "PageRush",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
