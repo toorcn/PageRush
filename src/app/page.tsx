@@ -14,6 +14,8 @@ import Insights from '../components/Insights';
 import HistoryPanel from '../components/HistoryPanel';
 import DocumentManager from '../components/DocumentManager';
 import HelpfulResourcesSidebar from '../components/HelpfulResourcesSidebar';
+import FocusMode from '../components/FocusMode';
+import FocusModeStats from '../components/FocusModeStats';
 import { parseFlashcards, parseQuiz, parseExam } from '../utils/parseGeminiResponse';
 import NotificationProvider, { useNotification } from '../components/NotificationProvider';
 import Notification from '../components/Notification';
@@ -388,12 +390,26 @@ export default function Home() {
     }
   };
 
+  // If focus mode is active, render the FocusMode component
+  if (focusMode) {
+    return (
+      <NotificationProvider notifications={notifications} removeNotification={removeNotification}>
+        <FocusMode
+          activeDocument={activeDocument}
+          apiKey={apiKey}
+          onExit={() => setFocusMode(false)}
+          currentProgress={currentQuestionIndex}
+        />
+      </NotificationProvider>
+    );
+  }
+
   return (
     <NotificationProvider notifications={notifications} removeNotification={removeNotification}>
-      <div className={`font-sans min-h-screen ${focusMode ? 'bg-white' : 'bg-gradient-to-br from-blue-50 to-indigo-100'} transition-colors duration-300`}>
+      <div className="font-sans min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
         {/* Notification System */}
         <Notification />
-        <div className={`max-w-6xl mx-auto ${focusMode ? 'py-2' : 'py-8'} px-4 space-y-6 relative`}>
+        <div className="max-w-6xl mx-auto py-8 px-4 space-y-6 relative">
           
           {/* Header */}
           <div className="flex items-center justify-between">
@@ -422,15 +438,27 @@ export default function Home() {
               >
                 📊 History ({history.length})
               </button>
+              {step >= 2 && !showQuizGenerator && !showExamGenerator && !result && (
+                <button
+                  onClick={() => {
+                    // Scroll to feature selector
+                    const featureSection = document.querySelector('[data-feature-selector]');
+                    if (featureSection) {
+                      featureSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                  }}
+                  className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:from-green-700 hover:to-emerald-700 flex items-center space-x-2"
+                >
+                  <span>✨</span>
+                  <span>Study Tools</span>
+                </button>
+              )}
               <button
-                className={`px-3 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all duration-200 ${
-                  focusMode 
-                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                    : 'bg-white/80 backdrop-blur-sm text-gray-700 hover:bg-white border border-gray-200'
-                }`}
-                onClick={() => setFocusMode(f => !f)}
+                className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:from-purple-700 hover:to-indigo-700 flex items-center space-x-2"
+                onClick={() => setFocusMode(true)}
               >
-                {focusMode ? 'Exit Focus' : 'Focus Mode'}
+                <span>🎯</span>
+                <span>Focus Mode</span>
               </button>
             </div>
           </div>
@@ -472,6 +500,24 @@ export default function Home() {
               onClearHistory={clearHistory}
               onClose={() => setShowHistory(false)}
             />
+          )}
+
+          {/* Floating Action Button for Study Tools */}
+          {step >= 2 && !showQuizGenerator && !showExamGenerator && !result && (
+            <div className="fixed bottom-6 right-6 z-50">
+              <button
+                onClick={() => {
+                  const featureSection = document.querySelector('[data-feature-selector]');
+                  if (featureSection) {
+                    featureSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }
+                }}
+                className="w-14 h-14 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 hover:from-green-700 hover:to-emerald-700 flex items-center justify-center text-xl"
+                title="Quick Access to Study Tools"
+              >
+                ✨
+              </button>
+            </div>
           )}
 
           {/* Main Content */}
@@ -524,6 +570,9 @@ export default function Home() {
                 </div>
               )}
 
+              {/* Focus Mode Stats */}
+              <FocusModeStats onEnterFocusMode={() => setFocusMode(true)} />
+
               {/* Helpful Resources Sidebar */}
               <HelpfulResourcesSidebar 
                 history={history} 
@@ -561,7 +610,7 @@ export default function Home() {
             <div className="lg:col-span-2 space-y-6">
               {/* Feature Selection - Moved to main content area */}
               {step >= 2 && !showQuizGenerator && !showExamGenerator && !result && (
-                <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 p-6">
+                <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 p-6" data-feature-selector>
                   <div className="text-center mb-6">
                     <h2 className="text-2xl font-bold text-gray-800 mb-2">✨ Choose Your Study Tool</h2>
                     <p className="text-gray-600">Select how you'd like to study your materials</p>
