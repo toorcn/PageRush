@@ -1,11 +1,27 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
-export default function Exam({ questions, onSubmit, feedback }) {
+export default function Exam({ questions, onSubmit, feedback, currentQuestionIndex, setCurrentQuestionIndex, setTotalQuestions }) {
   const [answers, setAnswers] = useState(Array(questions.length).fill(''));
   const [submitted, setSubmitted] = useState(false);
   const [isAssessing, setIsAssessing] = useState(false);
   const [showPerformanceSummary, setShowPerformanceSummary] = useState(false);
+  const questionRefs = useRef([]);
+
+  // Set total questions when component mounts
+  useEffect(() => {
+    setTotalQuestions(questions.length);
+  }, [questions.length, setTotalQuestions]);
+
+  // Auto-scroll to current question
+  useEffect(() => {
+    if (questionRefs.current[currentQuestionIndex]) {
+      questionRefs.current[currentQuestionIndex].scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
+    }
+  }, [currentQuestionIndex]);
 
   const handleSelect = (qIdx, option) => {
     if (submitted) return;
@@ -30,6 +46,10 @@ export default function Exam({ questions, onSubmit, feedback }) {
     await onSubmit(answers);
     setIsAssessing(false);
     setShowPerformanceSummary(true);
+  };
+
+  const navigateToQuestion = (index) => {
+    setCurrentQuestionIndex(index);
   };
 
   const generatePerformanceSummary = () => {
@@ -225,6 +245,30 @@ INSTRUCTION FOR GEMINI:
         <p className="text-gray-600">Complete exam with mixed question types</p>
       </div>
 
+      {/* Question Navigation */}
+      <div className="bg-white rounded-xl shadow p-4">
+        <div className="flex flex-wrap gap-2 justify-center">
+          {questions.map((q, idx) => (
+            <button
+              key={idx}
+              onClick={() => navigateToQuestion(idx)}
+              className={`
+                w-10 h-10 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center
+                ${currentQuestionIndex === idx 
+                  ? 'bg-blue-500 text-white shadow-lg' 
+                  : answers[idx] 
+                    ? 'bg-green-100 text-green-700 border border-green-300' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }
+              `}
+              title={`${idx + 1}. ${getQuestionTypeLabel(q.type)}`}
+            >
+              {getQuestionTypeIcon(q.type)}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-6">
         {questions.map((q, idx) => {
           const isSelected = answers[idx];
@@ -233,7 +277,13 @@ INSTRUCTION FOR GEMINI:
           const isWrong = submitted && isSelected && questionFeedback && !questionFeedback.isCorrect;
 
           return (
-            <div key={idx} className="bg-white rounded-xl shadow p-6 space-y-4">
+            <div 
+              key={idx} 
+              ref={el => questionRefs.current[idx] = el}
+              className={`bg-white rounded-xl shadow p-6 space-y-4 transition-all duration-300 ${
+                currentQuestionIndex === idx ? 'ring-2 ring-blue-500' : ''
+              }`}
+            >
               {/* Question Header */}
               <div className="flex items-center justify-between">
                 <div className="font-semibold text-lg text-gray-800">

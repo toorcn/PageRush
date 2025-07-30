@@ -41,20 +41,27 @@ export default function PdfUploader({ onExtracted }) {
     if (!files.length) return;
     
     setIsProcessing(true);
-    const formData = new FormData();
-    files.forEach(file => formData.append('pdfs', file));
     
     try {
-      const res = await fetch('/api/extract-text', {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await res.json();
-      if (data.text) onExtracted(data.text);
+      // Process each file individually
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('pdfs', file);
+        
+        const res = await fetch('/api/extract-text', {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+        if (data.text) {
+          onExtracted(data.text, file.name);
+        }
+      }
     } catch (error) {
       console.error('Upload error:', error);
     } finally {
       setIsProcessing(false);
+      setFiles([]); // Clear files after processing
     }
   };
 

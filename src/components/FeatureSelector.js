@@ -7,83 +7,97 @@ const features = [
     label: 'Study Guide',
     icon: '📚',
     description: 'Get organized notes and summaries',
-    color: 'blue'
+    color: 'blue',
+    gradient: 'from-blue-500 to-blue-600'
   },
   {
     key: 'flashcards',
     label: 'Flashcards',
     icon: '🃏',
     description: 'Create interactive study cards',
-    color: 'green'
+    color: 'green',
+    gradient: 'from-green-500 to-green-600'
   },
   {
     key: 'quiz',
     label: 'Quiz',
     icon: '❓',
     description: 'Test your knowledge with MCQs',
-    color: 'purple'
+    color: 'purple',
+    gradient: 'from-purple-500 to-purple-600'
   },
   {
     key: 'exam',
     label: 'Exam',
     icon: '📝',
     description: 'Full practice exam with mixed questions',
-    color: 'orange'
+    color: 'orange',
+    gradient: 'from-orange-500 to-orange-600'
   },
 ];
 
-const colorClasses = {
-  blue: 'border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800',
-  green: 'border-green-200 bg-green-50 hover:bg-green-100 text-green-800',
-  purple: 'border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-800',
-  orange: 'border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-800',
-};
-
-const selectedColorClasses = {
-  blue: 'border-blue-500 bg-blue-100 text-blue-900 shadow-lg',
-  green: 'border-green-500 bg-green-100 text-green-900 shadow-lg',
-  purple: 'border-purple-500 bg-purple-100 text-purple-900 shadow-lg',
-  orange: 'border-orange-500 bg-orange-100 text-orange-900 shadow-lg',
-};
-
 export default function FeatureSelector({ selected, onSelect }) {
   return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">✨ Choose Your Study Tool</h2>
-        <p className="text-gray-600">Select how you'd like to study your materials</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {features.map(f => (
           <button
             key={f.key}
             onClick={() => onSelect(f.key)}
             className={`
-              p-6 rounded-xl border-2 transition-all duration-200 text-left
-              ${selected === f.key ? selectedColorClasses[f.color] : colorClasses[f.color]}
-              hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500
+              group relative p-4 rounded-lg border-2 transition-all duration-300 text-left
+              ${selected === f.key 
+                ? 'border-gray-300 bg-white shadow-lg shadow-gray-200/50 scale-105' 
+                : 'border-gray-200 bg-gray-50 hover:bg-white hover:shadow-md hover:scale-102'
+              }
+              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
             `}
             aria-pressed={selected === f.key}
           >
-            <div className="flex items-start space-x-4">
-              <span className="text-3xl">{f.icon}</span>
+            <div className="flex items-start space-x-3">
+              <div className={`
+                w-10 h-10 rounded-lg flex items-center justify-center text-xl
+                ${selected === f.key 
+                  ? `bg-gradient-to-r ${f.gradient} text-white shadow-lg` 
+                  : 'bg-white text-gray-600 group-hover:bg-gray-100'
+                }
+                transition-all duration-300
+              `}>
+                {f.icon}
+              </div>
               <div className="flex-1">
-                <h3 className="font-bold text-lg mb-1">{f.label}</h3>
-                <p className="text-sm opacity-80">{f.description}</p>
+                <h3 className={`font-bold text-base mb-1 transition-colors duration-300 ${
+                  selected === f.key ? 'text-gray-900' : 'text-gray-700'
+                }`}>
+                  {f.label}
+                </h3>
+                <p className={`text-xs transition-colors duration-300 ${
+                  selected === f.key ? 'text-gray-600' : 'text-gray-500'
+                }`}>
+                  {f.description}
+                </p>
               </div>
               {selected === f.key && (
-                <span className="text-2xl">✅</span>
+                <div className="flex-shrink-0">
+                  <div className="w-5 h-5 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                </div>
               )}
             </div>
+            
+            {/* Hover effect */}
+            {!selected && (
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-indigo-50 opacity-0 group-hover:opacity-100 rounded-lg transition-opacity duration-300 -z-10"></div>
+            )}
           </button>
         ))}
       </div>
 
       {selected && (
-        <div className="bg-white rounded-xl shadow p-4 text-center">
-          <p className="text-gray-600">
-            Ready to generate your <span className="font-semibold">{features.find(f => f.key === selected)?.label}</span>!
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3 text-center">
+          <p className="text-gray-700 text-sm font-medium">
+            Ready to generate your <span className="font-bold text-blue-700">{features.find(f => f.key === selected)?.label}</span>!
           </p>
         </div>
       )}
