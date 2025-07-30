@@ -1,103 +1,171 @@
-import Image from "next/image";
+'use client';
+
+import React, { useState } from 'react';
+import PdfUploader from '../components/PdfUploader';
+import ApiKeyInput from '../components/ApiKeyInput';
+import FeatureSelector from '../components/FeatureSelector';
+import StudyGuide from '../components/StudyGuide';
+import Flashcards from '../components/Flashcards';
+import Quiz from '../components/Quiz';
+import QuizGenerator from '../components/QuizGenerator';
+import Exam from '../components/Exam';
+import Insights from '../components/Insights';
+import { parseFlashcards, parseQuiz, parseExam } from '../utils/parseGeminiResponse';
+
+const steps = [
+  { label: 'Upload PDFs', icon: '📄' },
+  { label: 'Enter Gemini API Key', icon: '🔑' },
+  { label: 'Select Feature', icon: '✨' },
+  { label: 'Study', icon: '🎯' },
+];
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [pdfText, setPdfText] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [feature, setFeature] = useState('studyGuide');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [quizAnswers, setQuizAnswers] = useState([]);
+  const [quizScore, setQuizScore] = useState(null);
+  const [focusMode, setFocusMode] = useState(false);
+  const [showQuizGenerator, setShowQuizGenerator] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+  // Step logic
+  const step = !pdfText ? 0 : !apiKey ? 1 : !result ? 2 : 3;
+
+  const handleExtracted = (text) => {
+    setPdfText(text);
+    setResult(null);
+    setQuizScore(null);
+    setShowQuizGenerator(false);
+  };
+
+  const handleFeature = async (ft) => {
+    setFeature(ft);
+    setResult(null);
+    setQuizScore(null);
+    setShowQuizGenerator(false);
+    
+    if (ft === 'quiz') {
+      setShowQuizGenerator(true);
+      return;
+    }
+    
+    if (!pdfText || !apiKey) return;
+    await generateContent(ft);
+  };
+
+  const generateContent = async (ft, topics = null, questionCount = null) => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/gemini-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          text: pdfText, 
+          promptType: ft, 
+          geminiApiKey: apiKey,
+          topics,
+          questionCount
+        }),
+      });
+      const data = await res.json();
+      console.log({data});
+      setLoading(false);
+      setResult(data);
+    } catch (error) {
+      console.error('Generation error:', error);
+      setLoading(false);
+    }
+  };
+
+  const handleQuizGenerate = async (topics, questionCount) => {
+    setShowQuizGenerator(false);
+    await generateContent('quiz', topics, questionCount);
+  };
+
+  const handleQuizSubmit = async (answers) => {
+    setQuizAnswers(answers);
+    const res = await fetch('/api/grade-quiz', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userAnswers: answers, quiz: parseQuiz(result) }),
+    });
+    const data = await res.json();
+    setQuizScore(data);
+  };
+
+  const handleExamSubmit = async (answers) => {
+    setQuizAnswers(answers);
+    const res = await fetch('/api/grade-quiz', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userAnswers: answers, quiz: parseExam(result) }),
+    });
+    const data = await res.json();
+    setQuizScore(data);
+  };
+
+  return (
+    <div className={`font-sans min-h-screen ${focusMode ? 'bg-white' : 'bg-gray-50'} p-0 sm:p-0`}>
+      <div className={`max-w-2xl mx-auto ${focusMode ? 'py-2' : 'py-8'} space-y-6 relative`}>
+        {/* Stepper */}
+        {!focusMode && (
+          <div className="flex items-center justify-center gap-2 py-4">
+            {steps.map((s, i) => (
+              <div key={i} className="flex items-center">
+                <div className={`flex flex-col items-center ${i === step ? 'text-blue-600 font-bold' : 'text-gray-400'}`}
+                     aria-current={i === step ? 'step' : undefined}>
+                  <span className="text-2xl" aria-label={s.label}>{s.icon}</span>
+                  <span className="text-xs mt-1">{s.label}</span>
+                </div>
+                {i < steps.length - 1 && <div className="w-8 h-1 bg-gray-200 mx-2 rounded-full" />}
+              </div>
+            ))}
+          </div>
+        )}
+        {/* Focus Mode Toggle */}
+        <button
+          className={`absolute top-2 right-2 px-3 py-1 rounded-full text-xs font-semibold shadow ${focusMode ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+          onClick={() => setFocusMode(f => !f)}
+          aria-label="Toggle Focus Mode"
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+          {focusMode ? 'Exit Focus Mode' : 'Focus Mode'}
+        </button>
+        {/* Main Content */}
+        <h1 className={`text-3xl font-bold text-center mb-2 ${focusMode ? 'sr-only' : ''}`}>Exam Study AI</h1>
+        {step === 0 && <PdfUploader onExtracted={handleExtracted} />}
+        {step >= 1 && <ApiKeyInput onChange={setApiKey} />}
+        {step >= 2 && !showQuizGenerator && (
+          <FeatureSelector selected={feature} onSelect={handleFeature} />
+        )}
+        {showQuizGenerator && (
+          <QuizGenerator 
+            onGenerate={handleQuizGenerate} 
+            extractedText={pdfText} 
+            apiKey={apiKey}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        )}
+        {loading && <div className="text-center text-blue-600 animate-pulse">Generating with Gemini...</div>}
+        {!loading && result && feature === 'studyGuide' && (
+          <StudyGuide content={result.result?.candidates?.[0]?.content?.parts?.[0]?.text || ''} />
+        )}
+        {!loading && result && feature === 'flashcards' && (
+          <Flashcards cards={parseFlashcards(result)} />
+        )}
+        {!loading && result && feature === 'quiz' && (
+          <>
+            <Quiz questions={parseQuiz(result)} onSubmit={handleQuizSubmit} />
+            {quizScore && <Insights score={quizScore.score} total={quizScore.total} />}
+          </>
+        )}
+        {!loading && result && feature === 'exam' && (
+          <>
+            <Exam questions={parseExam(result)} onSubmit={handleExamSubmit} />
+            {quizScore && <Insights score={quizScore.score} total={quizScore.total} />}
+          </>
+        )}
+      </div>
     </div>
   );
 }
