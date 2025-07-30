@@ -1,0 +1,565 @@
+'use client';
+import React, { useState, useEffect, useRef } from 'react';
+import { parseTopics } from '../utils/parseGeminiResponse';
+
+export default function ExamGenerator({ onGenerate, extractedText, apiKey, performanceSummaries }) {
+  const [selectedTopics, setSelectedTopics] = useState([]);
+  const [isExtractingTopics, setIsExtractingTopics] = useState(false);
+  const [topics, setTopics] = useState([]);
+  const [knowledgeType, setKnowledgeType] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [performanceSummary, setPerformanceSummary] = useState('');
+  const [showPerformanceHistory, setShowPerformanceHistory] = useState(false);
+  const [autoSelectionReason, setAutoSelectionReason] = useState('');
+  const [questionTypeAutoSelection, setQuestionTypeAutoSelection] = useState('');
+  
+  // Question type configurations
+  const [questionTypes, setQuestionTypes] = useState({
+    mcq: { enabled: true, count: 5 },
+    shortAnswer: { enabled: true, count: 3 },
+    discuss: { enabled: false, count: 2 },
+    describe: { enabled: false, count: 2 },
+    fillBlanks: { enabled: false, count: 2 }
+  });
+  
+  // Use refs to track extraction state and prevent multiple calls
+  const hasExtractedTopics = useRef(false);
+  const extractionInProgress = useRef(false);
+
+  // Auto-select topics based on performance data and student needs
+  useEffect(() => {
+    if (topics.length > 0 && selectedTopics.length === 0) {
+      let topicsToSelect = [];
+      
+      // If there's performance data, prioritize weak areas
+      if (performanceSummary && performanceSummary.trim()) {
+        // Extract weak topics from performance summary
+        const weakTopics = extractWeakTopicsFromSummary(performanceSummary, topics);
+        if (weakTopics.length > 0) {
+          topicsToSelect = weakTopics;
+          setAutoSelectionReason('Based on previous performance summary (weak areas)');
+        }
+      }
+      
+      // If no weak topics found or no performance data, select first 3-4 topics
+      if (topicsToSelect.length === 0) {
+        topicsToSelect = topics.slice(0, Math.min(4, topics.length));
+        setAutoSelectionReason('No specific weak areas found, selecting first 3-4 topics');
+      }
+      
+      // Ensure we don't select more than 6 topics total
+      if (topicsToSelect.length > 6) {
+        topicsToSelect = topicsToSelect.slice(0, 6);
+        setAutoSelectionReason('Selected more than 6 topics, limiting to 6');
+      }
+      
+      setSelectedTopics(topicsToSelect);
+    }
+  }, [topics, performanceSummary, selectedTopics.length]);
+
+  // Auto-select question types based on performance data
+  useEffect(() => {
+    if (performanceSummary && performanceSummary.trim()) {
+      const summaryLower = performanceSummary.toLowerCase();
+      const newQuestionTypes = { ...questionTypes };
+      
+      // Check if student struggled with open-ended questions
+      const hasOpenEndedStruggles = summaryLower.includes('discuss') || 
+                                   summaryLower.includes('describe') || 
+                                   summaryLower.includes('short answer') ||
+                                   summaryLower.includes('paragraph');
+      
+      // Check if student did well with MCQ
+      const hasMcqSuccess = summaryLower.includes('multiple choice') && 
+                           summaryLower.includes('correct');
+      
+      if (hasOpenEndedStruggles) {
+        // Focus on MCQ and short answer for struggling students
+        newQuestionTypes.mcq = { enabled: true, count: 6 };
+        newQuestionTypes.shortAnswer = { enabled: true, count: 4 };
+        newQuestionTypes.discuss = { enabled: false, count: 2 };
+        newQuestionTypes.describe = { enabled: false, count: 2 };
+        newQuestionTypes.fillBlanks = { enabled: true, count: 2 };
+        setQuestionTypeAutoSelection('Adjusted for students struggling with open-ended questions - focusing on MCQ and short answer');
+      } else if (hasMcqSuccess) {
+        // Add more challenging question types for students doing well
+        newQuestionTypes.mcq = { enabled: true, count: 3 };
+        newQuestionTypes.shortAnswer = { enabled: true, count: 3 };
+        newQuestionTypes.discuss = { enabled: true, count: 3 };
+        newQuestionTypes.describe = { enabled: true, count: 2 };
+        newQuestionTypes.fillBlanks = { enabled: false, count: 2 };
+        setQuestionTypeAutoSelection('Adjusted for students doing well - adding more challenging question types');
+      }
+      
+      setQuestionTypes(newQuestionTypes);
+    }
+  }, [performanceSummary]);
+
+  // Extract weak topics from performance summary
+  const extractWeakTopicsFromSummary = (summary, availableTopics) => {
+    const weakTopics = [];
+    const summaryLower = summary.toLowerCase();
+    
+    // Look for weak areas section and extract topic keywords
+    if (summaryLower.includes('weak areas') || summaryLower.includes('weak topics')) {
+      availableTopics.forEach(topic => {
+        const topicLower = topic.toLowerCase();
+        // Check if topic appears in weak areas context
+        if (summaryLower.includes(topicLower) || 
+            summaryLower.includes(topicLower.replace(/\s+/g, '')) ||
+            topicLower.split(' ').some(word => summaryLower.includes(word))) {
+          weakTopics.push(topic);
+        }
+      });
+    }
+    
+    return weakTopics;
+  };
+
+  // Extract topics using Gemini when component mounts or when text/apiKey changes
+  useEffect(() => {
+    let cancelled = false;
+
+    const doExtraction = async () => {
+      if (!extractedText || !apiKey || hasExtractedTopics.current || extractionInProgress.current) return;
+      extractionInProgress.current = true;
+      setIsExtractingTopics(true);
+      try {
+        console.log('Starting topic extraction with Gemini...');
+        const res = await fetch('/api/gemini-generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: extractedText,
+            promptType: 'extractTopics',
+            geminiApiKey: apiKey,
+          }),
+        });
+        
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        
+        const data = await res.json();
+        console.log('Gemini API response:', data);
+        
+        if (data.error) {
+          throw new Error(`API error: ${data.error}`);
+        }
+        
+        if (data.result) {
+          console.log('Parsing topics from Gemini response...');
+          const extractedTopics = parseTopics(data);
+          console.log('Extracted topics:', extractedTopics);
+          if (!cancelled) {
+            setTopics(extractedTopics);
+            hasExtractedTopics.current = true;
+          }
+        } else {
+          throw new Error('No result in API response');
+        }
+      } catch (error) {
+        console.error('Topic extraction error:', error);
+        console.log('Falling back to simple extraction...');
+        const fallbackTopics = extractTopicsSimple(extractedText);
+        console.log('Fallback topics:', fallbackTopics);
+        if (!cancelled) {
+          setTopics(fallbackTopics);
+          hasExtractedTopics.current = true;
+        }
+      } finally {
+        if (!cancelled) setIsExtractingTopics(false);
+        extractionInProgress.current = false;
+      }
+    };
+
+    if (extractedText && apiKey && (!hasExtractedTopics.current || topics.length === 0)) {
+      hasExtractedTopics.current = false;
+      extractionInProgress.current = false;
+      doExtraction();
+    }
+
+    return () => {
+      cancelled = true;
+      extractionInProgress.current = false;
+    };
+  }, [extractedText, apiKey]);
+
+  // Fallback simple topic extraction
+  const extractTopicsSimple = (text) => {
+    console.log('Running fallback topic extraction on text length:', text.length);
+    const lines = text.split('\n');
+    const topics = [];
+    const seen = new Set();
+
+    lines.forEach(line => {
+      if (line.match(/^[A-Z][A-Z\s]+$/) || line.match(/^\d+\./) || line.match(/^[#*]/)) {
+        const cleanTopic = line.replace(/^[#*\d\.\s]+/, '').trim();
+        if (cleanTopic && cleanTopic.length > 3 && cleanTopic.length < 50 && !seen.has(cleanTopic)) {
+          topics.push(cleanTopic);
+          seen.add(cleanTopic);
+        }
+      }
+    });
+
+    if (topics.length === 0) {
+      return ['General Concepts', 'Key Definitions', 'Important Processes', 'Main Topics'];
+    }
+
+    return topics.slice(0, 8);
+  };
+
+  const handleTopicToggle = (topic) => {
+    setSelectedTopics(prev => 
+      prev.includes(topic) 
+        ? prev.filter(t => t !== topic)
+        : [...prev, topic]
+    );
+  };
+
+  const handleQuestionTypeToggle = (type) => {
+    setQuestionTypes(prev => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        enabled: !prev[type].enabled
+      }
+    }));
+  };
+
+  const handleQuestionCountChange = (type, count) => {
+    setQuestionTypes(prev => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        count: Math.max(0, Math.min(10, count)) // Limit between 0-10
+      }
+    }));
+  };
+
+  const handleGenerate = async () => {
+    if (selectedTopics.length === 0) {
+      alert('Please select at least one topic');
+      return;
+    }
+
+    const enabledTypes = Object.entries(questionTypes)
+      .filter(([_, config]) => config.enabled)
+      .map(([type, config]) => ({ type, count: config.count }));
+
+    if (enabledTypes.length === 0) {
+      alert('Please select at least one question type');
+      return;
+    }
+
+    const totalQuestions = enabledTypes.reduce((sum, { count }) => sum + count, 0);
+    if (totalQuestions === 0) {
+      alert('Please set at least one question count');
+      return;
+    }
+
+    setIsGenerating(true);
+    await onGenerate(selectedTopics, enabledTypes, knowledgeType, performanceSummary);
+    setIsGenerating(false);
+  };
+
+  const getTotalQuestions = () => {
+    return Object.values(questionTypes)
+      .filter(config => config.enabled)
+      .reduce((sum, config) => sum + config.count, 0);
+  };
+
+  const loadPerformanceSummary = (summary) => {
+    setPerformanceSummary(summary);
+    setShowPerformanceHistory(false);
+  };
+
+  const createPerformanceSummary = (summary) => {
+    const weakQuestions = summary.details?.filter(d => !d.isCorrect) || [];
+    const strongQuestions = summary.details?.filter(d => d.isCorrect) || [];
+    
+    let summaryText = `EXAM PERFORMANCE SUMMARY:
+Overall Score: ${summary.percentage}% (${summary.score}/${summary.total} points)
+Date: ${new Date(summary.timestamp).toLocaleDateString()}
+
+WEAK AREAS (${weakQuestions.length} questions):
+`;
+    
+    weakQuestions.forEach((detail, idx) => {
+      summaryText += `${idx + 1}. ${detail.question}\n`;
+      if (detail.feedback) {
+        summaryText += `   Feedback: ${detail.feedback}\n`;
+      }
+      summaryText += `   Expected: ${detail.correctAnswer}\n\n`;
+    });
+    
+    if (strongQuestions.length > 0) {
+      summaryText += `STRONG AREAS (${strongQuestions.length} questions):\n`;
+      strongQuestions.forEach((detail, idx) => {
+        summaryText += `${idx + 1}. ${detail.question}\n`;
+      });
+    }
+    
+    return summaryText;
+  };
+
+  const questionTypeConfigs = [
+    { key: 'mcq', label: 'Multiple Choice', icon: '❓', description: 'Choose the best answer from options' },
+    { key: 'shortAnswer', label: 'Short Answer', icon: '✏️', description: 'Brief written responses' },
+    { key: 'discuss', label: 'Discuss', icon: '💭', description: 'Explain concepts in detail' },
+    { key: 'describe', label: 'Describe', icon: '📝', description: 'Provide detailed descriptions' },
+    { key: 'fillBlanks', label: 'Fill in the Blanks', icon: '⬜', description: 'Complete missing words/phrases' }
+  ];
+
+  return (
+    <div className="bg-white rounded-xl shadow p-6 space-y-6">
+      <div className="text-center">
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">📝 Exam Generator</h2>
+        <p className="text-gray-600">Create a comprehensive exam with mixed question types</p>
+      </div>
+
+      {/* Knowledge Type Input */}
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">
+          What kind of knowledge do you want to be tested on?
+        </label>
+        <input
+          type="text"
+          value={knowledgeType}
+          onChange={e => setKnowledgeType(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="e.g. conceptual understanding, problem-solving, definitions, etc."
+        />
+      </div>
+
+      {/* Performance Summary Input */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="block text-sm font-medium text-gray-700">
+            Previous Performance Summary (Optional)
+          </label>
+          {performanceSummaries.length > 0 && (
+            <button
+              onClick={() => setShowPerformanceHistory(!showPerformanceHistory)}
+              className="text-sm text-blue-600 hover:text-blue-700"
+            >
+              📊 Load from History ({performanceSummaries.length})
+            </button>
+          )}
+        </div>
+        <textarea
+          value={performanceSummary}
+          onChange={e => setPerformanceSummary(e.target.value)}
+          rows={4}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="Paste a previous performance summary here to tailor the exam to your weak areas..."
+        />
+        <p className="text-xs text-gray-500">
+          This will help create questions that focus on areas where you need improvement
+        </p>
+      </div>
+
+      {/* Performance History Dropdown */}
+      {showPerformanceHistory && performanceSummaries.length > 0 && (
+        <div className="border rounded-lg p-4 bg-gray-50">
+          <h4 className="font-medium text-gray-800 mb-3">Select Performance Summary:</h4>
+          <div className="space-y-2 max-h-40 overflow-y-auto">
+            {performanceSummaries.map((summary, idx) => (
+              <button
+                key={summary.id}
+                onClick={() => loadPerformanceSummary(createPerformanceSummary(summary))}
+                className="w-full text-left p-3 bg-white rounded border hover:bg-blue-50 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium">Exam {idx + 1} - {new Date(summary.timestamp).toLocaleDateString()}</div>
+                    <div className="text-sm text-gray-500">{summary.percentage}% ({summary.score}/{summary.total} points)</div>
+                  </div>
+                  <span className="text-blue-600">→</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Topic Selection */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-lg text-gray-800">📚 Select Topics</h3>
+          {selectedTopics.length > 0 && (
+            <button
+              onClick={() => {
+                setSelectedTopics([]);
+                setAutoSelectionReason('');
+              }}
+              className="text-sm text-red-600 hover:text-red-700 px-2 py-1 rounded border border-red-200 hover:bg-red-50"
+            >
+              Reset Selection
+            </button>
+          )}
+        </div>
+        
+        {autoSelectionReason && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="flex items-center space-x-2">
+              <span className="text-blue-600">🤖</span>
+              <p className="text-sm text-blue-800">
+                <strong>Auto-selected:</strong> {autoSelectionReason}
+              </p>
+            </div>
+          </div>
+        )}
+        
+        <p className="text-sm text-gray-600">Choose which topics to include in your exam:</p>
+        
+        {isExtractingTopics ? (
+          <div className="text-center py-8">
+            <div className="animate-spin text-2xl mb-2">⏳</div>
+            <p className="text-gray-600">Analyzing your document for topics...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {topics.map((topic, index) => (
+              <button
+                key={index}
+                onClick={() => handleTopicToggle(topic)}
+                className={`p-3 rounded-lg border-2 text-left transition-all duration-200 ${
+                  selectedTopics.includes(topic)
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-gray-200 bg-gray-50 text-gray-700 hover:border-blue-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{topic}</span>
+                  {selectedTopics.includes(topic) && (
+                    <span className="text-blue-600">✓</span>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {selectedTopics.length === 0 && !isExtractingTopics && (
+          <p className="text-yellow-600 text-sm">
+            ⚠️ Please select at least one topic to generate an exam
+          </p>
+        )}
+      </div>
+
+      {/* Question Types Selection */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-lg text-gray-800">🎯 Question Types</h3>
+          {questionTypeAutoSelection && (
+            <button
+              onClick={() => {
+                setQuestionTypes({
+                  mcq: { enabled: true, count: 5 },
+                  shortAnswer: { enabled: true, count: 3 },
+                  discuss: { enabled: false, count: 2 },
+                  describe: { enabled: false, count: 2 },
+                  fillBlanks: { enabled: false, count: 2 }
+                });
+                setQuestionTypeAutoSelection('');
+              }}
+              className="text-sm text-red-600 hover:text-red-700 px-2 py-1 rounded border border-red-200 hover:bg-red-50"
+            >
+              Reset to Default
+            </button>
+          )}
+        </div>
+        
+        <p className="text-sm text-gray-600">Select question types and set counts for each:</p>
+        
+        {questionTypeAutoSelection && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <div className="flex items-center space-x-2">
+              <span className="text-green-600">🎯</span>
+              <p className="text-sm text-green-800">
+                <strong>Auto-selected:</strong> {questionTypeAutoSelection}
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-4">
+          {questionTypeConfigs.map(({ key, label, icon, description }) => (
+            <div key={key} className="border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={() => handleQuestionTypeToggle(key)}
+                    className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${
+                      questionTypes[key].enabled
+                        ? 'border-blue-500 bg-blue-500 text-white'
+                        : 'border-gray-300 bg-white'
+                    }`}
+                  >
+                    {questionTypes[key].enabled && '✓'}
+                  </button>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xl">{icon}</span>
+                      <span className="font-medium text-gray-800">{label}</span>
+                    </div>
+                    <p className="text-sm text-gray-600">{description}</p>
+                  </div>
+                </div>
+                
+                {questionTypes[key].enabled && (
+                  <div className="flex items-center space-x-2">
+                    <label className="text-sm text-gray-600">Count:</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="10"
+                      value={questionTypes[key].count}
+                      onChange={(e) => handleQuestionCountChange(key, parseInt(e.target.value) || 0)}
+                      className="w-16 px-2 py-1 border border-gray-300 rounded text-center text-sm"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Generate Button */}
+      <button
+        onClick={handleGenerate}
+        disabled={selectedTopics.length === 0 || getTotalQuestions() === 0 || isGenerating || isExtractingTopics}
+        className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold text-lg hover:bg-blue-700 transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {isGenerating ? (
+          <span className="flex items-center justify-center">
+            <span className="animate-spin mr-2">⏳</span>
+            Generating Exam...
+          </span>
+        ) : (
+          `Generate ${getTotalQuestions()} Question Exam`
+        )}
+      </button>
+
+      {/* Summary */}
+      {selectedTopics.length > 0 && getTotalQuestions() > 0 && (
+        <div className="bg-blue-50 rounded-lg p-4">
+          <h4 className="font-semibold text-blue-800 mb-2">📋 Exam Summary</h4>
+          <ul className="text-sm text-blue-700 space-y-1">
+            <li>• Topics: {selectedTopics.join(', ')}</li>
+            <li>• Total Questions: {getTotalQuestions()}</li>
+            <li>• Question Types: {questionTypeConfigs
+              .filter(({ key }) => questionTypes[key].enabled)
+              .map(({ key, label }) => `${label} (${questionTypes[key].count})`)
+              .join(', ')}</li>
+            {knowledgeType && <li>• Focus: {knowledgeType}</li>}
+            {performanceSummary && <li>• Performance Data: Included</li>}
+            {autoSelectionReason && <li>• Auto-selection Reason: {autoSelectionReason}</li>}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+} 

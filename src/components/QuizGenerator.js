@@ -9,6 +9,7 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExtractingTopics, setIsExtractingTopics] = useState(false);
   const [topics, setTopics] = useState([]);
+  const [knowledgeType, setKnowledgeType] = useState(''); // NEW
   
   // Use refs to track extraction state and prevent multiple calls
   const hasExtractedTopics = useRef(false);
@@ -224,7 +225,8 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
     }
 
     console.log('Fallback extracted topics:', topics);
-    return topics.slice(0, 8); // Limit to 8 topics
+    // return topics.slice(0, 8); // Limit to 8 topics
+    return topics;
   };
 
   const handleTopicToggle = (topic) => {
@@ -248,7 +250,7 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
     }
 
     setIsGenerating(true);
-    await onGenerate(selectedTopics, count);
+    await onGenerate(selectedTopics, count, knowledgeType); // Pass knowledgeType
     setIsGenerating(false);
   };
 
@@ -257,6 +259,20 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
       <div className="text-center">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">🎯 Quiz Generator</h2>
         <p className="text-gray-600">Customize your quiz by selecting topics and question count</p>
+      </div>
+
+      {/* Knowledge Type Input */}
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">
+          What kind of knowledge do you want to be tested on?
+        </label>
+        <input
+          type="text"
+          value={knowledgeType}
+          onChange={e => setKnowledgeType(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="e.g. conceptual understanding, problem-solving, definitions, etc."
+        />
       </div>
 
       {/* Topic Selection */}
@@ -383,6 +399,7 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
             <li>• Topics: {selectedTopics.join(', ')}</li>
             <li>• Questions: {customCount || questionCount}</li>
             <li>• Type: Multiple Choice with explanations</li>
+            {knowledgeType && <li>• Focus: {knowledgeType}</li>}
           </ul>
         </div>
       )}

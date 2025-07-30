@@ -15,6 +15,7 @@ export default function Flashcards({ cards }) {
       </div>
     );
   }
+  console.log({cards})
 
   const card = cards[index];
 
@@ -38,7 +39,6 @@ export default function Flashcards({ cards }) {
           break;
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [cards.length]);
@@ -71,21 +71,26 @@ export default function Flashcards({ cards }) {
           tabIndex={0}
           role="button"
           aria-label={`Flashcard ${index + 1}, click to flip`}
+          style={{ perspective: '1000px' }}
         >
           <div
-            className={`absolute w-full h-full transition-transform duration-500 transform-style-preserve-3d ${
-              flipped ? 'rotate-y-180' : ''
-            }`}
+            className={`w-full h-full transition-transform duration-500 transform-style-preserve-3d ${flipped ? 'rotate-y-180' : ''}`}
+            style={{ position: 'relative', width: '100%', height: '100%', transformStyle: 'preserve-3d' }}
           >
             {/* Front of card */}
-            <div className="absolute w-full h-full backface-hidden bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl p-6 flex items-center justify-center text-center">
+            <div
+              className="absolute w-full h-full bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl p-6 flex items-center justify-center text-center"
+              style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', zIndex: 2, transform: 'rotateY(0deg)' }}
+            >
               <div className="text-lg font-medium text-blue-900">
                 {card.question}
               </div>
             </div>
-
-            {/* Back of card */}
-            <div className="absolute w-full h-full backface-hidden rotate-y-180 bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 rounded-xl p-6 flex items-center justify-center text-center">
+            {/* Back of card (answer) */}
+            <div
+              className="absolute w-full h-full bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 rounded-xl p-6 flex items-center justify-center text-center"
+              style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)', zIndex: 3 }}
+            >
               <div className="text-lg font-medium text-green-900">
                 {card.answer}
               </div>

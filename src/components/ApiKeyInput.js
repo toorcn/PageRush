@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 
 export default function ApiKeyInput({ onChange }) {
-  const [key, setKey] = useState('AIzaSyAp4FjsZ9Cvux9IKpzpk_9VYiospEUiT08');
+  const [key, setKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [isValid, setIsValid] = useState(null);
 
