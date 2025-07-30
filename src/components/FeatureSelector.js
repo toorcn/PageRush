@@ -3,6 +3,14 @@ import React from 'react';
 
 const features = [
   {
+    key: 'examCram',
+    label: 'Exam Cram',
+    icon: '🚀',
+    description: 'Smart topic breakdown & adaptive learning',
+    color: 'red',
+    gradient: 'from-red-500 to-red-600'
+  },
+  {
     key: 'studyGuide',
     label: 'Study Guide',
     icon: '📚',

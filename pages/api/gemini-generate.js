@@ -12,7 +12,7 @@ export default async function handler(req, res) {
   let prompt = '';
   switch (promptType) {
     case 'extractTopics':
-      prompt = `Analyze the following text and extract at least 4 main topics or themes that would be suitable for creating questions. 
+      prompt = `Analyze the following text and extract at least 4 to 10 main topics or themes that would be suitable for creating questions. 
 
 Focus on:
 - Key concepts and definitions

@@ -10,6 +10,7 @@ import Quiz from '../components/Quiz';
 import QuizGenerator from '../components/QuizGenerator';
 import ExamGenerator from '../components/ExamGenerator';
 import Exam from '../components/Exam';
+import ExamCram from '../components/ExamCram';
 import Insights from '../components/Insights';
 import HistoryPanel from '../components/HistoryPanel';
 import DocumentManager from '../components/DocumentManager';
@@ -142,6 +143,12 @@ export default function Home() {
     
     if (ft === 'exam') {
       setShowExamGenerator(true);
+      return;
+    }
+    
+    if (ft === 'examCram') {
+      // For Exam Cram, we don't need to generate content initially
+      // The ExamCram component will handle its own content generation
       return;
     }
     
@@ -362,6 +369,8 @@ export default function Home() {
 
   const getFeatureLabel = (feature) => {
     switch (feature) {
+      case 'examCram':
+        return 'Exam Cram';
       case 'studyGuide':
         return 'Study Guide';
       case 'flashcards':
@@ -377,6 +386,8 @@ export default function Home() {
 
   const getFeatureIcon = (feature) => {
     switch (feature) {
+      case 'examCram':
+        return '🚀';
       case 'studyGuide':
         return '📚';
       case 'flashcards':
@@ -641,6 +652,14 @@ export default function Home() {
                     <p className="text-gray-600 font-medium">Generating with Gemini...</p>
                   </div>
                 </div>
+              )}
+              {!loading && feature === 'examCram' && (
+                <ExamCram 
+                  content={activeDocument?.text || ''}
+                  documentName={activeDocument?.name || ''}
+                  apiKey={apiKey}
+                  onGenerateContent={generateContent}
+                />
               )}
               {!loading && result && feature === 'studyGuide' && (
                 <StudyGuide content={result.result?.candidates?.[0]?.content?.parts?.[0]?.text || ''} />
