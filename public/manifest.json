@@ -1,0 +1,27 @@
+{
+  "name": "PageRush AI - Smart Study Tools",
+  "short_name": "PageRush AI",
+  "description": "Transform your study materials into interactive learning tools with AI-powered flashcards, quizzes, study guides, and more.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "lang": "en",
+  "dir": "ltr"
+} 

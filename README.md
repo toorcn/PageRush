@@ -1,82 +1,150 @@
-# Exam Study AI
+# PageRush AI - Smart Study Tools
 
-An AI-powered study assistant that helps you create study guides, flashcards, quizzes, and practice exams from your documents.
+Transform your study materials into interactive learning tools with AI-powered flashcards, quizzes, study guides, and more.
 
-## 🎯 Focus Mode
+## 🚀 Features
 
-Experience **minimal, structured, and dopamine-boosted learning** with our revolutionary Focus Mode:
+- **📄 PDF Upload & Processing**: Upload and extract text from PDF documents
+- **🎯 Focus Mode**: Distraction-free study environment with progress tracking
+- **📚 Study Guide Generation**: Create organized notes and summaries
+- **🃏 Interactive Flashcards**: Generate and study with AI-powered flashcards
+- **❓ Quiz Generation**: Test your knowledge with multiple choice questions
+- **📝 Exam Practice**: Full practice exams with mixed question types
+- **🚀 Exam Cram**: Smart topic breakdown and adaptive learning
+- **📊 Performance Analytics**: Track your progress and identify weak areas
+- **📱 Mobile-Optimized**: Fully responsive design with touch-friendly interface
 
-### ✨ Key Features
+## 📱 Mobile Experience
 
-- **Bite-sized Lessons**: Complete 3-5 minute focused learning sessions
-- **Structured Learning**: 4 different lesson types (Key Concepts, Quick Quiz, Summary, Flashcards)
-- **Dopamine Boost**: Encouragement messages and achievement tracking
-- **Progress Tracking**: Streak counter, session timer, and completion stats
-- **Break Timer**: Automatic 5-minute breaks after completing session goals
-- **No Distractions**: Clean, minimal interface designed for deep focus
+The application has been specifically optimized for mobile devices with:
 
-### 🚀 How to Use Focus Mode
+- **Responsive Design**: Adapts seamlessly to all screen sizes
+- **Touch-Friendly Interface**: Large touch targets and intuitive gestures
+- **Mobile Navigation**: Fixed header and bottom navigation for easy access
+- **Floating Action Button**: Quick access to study tools
+- **Optimized Typography**: Readable text sizes and proper spacing
+- **PWA Support**: Install as a native app on mobile devices
+- **Offline Capabilities**: Works with cached data when offline
+- **Smooth Animations**: Hardware-accelerated transitions
+- **Accessibility**: Screen reader support and keyboard navigation
 
-1. **Upload a Document**: Start with any PDF or text document
-2. **Enter Focus Mode**: Click the "🎯 Focus Mode" button
-3. **Choose Study Tool**: Select from your favorite study tools (Study Guide, Flashcards, Quiz, Exam)
-4. **Complete Focused Sessions**: Work through bite-sized, distraction-free learning
-5. **Track Progress**: Monitor your streak and achievements
-6. **Take Breaks**: Enjoy well-deserved breaks between sessions
+## 🛠️ Technology Stack
 
-### 📊 Learning Types
+- **Frontend**: Next.js 14, React 18, TypeScript
+- **Styling**: Tailwind CSS with custom mobile optimizations
+- **AI Integration**: Google Gemini API
+- **File Processing**: PDF text extraction
+- **State Management**: React hooks and localStorage
+- **PWA**: Service workers and manifest.json
 
-- **📚 Study Guide**: Organized notes and summaries with focus mode benefits
-- **🃏 Flashcards**: Interactive study cards with memory enhancement
-- **❓ Quick Quiz**: Test knowledge with engaging questions
-- **📝 Practice Exam**: Full practice tests with structured learning
+## 🚀 Getting Started
 
-### 🏆 Achievement System
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/pagerush-ai.git
+   cd pagerush-ai
+   ```
 
-- **Daily Streaks**: Build momentum with consecutive study days
-- **Lesson Count**: Track total lessons completed
-- **Time Spent**: Monitor your learning investment
-- **Focus Score**: Measure your learning efficiency
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-### 🧠 Science-Based Design
+3. **Get your Gemini API key**
+   - Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - Sign in with your Google account
+   - Create a new API key
+   - Copy the key for use in the app
 
-Focus Mode is designed around proven learning principles:
-- **Spaced Repetition**: Optimal timing for memory retention
-- **Active Recall**: Engaging questions that strengthen memory
-- **Chunking**: Breaking complex topics into digestible pieces
-- **Positive Reinforcement**: Encouragement that builds motivation
+4. **Run the development server**
+   ```bash
+   npm run dev
+   ```
 
-## Getting Started
+5. **Open your browser**
+   - Navigate to `http://localhost:3000`
+   - Upload a PDF document
+   - Enter your Gemini API key
+   - Start creating study materials!
 
-First, run the development server:
+## 📱 Mobile Usage
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+### Installation
+- **iOS**: Open Safari, tap the share button, and select "Add to Home Screen"
+- **Android**: Open Chrome, tap the menu, and select "Add to Home Screen"
+
+### Features
+- **Touch Gestures**: Swipe, tap, and pinch to navigate
+- **Voice Input**: Use voice-to-text for API key entry
+- **Haptic Feedback**: Tactile responses for interactions
+- **Battery Optimization**: Efficient power usage
+- **Data Saver**: Compressed content for slow connections
+
+## 🎯 Study Tools
+
+### 📚 Study Guide
+- Generate organized summaries
+- Highlight key concepts
+- Create structured notes
+
+### 🃏 Flashcards
+- Interactive card flipping
+- Spaced repetition algorithm
+- Progress tracking
+
+### ❓ Quiz Generator
+- Multiple choice questions
+- Instant feedback
+- Performance analytics
+
+### 📝 Exam Practice
+- Timed assessments
+- Mixed question types
+- Detailed explanations
+
+### 🚀 Exam Cram
+- Smart topic breakdown
+- Adaptive learning paths
+- Focus on weak areas
+
+## 🔧 Configuration
+
+### Environment Variables
+```env
+NEXT_PUBLIC_GEMINI_API_URL=https://generativelanguage.googleapis.com
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### API Key Security
+- API keys are stored locally in the browser
+- Never transmitted to external servers
+- Used only for direct Gemini API calls
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📊 Performance
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Fast Loading**: Optimized bundle sizes
+- **Smooth Interactions**: 60fps animations
+- **Efficient Caching**: Smart data persistence
+- **Minimal Network**: Reduced API calls
 
-## Learn More
+## 🤝 Contributing
 
-To learn more about Next.js, take a look at the following resources:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test on mobile devices
+5. Submit a pull request
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📄 License
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+MIT License - see LICENSE file for details
 
-## Deploy on Vercel
+## 🆘 Support
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Documentation**: Check the inline code comments
+- **Issues**: Report bugs on GitHub
+- **Discussions**: Join community discussions
+- **Email**: support@pagerush.ai
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+**Made with ❤️ for students everywhere**

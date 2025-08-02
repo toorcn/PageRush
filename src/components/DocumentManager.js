@@ -85,201 +85,194 @@ export default function DocumentManager({
   };
 
   return (
-    <div className="h-full fixed inset-0 bg-gray-900/75 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="h-full fixed inset-0 bg-gray-900/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full h-full max-h-[95vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b flex-shrink-0">
-          <h2 className="text-2xl font-bold text-gray-800">📚 Document Manager</h2>
+        <div className="flex items-center justify-between p-4 lg:p-6 border-b flex-shrink-0">
+          <h2 className="text-xl lg:text-2xl font-bold text-gray-800">📚 Document Manager</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl"
+            className="text-gray-500 hover:text-gray-700 text-2xl lg:text-3xl p-2 rounded-lg hover:bg-gray-100 transition-colors"
           >
             ×
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto flex-1">
-          {documents.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">📄</div>
-              <h3 className="text-xl font-semibold text-gray-800 mb-2">No Documents</h3>
-              <p className="text-gray-600">Upload your first document to get started</p>
-              <button
-                onClick={handleAddMoreDocuments}
-                className="mt-4 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                + Add Documents
-              </button>
+        <div className="flex-1 overflow-hidden">
+          {/* Toolbar */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 lg:p-6 border-b">
+            <div className="flex items-center space-x-2">
+              <span className="text-sm lg:text-base text-gray-600">
+                {documents.length} document{documents.length !== 1 ? 's' : ''}
+              </span>
+              {activeDocument && (
+                <span className="text-sm lg:text-base text-blue-600 font-medium">
+                  • Active: {activeDocument.name}
+                </span>
+              )}
             </div>
-          ) : (
-            <div className="space-y-4">
-              {/* Multi-select Controls */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                <div className="flex items-center space-x-3 flex-wrap">
+            
+            <div className="flex flex-wrap gap-2">
+              {!isMultiSelectMode ? (
+                <>
                   <button
-                    onClick={() => setIsMultiSelectMode(!isMultiSelectMode)}
-                    className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
-                      isMultiSelectMode 
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
+                    onClick={() => setIsMultiSelectMode(true)}
+                    className="px-3 py-2 text-sm lg:text-base bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
-                    {isMultiSelectMode ? '✓ Multi-Select Mode' : 'Select Multiple'}
+                    Select Multiple
                   </button>
-                  {isMultiSelectMode && selectedDocuments.size > 0 && (
-                    <button
-                      onClick={handleSelectMultiple}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap"
-                    >
-                      Use Selected ({selectedDocuments.size})
-                    </button>
-                  )}
-                </div>
+                  <button
+                    onClick={handleAddMoreDocuments}
+                    className="px-3 py-2 text-sm lg:text-base bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    Add More
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => {
+                      setIsMultiSelectMode(false);
+                      setSelectedDocuments(new Set());
+                    }}
+                    className="px-3 py-2 text-sm lg:text-base bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSelectMultiple}
+                    disabled={selectedDocuments.size === 0}
+                    className="px-3 py-2 text-sm lg:text-base bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Select ({selectedDocuments.size})
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Document List */}
+          <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+            {documents.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">📄</div>
+                <h3 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2">No Documents</h3>
+                <p className="text-gray-600 text-sm lg:text-base mb-6">Upload your first document to get started</p>
                 <button
                   onClick={handleAddMoreDocuments}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
                 >
-                  + Add More Documents
+                  Upload Document
                 </button>
               </div>
+            ) : (
+              <div className="space-y-3 lg:space-y-4">
+                {documents.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className={`relative p-4 lg:p-5 rounded-lg border-2 transition-all duration-200 ${
+                      isDocumentActive(doc.id)
+                        ? 'border-blue-500 bg-blue-50'
+                        : isDocumentSelected(doc.id)
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-gray-200 bg-gray-50 hover:bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    {/* Selection Checkbox */}
+                    {isMultiSelectMode && (
+                      <div className="absolute top-3 left-3">
+                        <input
+                          type="checkbox"
+                          checked={isDocumentSelected(doc.id)}
+                          onChange={() => toggleDocumentSelection(doc.id)}
+                          className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                        />
+                      </div>
+                    )}
 
-              {documents.map((doc) => (
-                <div 
-                  key={doc.id} 
-                  className={`border rounded-lg p-4 transition-all duration-200 ${
-                    isMultiSelectMode && isDocumentSelected(doc.id)
-                      ? 'border-blue-500 bg-blue-50'
-                      : isDocumentActive(doc.id)
-                      ? 'border-green-500 bg-green-50'
-                      : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
-                  }`}
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="flex items-center space-x-3 flex-1 min-w-0">
-                      <div className="flex-shrink-0">
-                        {isMultiSelectMode ? (
-                          <input
-                            type="checkbox"
-                            checked={isDocumentSelected(doc.id)}
-                            onChange={() => toggleDocumentSelection(doc.id)}
-                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                          />
-                        ) : (
-                          <div className={`w-3 h-3 rounded-full ${
-                            isDocumentActive(doc.id) ? 'bg-green-500' : 'bg-gray-300'
-                          }`}></div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <h3 className="font-semibold text-gray-800 truncate">
-                            {doc.name}
-                          </h3>
-                          {isDocumentActive(doc.id) && (
-                            <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium flex-shrink-0">
-                              Active
-                            </span>
-                          )}
-                          {isMultiSelectMode && isDocumentSelected(doc.id) && (
-                            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium flex-shrink-0">
-                              Selected
-                            </span>
-                          )}
+                    {/* Document Content */}
+                    <div className={`${isMultiSelectMode ? 'ml-8' : ''}`}>
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <span className="text-2xl lg:text-3xl">📄</span>
+                            <h3 className="font-semibold text-gray-800 text-sm lg:text-base truncate">
+                              {doc.name}
+                            </h3>
+                            {isDocumentActive(doc.id) && (
+                              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                                Active
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div className="space-y-1 text-xs lg:text-sm text-gray-600">
+                            <div className="flex items-center space-x-4">
+                              <span>📅 {formatDate(doc.timestamp)}</span>
+                              <span>📏 {getDocumentSize(doc.text)}</span>
+                            </div>
+                            <div className="text-gray-500 truncate">
+                              {doc.text.substring(0, 100)}...
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center space-x-4 text-sm text-gray-500 mb-2">
-                          <span>{getDocumentSize(doc.text)}</span>
-                          <span>•</span>
-                          <span>{formatDate(doc.timestamp)}</span>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center space-x-2 ml-4">
+                          {!isDocumentActive(doc.id) && (
+                            <button
+                              onClick={() => onSelectDocument(doc)}
+                              className="px-3 py-1 lg:px-4 lg:py-2 text-xs lg:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                            >
+                              Select
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setShowDeleteConfirm(doc.id)}
+                            className="px-2 py-1 lg:px-3 lg:py-2 text-xs lg:text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                          >
+                            Delete
+                          </button>
                         </div>
-                        <p className="text-sm text-gray-600 truncate">
-                          {doc.text.substring(0, 100)}...
-                        </p>
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2 flex-shrink-0">
-                      {!isMultiSelectMode && !isDocumentActive(doc.id) && (
-                        <button
-                          onClick={() => onSelectDocument(doc)}
-                          className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors whitespace-nowrap"
-                        >
-                          Select
-                        </button>
-                      )}
-                      {isDocumentActive(doc.id) && (
-                        <button
-                          onClick={() => handleUnselectDocument(doc.id)}
-                          className="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors whitespace-nowrap"
-                        >
-                          Unselect
-                        </button>
-                      )}
-                      <button
-                        onClick={() => setShowDeleteConfirm(doc.id)}
-                        className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition-colors whitespace-nowrap"
-                      >
-                        Remove
-                      </button>
                     </div>
                   </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirm && (
+          <div className="absolute inset-0 bg-gray-900/75 backdrop-blur-sm flex items-center justify-center z-10">
+            <div className="bg-white rounded-xl shadow-xl p-6 lg:p-8 max-w-md w-full mx-4">
+              <div className="text-center">
+                <div className="text-4xl lg:text-5xl mb-4">⚠️</div>
+                <h3 className="text-lg lg:text-xl font-bold text-gray-800 mb-2">Delete Document?</h3>
+                <p className="text-gray-600 text-sm lg:text-base mb-6">
+                  This action cannot be undone. The document will be permanently removed.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => setShowDeleteConfirm(null)}
+                    className="flex-1 px-4 py-3 text-sm lg:text-base bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => handleRemoveDocument(showDeleteConfirm)}
+                    className="flex-1 px-4 py-3 text-sm lg:text-base bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    Delete
+                  </button>
                 </div>
-              ))}
+              </div>
             </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t bg-gray-50 flex-shrink-0">
-          <div className="text-sm text-gray-500">
-            {documents.length} document{documents.length !== 1 ? 's' : ''} total
-            {isMultiSelectMode && selectedDocuments.size > 0 && (
-              <span className="ml-2 text-blue-600">
-                • {selectedDocuments.size} selected
-              </span>
-            )}
-            {activeDocument && (
-              <span className="ml-2 text-green-600">
-                • 1 active
-              </span>
-            )}
           </div>
-          <div className="flex space-x-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        </div>
+        )}
       </div>
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-gray-900/75 backdrop-blur-sm flex items-center justify-center z-60">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Remove Document</h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to remove this document? This action cannot be undone.
-            </p>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setShowDeleteConfirm(null)}
-                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleRemoveDocument(showDeleteConfirm)}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-              >
-                Remove
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 } 

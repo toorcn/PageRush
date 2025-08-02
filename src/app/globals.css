@@ -23,4 +23,117 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Mobile-specific optimizations */
+@media (max-width: 768px) {
+  /* Improve touch targets */
+  button, 
+  [role="button"],
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Better text readability on mobile */
+  body {
+    font-size: 16px; /* Prevents zoom on iOS */
+    line-height: 1.5;
+  }
+  
+  /* Improve scrolling performance */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Better focus indicators for accessibility */
+  button:focus,
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+  }
+  
+  /* Prevent text selection on buttons */
+  button {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+  
+  /* Improve modal scrolling */
+  .modal-content {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Better spacing for mobile */
+  .mobile-spacing {
+    padding: 1rem;
+  }
+  
+  /* Optimize images for mobile */
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* Tablet optimizations */
+@media (min-width: 769px) and (max-width: 1024px) {
+  /* Medium touch targets for tablets */
+  button, 
+  [role="button"] {
+    min-height: 40px;
+    min-width: 40px;
+  }
+}
+
+/* Desktop optimizations */
+@media (min-width: 1025px) {
+  /* Standard touch targets for desktop */
+  button, 
+  [role="button"] {
+    min-height: 36px;
+    min-width: 36px;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  button {
+    border: 2px solid currentColor;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    background: white !important;
+    color: black !important;
+  }
 }

@@ -378,27 +378,29 @@ INSTRUCTION FOR GEMINI:
   const performanceSummary = generatePerformanceSummary();
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 lg:space-y-8">
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">📝 Practice Exam</h2>
-        <p className="text-gray-600">Complete exam with mixed question types</p>
+        <h2 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2">📝 Practice Exam</h2>
+        <p className="text-gray-600 text-sm lg:text-base">Complete exam with mixed question types</p>
       </div>
 
       {/* Question Navigation */}
-      <div className="bg-white rounded-xl shadow p-4">
-        <div className="flex flex-wrap gap-2 justify-center">
+      <div className="bg-white rounded-xl shadow p-4 lg:p-6">
+        <div className="flex flex-wrap gap-2 lg:gap-3 justify-center">
           {questions.map((q, idx) => (
             <button
               key={idx}
               onClick={() => navigateToQuestion(idx)}
               className={`
-                w-10 h-10 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center
+                w-10 h-10 lg:w-12 lg:h-12 rounded-lg text-sm lg:text-base font-medium transition-all duration-200 flex items-center justify-center
                 ${currentQuestionIndex === idx 
                   ? 'bg-blue-500 text-white shadow-lg' 
                   : answers[idx] 
                     ? 'bg-green-100 text-green-700 border border-green-300' 
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }
+                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+                active:scale-95
               `}
               title={`${idx + 1}. ${getQuestionTypeLabel(q.type)}`}
             >
@@ -408,7 +410,7 @@ INSTRUCTION FOR GEMINI:
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6 lg:space-y-8">
         {questions.map((q, idx) => {
           const isSelected = answers[idx];
           const questionFeedback = feedback && feedback[idx];
@@ -419,20 +421,20 @@ INSTRUCTION FOR GEMINI:
             <div 
               key={idx} 
               ref={el => questionRefs.current[idx] = el}
-              className={`bg-white rounded-xl shadow p-6 space-y-4 transition-all duration-300 ${
+              className={`bg-white rounded-xl shadow p-4 lg:p-6 space-y-4 lg:space-y-6 transition-all duration-300 ${
                 currentQuestionIndex === idx ? 'ring-2 ring-blue-500' : ''
               }`}
             >
               {/* Question Header */}
-              <div className="flex items-center justify-between">
-                <div className="font-semibold text-lg text-gray-800">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-3 lg:space-y-0">
+                <div className="font-semibold text-base lg:text-lg text-gray-800 leading-relaxed flex-1 min-w-0">
                   {idx + 1}. {q.question}
                 </div>
-                <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getQuestionTypeColor(q.type)}`}>
+                <div className="flex flex-wrap items-center gap-2 lg:gap-3 flex-shrink-0">
+                  <span className={`px-2 lg:px-3 py-1 lg:py-2 rounded-full text-xs lg:text-sm font-medium ${getQuestionTypeColor(q.type)}`}>
                     {getQuestionTypeIcon(q.type)} {getQuestionTypeLabel(q.type)}
                   </span>
-                  <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs font-medium">
+                  <span className="px-2 lg:px-3 py-1 lg:py-2 bg-gray-100 text-gray-600 rounded text-xs lg:text-sm font-medium">
                     {q.points || 1} pt{q.points !== 1 ? 's' : ''}
                   </span>
                 </div>
@@ -440,7 +442,7 @@ INSTRUCTION FOR GEMINI:
 
               {/* Answer Options for MCQ */}
               {q.type === 'mcq' && q.options && (
-                <div className="grid grid-cols-1 gap-3">
+                <div className="grid grid-cols-1 gap-3 lg:gap-4">
                   {q.options.map((opt, oidx) => {
                     const isSelectedOption = answers[idx] === opt;
                     const isCorrectOption = submitted && opt === q.answer;
@@ -453,19 +455,21 @@ INSTRUCTION FOR GEMINI:
                         onClick={() => handleSelect(idx, opt)}
                         disabled={submitted}
                         className={`
-                          p-4 rounded-lg border-2 text-left transition-all duration-200
+                          p-4 lg:p-5 rounded-lg border-2 text-left transition-all duration-200
+                          min-h-[60px] lg:min-h-[70px] flex items-center
                           ${isSelectedOption ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-gray-50'}
                           ${isCorrectOption ? 'border-green-500 bg-green-50 text-green-700 font-semibold' : ''}
                           ${isWrongOption ? 'border-red-500 bg-red-50 text-red-700 font-semibold' : ''}
                           hover:border-blue-400 hover:bg-blue-100 disabled:cursor-default
-                          focus:outline-none focus:ring-2 focus:ring-blue-500
+                          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+                          active:scale-98
                         `}
                         aria-pressed={isSelectedOption}
                       >
-                        <div className="flex items-center justify-between">
-                          <span>{opt}</span>
-                          {isCorrectOption && <span className="text-2xl">✅</span>}
-                          {isWrongOption && <span className="text-2xl">❌</span>}
+                        <div className="flex items-center justify-between w-full">
+                          <span className="text-sm lg:text-base leading-relaxed">{opt}</span>
+                          {isCorrectOption && <span className="text-2xl lg:text-3xl flex-shrink-0">✅</span>}
+                          {isWrongOption && <span className="text-2xl lg:text-3xl flex-shrink-0">❌</span>}
                         </div>
                       </button>
                     );
@@ -481,7 +485,7 @@ INSTRUCTION FOR GEMINI:
                     onChange={(e) => handleTextChange(idx, e.target.value)}
                     disabled={submitted}
                     rows={q.type === 'discuss' || q.type === 'describe' ? 4 : 2}
-                    className={`w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition resize-none ${
+                    className={`w-full px-4 py-3 lg:py-4 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition resize-none text-sm lg:text-base ${
                       submitted && isCorrect ? 'border-green-500 bg-green-50' : 
                       submitted && isWrong ? 'border-red-500 bg-red-50' : 
                       'border-gray-300'
@@ -499,31 +503,31 @@ INSTRUCTION FOR GEMINI:
 
               {/* Feedback */}
               {submitted && questionFeedback && (
-                <div className={`mt-3 p-4 rounded-lg ${
+                <div className={`mt-3 p-4 lg:p-5 rounded-lg ${
                   questionFeedback.isCorrect ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
                 }`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center font-medium">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 lg:mb-3 space-y-2 sm:space-y-0">
+                    <div className="flex items-center font-medium text-sm lg:text-base">
                       <span className="mr-2">{questionFeedback.isCorrect ? '✅' : '❌'}</span>
                       {questionFeedback.isCorrect ? 'Great work!' : 'Room for improvement'}
                     </div>
-                    <div className="text-sm font-semibold">
+                    <div className="text-sm lg:text-base font-semibold">
                       {questionFeedback.points}/{questionFeedback.maxPoints} points
                     </div>
                   </div>
                   
-                  <div className="text-sm mb-3">
+                  <div className="text-sm lg:text-base mb-3 lg:mb-4 leading-relaxed">
                     {questionFeedback.feedback}
                   </div>
 
                   {/* Personalized Suggestions */}
                   {questionFeedback.suggestions && questionFeedback.suggestions.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-current border-opacity-20">
-                      <div className="font-semibold mb-2">💡 Suggestions for improvement:</div>
-                      <ul className="text-sm space-y-1">
+                    <div className="mt-3 lg:mt-4 pt-3 lg:pt-4 border-t border-current border-opacity-20">
+                      <div className="font-semibold mb-2 text-sm lg:text-base">💡 Suggestions for improvement:</div>
+                      <ul className="text-sm lg:text-base space-y-1 lg:space-y-2">
                         {questionFeedback.suggestions.map((suggestion, suggestionIdx) => (
                           <li key={suggestionIdx} className="flex items-start">
-                            <span className="mr-2">•</span>
+                            <span className="mr-2 mt-0.5">•</span>
                             <span>{suggestion}</span>
                           </li>
                         ))}
@@ -533,9 +537,9 @@ INSTRUCTION FOR GEMINI:
 
                   {/* Expected Answer (for reference) */}
                   {!questionFeedback.isCorrect && (
-                    <div className="mt-3 pt-3 border-t border-current border-opacity-20">
-                      <div className="font-semibold mb-1">📋 Expected answer:</div>
-                      <div className="text-sm opacity-80">{q.answer}</div>
+                    <div className="mt-3 lg:mt-4 pt-3 lg:pt-4 border-t border-current border-opacity-20">
+                      <div className="font-semibold mb-1 text-sm lg:text-base">📋 Expected answer:</div>
+                      <div className="text-sm lg:text-base opacity-80 leading-relaxed">{q.answer}</div>
                     </div>
                   )}
                 </div>
@@ -546,61 +550,63 @@ INSTRUCTION FOR GEMINI:
 
         {/* Submit Button */}
         {!submitted && (
-          <button
-            type="submit"
-            className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold text-lg hover:bg-blue-700 transition shadow-lg"
-          >
-            Submit Exam
-          </button>
+          <div className="flex justify-center">
+            <button
+              type="submit"
+              className="w-full sm:w-auto px-8 py-4 lg:px-12 lg:py-5 bg-blue-600 text-white rounded-xl font-bold text-base lg:text-lg hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl"
+            >
+              Submit Exam
+            </button>
+          </div>
         )}
 
         {/* Assessment Loading */}
         {isAssessing && (
-          <div className="text-center py-8">
+          <div className="text-center py-8 lg:py-12">
             <LottieLoader 
               text="Assessing your answers with AI..." 
               size="large"
             />
-            <p className="text-sm text-gray-500 mt-2">This may take a moment for open-ended questions</p>
+            <p className="text-sm lg:text-base text-gray-500 mt-2">This may take a moment for open-ended questions</p>
           </div>
         )}
       </form>
 
       {/* Performance Summary */}
       {submitted && performanceSummary && showPerformanceSummary && (
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow p-6 space-y-6">
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow p-4 lg:p-6 space-y-4 lg:space-y-6">
           <div className="text-center">
-            <h3 className="text-2xl font-bold text-gray-800 mb-2">📊 Performance Summary</h3>
-            <p className="text-gray-600">Your comprehensive exam results and study recommendations</p>
+            <h3 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2">📊 Performance Summary</h3>
+            <p className="text-gray-600 text-sm lg:text-base">Your comprehensive exam results and study recommendations</p>
           </div>
 
           {/* Overall Performance */}
-          <div className="bg-white rounded-lg p-6 space-y-4">
+          <div className="bg-white rounded-lg p-4 lg:p-6 space-y-4 lg:space-y-6">
             <div className="text-center">
-              <div className="text-4xl font-bold text-blue-600 mb-2">
+              <div className="text-3xl lg:text-4xl font-bold text-blue-600 mb-2">
                 {performanceSummary.percentage}%
               </div>
-              <div className="text-gray-600">
+              <div className="text-gray-600 text-sm lg:text-base">
                 {performanceSummary.earnedPoints}/{performanceSummary.totalPoints} points earned
               </div>
             </div>
 
             {/* Performance by Question Type */}
-            <div className="space-y-3">
-              <h4 className="font-semibold text-gray-800">Performance by Topic:</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-3 lg:space-y-4">
+              <h4 className="font-semibold text-gray-800 text-sm lg:text-base">Performance by Topic:</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4">
                 {Object.entries(performanceSummary.topicPerformance).map(([topic, data]) => {
                   const percentage = Math.round((data.earned / data.total) * 100);
                   const colorClass = percentage >= 80 ? 'text-green-600' : 
                                    percentage >= 60 ? 'text-yellow-600' : 'text-red-600';
                   
                   return (
-                    <div key={topic} className="bg-gray-50 rounded-lg p-3">
+                    <div key={topic} className="bg-gray-50 rounded-lg p-3 lg:p-4">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium">{topic.charAt(0).toUpperCase() + topic.slice(1)}</span>
-                        <span className={`font-bold ${colorClass}`}>{percentage}%</span>
+                        <span className="font-medium text-sm lg:text-base">{topic.charAt(0).toUpperCase() + topic.slice(1)}</span>
+                        <span className={`font-bold ${colorClass} text-sm lg:text-base`}>{percentage}%</span>
                       </div>
-                      <div className="text-sm text-gray-600">
+                      <div className="text-xs lg:text-sm text-gray-600">
                         {data.earned}/{data.total} points
                       </div>
                     </div>
@@ -610,14 +616,14 @@ INSTRUCTION FOR GEMINI:
             </div>
 
             {/* Strengths and Weaknesses */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
               {performanceSummary.strongTopics.length > 0 && (
-                <div className="bg-green-50 rounded-lg p-4">
-                  <h5 className="font-semibold text-green-800 mb-2">✅ Strong Topics</h5>
-                  <ul className="text-sm text-green-700 space-y-1">
+                <div className="bg-green-50 rounded-lg p-4 lg:p-5">
+                  <h5 className="font-semibold text-green-800 mb-2 text-sm lg:text-base">✅ Strong Topics</h5>
+                  <ul className="text-xs lg:text-sm text-green-700 space-y-1 lg:space-y-2">
                     {performanceSummary.strongTopics.map((strength, idx) => (
                       <li key={idx} className="flex items-start">
-                        <span className="mr-2">•</span>
+                        <span className="mr-2 mt-0.5">•</span>
                         <span>{strength}</span>
                       </li>
                     ))}
@@ -626,12 +632,12 @@ INSTRUCTION FOR GEMINI:
               )}
 
               {performanceSummary.weakTopics.length > 0 && (
-                <div className="bg-red-50 rounded-lg p-4">
-                  <h5 className="font-semibold text-red-800 mb-2">⚠️ Weak Topics</h5>
-                  <ul className="text-sm text-red-700 space-y-1">
+                <div className="bg-red-50 rounded-lg p-4 lg:p-5">
+                  <h5 className="font-semibold text-red-800 mb-2 text-sm lg:text-base">⚠️ Weak Topics</h5>
+                  <ul className="text-xs lg:text-sm text-red-700 space-y-1 lg:space-y-2">
                     {performanceSummary.weakTopics.map((weakness, idx) => (
                       <li key={idx} className="flex items-start">
-                        <span className="mr-2">•</span>
+                        <span className="mr-2 mt-0.5">•</span>
                         <span>{weakness}</span>
                       </li>
                     ))}
@@ -641,12 +647,12 @@ INSTRUCTION FOR GEMINI:
             </div>
 
             {/* Study Recommendations */}
-            <div className="bg-blue-50 rounded-lg p-4">
-              <h5 className="font-semibold text-blue-800 mb-2">📚 Study Recommendations</h5>
-              <ul className="text-sm text-blue-700 space-y-1">
+            <div className="bg-blue-50 rounded-lg p-4 lg:p-5">
+              <h5 className="font-semibold text-blue-800 mb-2 text-sm lg:text-base">📚 Study Recommendations</h5>
+              <ul className="text-xs lg:text-sm text-blue-700 space-y-1 lg:space-y-2">
                 {performanceSummary.recommendations.map((rec, idx) => (
                   <li key={idx} className="flex items-start">
-                    <span className="mr-2">•</span>
+                    <span className="mr-2 mt-0.5">•</span>
                     <span>{rec}</span>
                   </li>
                 ))}
@@ -657,11 +663,11 @@ INSTRUCTION FOR GEMINI:
             <div className="text-center">
               <button
                 onClick={copyPerformanceSummary}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                className="w-full sm:w-auto px-6 py-3 lg:px-8 lg:py-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors text-sm lg:text-base"
               >
                 📋 Copy Summary for Gemini
               </button>
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs lg:text-sm text-gray-500 mt-2">
                 Copy this summary to get personalized study guidance from Gemini
               </p>
             </div>

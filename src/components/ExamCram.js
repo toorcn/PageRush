@@ -313,33 +313,33 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
 
       {/* Regeneration Option */}
       {previouslyGenerated.hasBeenGenerated && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="text-2xl">🔄</div>
-              <div>
-                <h3 className="font-bold text-lg text-blue-800">Previously Generated Content Available</h3>
-                <p className="text-blue-600 text-sm">
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 lg:p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+            <div className="flex items-start space-x-3">
+              <div className="text-2xl lg:text-3xl flex-shrink-0">🔄</div>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-bold text-base lg:text-lg text-blue-800">Previously Generated Content Available</h3>
+                <p className="text-blue-600 text-sm lg:text-base">
                   You can use the previous content or generate new content
                   {previouslyGenerated.lastGenerated && (
-                    <span className="block text-xs text-blue-500 mt-1">
+                    <span className="block text-xs lg:text-sm text-blue-500 mt-1">
                       Last generated: {new Date(previouslyGenerated.lastGenerated).toLocaleString()}
                     </span>
                   )}
                 </p>
               </div>
             </div>
-            <div className="flex space-x-3">
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
               <button
                 onClick={() => setShowRegenerateOption(false)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 lg:px-6 lg:py-3 rounded-lg font-medium transition-colors text-sm lg:text-base"
               >
                 Continue with Previous
               </button>
               <button
                 onClick={regenerateContent}
                 disabled={loading}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`w-full px-4 py-3 lg:px-6 lg:py-3 rounded-lg font-medium transition-colors text-sm lg:text-base ${
                   loading 
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
                     : 'bg-white hover:bg-gray-50 text-blue-600 border border-blue-600'
@@ -353,35 +353,35 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
       )}
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-6 text-center shadow-lg">
-          <div className="text-3xl font-bold mb-1">{stats.totalTopics}</div>
-          <div className="text-sm opacity-90">Total Topics</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 lg:gap-6">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-4 lg:p-6 text-center shadow-lg">
+          <div className="text-2xl lg:text-3xl font-bold mb-1">{stats.totalTopics}</div>
+          <div className="text-xs lg:text-sm opacity-90">Total Topics</div>
         </div>
-        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-6 text-center shadow-lg">
-          <div className="text-3xl font-bold mb-1">{stats.masteredTopics}</div>
-          <div className="text-sm opacity-90">Mastered</div>
+        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-4 lg:p-6 text-center shadow-lg">
+          <div className="text-2xl lg:text-3xl font-bold mb-1">{stats.masteredTopics}</div>
+          <div className="text-xs lg:text-sm opacity-90">Mastered</div>
         </div>
-        <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-xl p-6 text-center shadow-lg">
-          <div className="text-3xl font-bold mb-1">{stats.weakTopics}</div>
-          <div className="text-sm opacity-90">Need Work</div>
+        <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-xl p-4 lg:p-6 text-center shadow-lg">
+          <div className="text-2xl lg:text-3xl font-bold mb-1">{stats.weakTopics}</div>
+          <div className="text-xs lg:text-sm opacity-90">Need Work</div>
         </div>
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl p-6 text-center shadow-lg">
-          <div className="text-3xl font-bold mb-1">{stats.averageResponseTime.toFixed(1)}s</div>
-          <div className="text-sm opacity-90">Avg Time</div>
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl p-4 lg:p-6 text-center shadow-lg">
+          <div className="text-2xl lg:text-3xl font-bold mb-1">{stats.averageResponseTime.toFixed(1)}s</div>
+          <div className="text-xs lg:text-sm opacity-90">Avg Time</div>
         </div>
       </div>
 
       {/* Action Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
         <button
           onClick={() => setCurrentView('breakdown')}
-          className="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 text-left group hover:scale-105"
+          className="bg-white rounded-xl p-6 lg:p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 text-left group hover:scale-105"
         >
-          <div className="text-4xl mb-4">📋</div>
-          <h3 className="font-bold text-xl mb-3 text-gray-800">Topic Breakdown</h3>
-          <p className="text-gray-600 mb-6">See the most important concepts at a glance</p>
-          <div className="text-blue-600 font-semibold group-hover:text-blue-700 transition-colors">
+          <div className="text-3xl lg:text-4xl mb-3 lg:mb-4">📋</div>
+          <h3 className="font-bold text-lg lg:text-xl mb-2 lg:mb-3 text-gray-800">Topic Breakdown</h3>
+          <p className="text-gray-600 mb-4 lg:mb-6 text-sm lg:text-base">See the most important concepts at a glance</p>
+          <div className="text-blue-600 font-semibold group-hover:text-blue-700 transition-colors text-sm lg:text-base">
             View Breakdown →
           </div>
         </button>
@@ -393,24 +393,24 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
             }
             setCurrentView('assessment');
           }}
-          className="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 text-left group hover:scale-105"
+          className="bg-white rounded-xl p-6 lg:p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 text-left group hover:scale-105"
         >
-          <div className="text-4xl mb-4">📊</div>
-          <h3 className="font-bold text-xl mb-3 text-gray-800">Readiness Assessment</h3>
-          <p className="text-gray-600 mb-6">Evaluate your exam preparedness</p>
-          <div className="text-green-600 font-semibold group-hover:text-green-700 transition-colors">
+          <div className="text-3xl lg:text-4xl mb-3 lg:mb-4">📊</div>
+          <h3 className="font-bold text-lg lg:text-xl mb-2 lg:mb-3 text-gray-800">Readiness Assessment</h3>
+          <p className="text-gray-600 mb-4 lg:mb-6 text-sm lg:text-base">Evaluate your exam preparedness</p>
+          <div className="text-green-600 font-semibold group-hover:text-green-700 transition-colors text-sm lg:text-base">
             Take Assessment →
           </div>
         </button>
 
         <button
           onClick={() => startAdaptiveLearning()}
-          className="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 text-left group hover:scale-105"
+          className="bg-white rounded-xl p-6 lg:p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 text-left group hover:scale-105"
         >
-          <div className="text-4xl mb-4">🎯</div>
-          <h3 className="font-bold text-xl mb-3 text-gray-800">Adaptive Learning</h3>
-          <p className="text-gray-600 mb-6">Practice until you master each concept</p>
-          <div className="text-purple-600 font-semibold group-hover:text-purple-700 transition-colors">
+          <div className="text-3xl lg:text-4xl mb-3 lg:mb-4">🎯</div>
+          <h3 className="font-bold text-lg lg:text-xl mb-2 lg:mb-3 text-gray-800">Adaptive Learning</h3>
+          <p className="text-gray-600 mb-4 lg:mb-6 text-sm lg:text-base">Practice until you master each concept</p>
+          <div className="text-purple-600 font-semibold group-hover:text-purple-700 transition-colors text-sm lg:text-base">
             Start Learning →
           </div>
         </button>
@@ -418,41 +418,41 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
 
       {/* Progress Overview */}
       {learningProgress.completedTopics.length > 0 && (
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-8">
-          <h3 className="font-bold text-xl mb-4 text-green-800 flex items-center">
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6 lg:p-8">
+          <h3 className="font-bold text-lg lg:text-xl mb-4 text-green-800 flex items-center">
             <span className="mr-2">🎉</span>
             Progress Made!
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
             <div>
-              <p className="text-green-700 font-medium mb-3">Mastered Topics:</p>
+              <p className="text-green-700 font-medium mb-3 text-sm lg:text-base">Mastered Topics:</p>
               <div className="flex flex-wrap gap-2">
                 {learningProgress.completedTopics.slice(0, 5).map(topicId => {
                   const topic = topicBreakdown?.topics.find(t => t.id === topicId);
                   return (
-                    <span key={topicId} className="bg-green-100 text-green-800 px-3 py-2 rounded-lg text-sm font-medium">
+                    <span key={topicId} className="bg-green-100 text-green-800 px-2 lg:px-3 py-1 lg:py-2 rounded-lg text-xs lg:text-sm font-medium">
                       {topic?.title || topicId}
                     </span>
                   );
                 })}
                 {learningProgress.completedTopics.length > 5 && (
-                  <span className="text-green-600 text-sm font-medium">+{learningProgress.completedTopics.length - 5} more</span>
+                  <span className="text-green-600 text-xs lg:text-sm font-medium">+{learningProgress.completedTopics.length - 5} more</span>
                 )}
               </div>
             </div>
             <div>
-              <p className="text-orange-700 font-medium mb-3">Still Working On:</p>
+              <p className="text-orange-700 font-medium mb-3 text-sm lg:text-base">Still Working On:</p>
               <div className="flex flex-wrap gap-2">
                 {learningProgress.weakAreas.slice(0, 3).map(topicId => {
                   const topic = topicBreakdown?.topics.find(t => t.id === topicId);
                   return (
-                    <span key={topicId} className="bg-orange-100 text-orange-800 px-3 py-2 rounded-lg text-sm font-medium">
+                    <span key={topicId} className="bg-orange-100 text-orange-800 px-2 lg:px-3 py-1 lg:py-2 rounded-lg text-xs lg:text-sm font-medium">
                       {topic?.title || topicId}
                     </span>
                   );
                 })}
                 {learningProgress.weakAreas.length > 3 && (
-                  <span className="text-orange-600 text-sm font-medium">+{learningProgress.weakAreas.length - 3} more</span>
+                  <span className="text-orange-600 text-xs lg:text-sm font-medium">+{learningProgress.weakAreas.length - 3} more</span>
                 )}
               </div>
             </div>

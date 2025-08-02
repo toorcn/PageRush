@@ -110,27 +110,29 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 lg:space-y-8">
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">❓ Quiz</h2>
-        <p className="text-gray-600">Test your knowledge with multiple choice questions</p>
+        <h2 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2">❓ Quiz</h2>
+        <p className="text-gray-600 text-sm lg:text-base">Test your knowledge with multiple choice questions</p>
       </div>
 
       {/* Question Navigation */}
-      <div className="bg-white rounded-xl shadow p-4">
-        <div className="flex flex-wrap gap-2 justify-center">
+      <div className="bg-white rounded-xl shadow p-4 lg:p-6">
+        <div className="flex flex-wrap gap-2 lg:gap-3 justify-center">
           {questions.map((_, idx) => (
             <button
               key={idx}
               onClick={() => navigateToQuestion(idx)}
               className={`
-                w-10 h-10 rounded-lg text-sm font-medium transition-all duration-200
+                w-10 h-10 lg:w-12 lg:h-12 rounded-lg text-sm lg:text-base font-medium transition-all duration-200
                 ${currentQuestionIndex === idx 
                   ? 'bg-blue-500 text-white shadow-lg' 
                   : answers[idx] 
                     ? 'bg-green-100 text-green-700 border border-green-300' 
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }
+                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+                active:scale-95
               `}
             >
               {idx + 1}
@@ -139,7 +141,7 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6 lg:space-y-8">
         {questions.map((q, idx) => {
           const isSelected = answers[idx];
           const isCorrect = submitted && q.answer === answers[idx];
@@ -151,18 +153,18 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
             <div 
               key={idx} 
               ref={el => questionRefs.current[idx] = el}
-              className={`bg-white rounded-xl shadow p-6 space-y-4 transition-all duration-300 ${
+              className={`bg-white rounded-xl shadow p-4 lg:p-6 space-y-4 lg:space-y-6 transition-all duration-300 ${
                 isCurrentQuestion ? 'ring-2 ring-blue-500' : ''
               }`}
             >
               {/* Question */}
-              <div className="font-semibold text-lg text-gray-800">
+              <div className="font-semibold text-base lg:text-lg text-gray-800 leading-relaxed">
                 {idx + 1}. {q.question}
               </div>
 
               {/* Answer Options */}
               {hasValidOptions ? (
-                <div className="grid grid-cols-1 gap-3">
+                <div className="grid grid-cols-1 gap-3 lg:gap-4">
                   {q.options.map((opt, oidx) => {
                     const isSelectedOption = answers[idx] === opt;
                     const isCorrectOption = submitted && opt === q.answer;
@@ -175,54 +177,72 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
                         onClick={() => handleSelect(idx, opt)}
                         disabled={submitted}
                         className={`
-                          p-4 rounded-lg border-2 text-left transition-all duration-200
+                          p-4 lg:p-5 rounded-lg border-2 text-left transition-all duration-200
+                          min-h-[60px] lg:min-h-[70px] flex items-center
                           ${isSelectedOption ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-gray-50'}
                           ${isCorrectOption ? 'border-green-500 bg-green-50 text-green-700 font-semibold' : ''}
                           ${isWrongOption ? 'border-red-500 bg-red-50 text-red-700 font-semibold' : ''}
                           hover:border-blue-400 hover:bg-blue-100 disabled:cursor-default
-                          focus:outline-none focus:ring-2 focus:ring-blue-500
+                          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+                          active:scale-98
                         `}
                         aria-pressed={isSelectedOption}
                       >
-                        <div className="flex items-center justify-between">
-                          <span>{opt}</span>
-                          {isCorrectOption && <span className="text-2xl">✅</span>}
-                          {isWrongOption && <span className="text-2xl">❌</span>}
+                        <div className="flex items-center justify-between w-full">
+                          <span className="text-sm lg:text-base leading-relaxed">{opt}</span>
+                          {isCorrectOption && <span className="text-2xl lg:text-3xl flex-shrink-0">✅</span>}
+                          {isWrongOption && <span className="text-2xl lg:text-3xl flex-shrink-0">❌</span>}
                         </div>
                       </button>
                     );
                   })}
                 </div>
               ) : (
-                <div className="text-red-500 text-sm">Invalid question format</div>
+                <div className="text-red-500 text-sm lg:text-base">Invalid question format</div>
               )}
 
               {/* Feedback and Explanation */}
               {submitted && (
-                <div className="space-y-3">
-                  <div className={`p-3 rounded-lg ${
-                    isCorrect ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                <div className="space-y-3 lg:space-y-4">
+                  <div className={`p-3 lg:p-4 rounded-lg ${
+                    isCorrect ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
                   }`}>
-                    <div className="font-semibold">
-                      {isCorrect ? '✅ Correct!' : '❌ Incorrect'}
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className="text-lg lg:text-xl">
+                        {isCorrect ? '✅' : '❌'}
+                      </span>
+                      <span className={`font-semibold text-sm lg:text-base ${
+                        isCorrect ? 'text-green-700' : 'text-red-700'
+                      }`}>
+                        {isCorrect ? 'Correct!' : 'Incorrect'}
+                      </span>
                     </div>
-                    <div className="text-sm mt-1">
-                      Correct answer: <span className="font-semibold">{q.answer}</span>
-                    </div>
+                    <p className="text-sm lg:text-base text-gray-700">
+                      {isCorrect ? 'Great job!' : `The correct answer is: ${q.answer}`}
+                    </p>
                   </div>
-                  
+
                   {q.explanation && (
-                    <div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 lg:p-4">
                       <button
                         type="button"
                         onClick={() => toggleExplanation(idx)}
-                        className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                        className="flex items-center justify-between w-full text-left"
                       >
-                        {explainedQuestions.has(idx) ? 'Hide' : 'Show'} explanation
+                        <span className="font-semibold text-sm lg:text-base text-blue-700">
+                          {explainedQuestions.has(idx) ? 'Hide' : 'Show'} Explanation
+                        </span>
+                        <span className={`transform transition-transform duration-200 ${
+                          explainedQuestions.has(idx) ? 'rotate-180' : ''
+                        }`}>
+                          ▼
+                        </span>
                       </button>
                       {explainedQuestions.has(idx) && (
-                        <div className="mt-2 p-3 bg-blue-50 rounded-lg text-sm">
-                          {q.explanation}
+                        <div className="mt-3 pt-3 border-t border-blue-200">
+                          <p className="text-sm lg:text-base text-gray-700 leading-relaxed">
+                            {q.explanation}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -234,15 +254,40 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
         })}
 
         {/* Submit Button */}
-        <div className="text-center">
-          <button
-            type="submit"
-            disabled={submitted || answers.some(a => !a)}
-            className="px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {submitted ? 'Quiz Completed!' : 'Submit Quiz'}
-          </button>
-        </div>
+        {!submitted && (
+          <div className="flex justify-center">
+            <button
+              type="submit"
+              className="px-8 py-4 lg:px-12 lg:py-5 bg-blue-600 text-white rounded-xl font-bold text-base lg:text-lg hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl"
+            >
+              Submit Quiz
+            </button>
+          </div>
+        )}
+
+        {/* Results Summary */}
+        {submitted && (
+          <div className="bg-white rounded-xl shadow p-6 lg:p-8 text-center">
+            <div className="text-4xl lg:text-5xl mb-4">
+              {percentCorrect >= 80 ? '🎉' : percentCorrect >= 60 ? '👍' : '📚'}
+            </div>
+            <h3 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2">
+              Quiz Complete!
+            </h3>
+            <p className="text-lg lg:text-xl font-semibold text-gray-700 mb-4">
+              You scored {numCorrect} out of {totalQuestions} ({percentCorrect}%)
+            </p>
+            <div className={`inline-block px-4 py-2 rounded-full text-sm lg:text-base font-medium ${
+              percentCorrect >= 80 ? 'bg-green-100 text-green-700' :
+              percentCorrect >= 60 ? 'bg-yellow-100 text-yellow-700' :
+              'bg-red-100 text-red-700'
+            }`}>
+              {percentCorrect >= 80 ? 'Excellent!' :
+               percentCorrect >= 60 ? 'Good job!' :
+               'Keep studying!'}
+            </div>
+          </div>
+        )}
       </form>
     </div>
   );

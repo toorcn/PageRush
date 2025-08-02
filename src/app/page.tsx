@@ -565,10 +565,46 @@ export default function Home() {
       <div className="font-sans min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
         {/* Notification System */}
         <Notification />
-        <div className="max-w-6xl mx-auto py-8 px-4 space-y-6 relative">
+        
+        {/* Mobile Header - Fixed at top */}
+        <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
+          <div className="flex items-center justify-between px-4 py-3">
+            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              PageRush AI
+            </h1>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setShowDocumentManager(!showDocumentManager)}
+                className="p-2 bg-gray-100 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors"
+                title="Documents"
+              >
+                📚
+              </button>
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className="p-2 bg-gray-100 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors"
+                title="History"
+              >
+                📊
+              </button>
+              <button
+                onClick={() => setShowFeatureSelector(!showFeatureSelector)}
+                className="p-2 bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg text-white hover:from-green-700 hover:to-emerald-700 transition-colors"
+                title="Study Tools"
+              >
+                ✨
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile Spacer for fixed header */}
+        <div className="lg:hidden h-16"></div>
+
+        <div className="max-w-6xl mx-auto py-4 lg:py-8 px-4 lg:px-6 space-y-4 lg:space-y-6 relative">
           
-          {/* Header */}
-          <div className="flex items-center justify-between">
+          {/* Desktop Header */}
+          <div className="hidden lg:flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <h1 className={`text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent ${focusMode ? 'sr-only' : ''}`}>
                 PageRush AI
@@ -598,13 +634,6 @@ export default function Home() {
               onClick={
                 () => setShowFeatureSelector(!showFeatureSelector)
               }
-                // onClick={() => {
-                //   // Scroll to feature selector
-                //   const featureSection = document.querySelector('[data-feature-selector]');
-                //   if (featureSection) {
-                //     featureSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                //   }
-                // }}
                 className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:from-green-700 hover:to-emerald-700 flex items-center space-x-2"
               >
                 <span>✨</span>
@@ -618,6 +647,27 @@ export default function Home() {
                 <span>Focus Mode</span>
               </button>
             </div>
+          </div>
+
+          {/* Mobile Document Info */}
+          {activeDocument && (
+            <div className="lg:hidden bg-white/80 backdrop-blur-sm rounded-lg p-3 shadow-sm border border-gray-200">
+              <div className="flex items-center space-x-2">
+                <span className="text-gray-500">📄</span>
+                <span className="text-sm font-medium text-gray-700 truncate">{activeDocument.name}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Mobile Action Buttons */}
+          <div className="lg:hidden flex flex-wrap gap-2">
+            <button
+              onClick={() => setFocusMode(true)}
+              className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:from-purple-700 hover:to-indigo-700 flex items-center justify-center space-x-2"
+            >
+              <span>🎯</span>
+              <span>Focus Mode</span>
+            </button>
           </div>
 
           {/* Data Restored Notification intentionally removed for linting */}
@@ -649,28 +699,18 @@ export default function Home() {
             />
           )}
 
-          {/* Floating Action Button for Study Tools */}
-          {/* {step >= 2 && !showQuizGenerator && !showExamGenerator && !result && (
-            <div className="fixed bottom-6 right-6 z-50">
-              <button
-                onClick={() => {
-                  const featureSection = document.querySelector('[data-feature-selector]');
-                  if (featureSection) {
-                    featureSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  }
-                }}
-                className="w-14 h-14 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 hover:from-green-700 hover:to-emerald-700 flex items-center justify-center text-xl"
-                title="Quick Access to Study Tools"
-              >
-                ✨
-              </button>
-            </div>
-          )} */}
+          {/* Mobile Floating Action Button */}
+          {step >= 2 && !showQuizGenerator && !showExamGenerator && !result && (
+            <></>
+          )}
+
+          {/* Mobile Bottom Spacer */}
+          <div className="lg:hidden h-20"></div>
 
           {/* Main Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
             {/* Left Sidebar - Setup + Helpful Resources */}
-            <div className={`lg:col-span-1 space-y-6 transition-all duration-300 ${
+            <div className={`lg:col-span-1 space-y-4 lg:space-y-6 transition-all duration-300 ${
               sidebarCollapsed ? 'lg:col-span-0 lg:w-16' : ''
             }`}>
               {/* Collapse/Expand Button */}
@@ -687,7 +727,19 @@ export default function Home() {
                   </span>
                 </button>
               </div>
-              {step === 0 && !sidebarCollapsed && <PdfUploader onExtracted={handleExtracted} />}
+              
+              {/* Mobile Setup Section */}
+              {step === 0 && (
+                <div className="lg:hidden">
+                  <PdfUploader onExtracted={handleExtracted} />
+                </div>
+              )}
+              
+              {step === 0 && !sidebarCollapsed && (
+                <div className="hidden lg:block">
+                  <PdfUploader onExtracted={handleExtracted} />
+                </div>
+              )}
               
               {/* Collapsible Setup Section */}
               {step >= 1 && !sidebarCollapsed && (
@@ -696,7 +748,7 @@ export default function Home() {
                   <div className="border-b border-gray-200">
                     <button
                       onClick={() => setShowApiKeyInput(!showApiKeyInput)}
-                      className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
+                      className="w-full px-4 lg:px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-center space-x-3">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
@@ -725,7 +777,7 @@ export default function Home() {
                       </div>
                     </button>
                     {showApiKeyInput && (
-                      <div className="px-6 pb-4">
+                      <div className="px-4 lg:px-6 pb-4">
                         <ApiKeyInput onChange={setApiKey} />
                       </div>
                     )}
@@ -770,35 +822,32 @@ export default function Home() {
               {/* Focus Mode Stats */}
               {!sidebarCollapsed && <FocusModeStats onEnterFocusMode={() => setFocusMode(true)} />}
 
-
               {/* Collapsed Sidebar - Show only icons */}
               {sidebarCollapsed && (
                 <div className="space-y-4">
-                  {/* API Key Status */}
-
-              {/* Progress Indicator (if quiz/exam active) */}
-              {(feature === 'quiz' || feature === 'exam') && result && (
-                <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-sm border border-gray-200 p-3 flex justify-center">
-                  <div className="text-center" title={`Question ${currentQuestionIndex + 1} of ${totalQuestions}`}>
-                    <div className="text-lg font-bold text-blue-600">{currentQuestionIndex + 1}</div>
-                    <div className="text-xs text-gray-500">/ {totalQuestions}</div>
-                  </div>
-                </div>
-              )}
+                  {/* Progress Indicator (if quiz/exam active) */}
+                  {(feature === 'quiz' || feature === 'exam') && result && (
+                    <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-sm border border-gray-200 p-3 flex justify-center">
+                      <div className="text-center" title={`Question ${currentQuestionIndex + 1} of ${totalQuestions}`}>
+                        <div className="text-lg font-bold text-blue-600">{currentQuestionIndex + 1}</div>
+                        <div className="text-xs text-gray-500">/ {totalQuestions}</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
             {/* Main Content Area */}
-            <div className={`space-y-6 transition-all duration-300 ${
+            <div className={`space-y-4 lg:space-y-6 transition-all duration-300 ${
               sidebarCollapsed ? 'lg:col-span-3' : 'lg:col-span-2'
             }`}>
               {/* Feature Selection - Moved to main content area */}
               {step >= 2 && ((!showQuizGenerator || !showExamGenerator || !result) || showFeatureSelector) && (
-                <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 p-6" data-feature-selector>
-                  <div className="text-center mb-6">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2">✨ Choose Your Study Tool</h2>
-                    <p className="text-gray-600">Select how you'd like to study your materials</p>
+                <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 p-4 lg:p-6" data-feature-selector>
+                  <div className="text-center mb-4 lg:mb-6">
+                    <h2 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2">✨ Choose Your Study Tool</h2>
+                    <p className="text-gray-600 text-sm lg:text-base">Select how you'd like to study your materials</p>
                   </div>
                   <FeatureSelector selected={feature} onSelect={handleFeature} />
                 </div>
