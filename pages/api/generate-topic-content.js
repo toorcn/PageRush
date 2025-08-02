@@ -19,54 +19,89 @@ IMPORTANT: Return ONLY a valid JSON object, no markdown formatting, no code bloc
 The response should have this exact structure:
 {
   "topicContent": {
-    "detailedDescription": "Comprehensive explanation of the topic...",
+    "detailedDescription": "Comprehensive explanation of the topic with clear structure, key concepts, and practical applications. Include both theoretical foundations and real-world relevance.",
     "keyPoints": [
-      "Important point 1",
-      "Important point 2",
-      "Important point 3"
+      "Concise, actionable key point that can stand alone",
+      "Another essential concept or principle",
+      "Important practical application or implication",
+      "Critical understanding or insight",
+      "Key takeaway or summary point"
     ],
     "examples": [
       {
-        "title": "Example 1",
-        "description": "Detailed explanation of the example"
+        "title": "Clear, descriptive example title",
+        "description": "Detailed explanation of the example with context, application, and learning value"
+      },
+      {
+        "title": "Another practical example",
+        "description": "Comprehensive example that demonstrates the concept in action"
       }
     ],
     "commonMisconceptions": [
       {
-        "misconception": "Common mistake students make",
-        "correction": "Correct understanding"
+        "misconception": "Specific, clear description of a common mistake or misunderstanding",
+        "correction": "Detailed explanation of the correct understanding with reasoning"
+      },
+      {
+        "misconception": "Another common error students make",
+        "correction": "Clear correction with explanation of why the misconception is wrong"
       }
     ],
     "studyTips": [
-      "Tip for studying this topic effectively"
+      "Specific, actionable study strategy or technique",
+      "Practical tip for understanding or memorizing this topic",
+      "Effective learning approach or method",
+      "Time-saving or efficiency tip",
+      "Memory or retention strategy"
     ],
     "examTips": [
-      "Tip for answering questions on this topic"
+      "Specific strategy for answering questions on this topic",
+      "Common exam question types and how to approach them",
+      "Time management tip for this topic",
+      "Key things to remember during exams",
+      "How to apply this knowledge in test situations"
     ],
     "relatedConcepts": [
       {
-        "concept": "Related concept name",
-        "relationship": "How it relates to this topic"
+        "concept": "Name of related concept or topic",
+        "relationship": "Clear explanation of how this concept relates to the main topic, including connections and differences"
+      },
+      {
+        "concept": "Another related concept",
+        "relationship": "Detailed explanation of the relationship and its significance"
       }
     ],
     "practiceQuestions": [
       {
-        "question": "Sample practice question",
-        "answer": "Correct answer",
-        "explanation": "Why this is correct"
+        "question": "Clear, specific practice question that tests understanding",
+        "answer": "Concise, accurate answer",
+        "explanation": "Detailed explanation of why this answer is correct, including key concepts and reasoning"
+      },
+      {
+        "question": "Another practice question covering different aspects",
+        "answer": "Correct answer with context",
+        "explanation": "Comprehensive explanation of the answer and related concepts"
       }
     ]
   }
 }
 
-Guidelines:
-- Provide comprehensive, detailed information
-- Include practical examples and applications
-- Address common misconceptions
-- Give specific study and exam tips
-- Show relationships with other concepts
-- Include sample practice questions
-- Make content engaging and educational
+CONTENT QUALITY REQUIREMENTS:
+- Each item should be self-contained and meaningful
+- Provide specific, actionable information rather than vague statements
+- Include both theoretical and practical aspects
+- Ensure content works well in different display formats (tables, cards, lists)
+- Make information easily scannable and digestible
+- Balance depth with accessibility
+
+STRUCTURED CONTENT GUIDELINES:
+- Key Points: 5-7 essential, memorable points that summarize the topic
+- Examples: 2-3 practical, real-world examples with clear explanations
+- Misconceptions: 2-3 common errors with detailed corrections
+- Study Tips: 5-7 specific, actionable strategies for learning this topic
+- Exam Tips: 5-7 practical strategies for test-taking on this topic
+- Related Concepts: 2-3 connected topics with clear relationship explanations
+- Practice Questions: 2-3 questions that test different aspects of understanding
 
 Topic: ${JSON.stringify(topic, null, 2)}
 Original content: ${content}`;

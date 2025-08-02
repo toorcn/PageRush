@@ -56,31 +56,55 @@ INSTRUCTIONS:
 9. Add brief explanations and context for each concept
 10. Focus on information that would be useful for studying and review
 
+STRUCTURED CONTENT REQUIREMENTS:
+- Create content that can be displayed in multiple formats (sections, tables, cards)
+- Each section should have a clear, descriptive title
+- Include concise summaries that work well in table previews
+- Structure information for easy scanning and comparison
+- Use consistent formatting patterns throughout
+
 FORMAT REQUIREMENTS:
 - Start with a main title using # 
-- Use ## for major sections
-- Use ### for subsections
+- Use ## for major sections (aim for 4-8 main sections)
+- Use ### for subsections (2-4 per main section)
 - Use **bold** for key terms and important concepts
-- Use bullet points (- or *) for lists
-- Use numbered lists (1. 2. 3.) for sequences or steps
+- Use bullet points (- or *) for lists of related information
+- Use numbered lists (1. 2. 3.) for processes, steps, or sequences
 - Include brief explanations for each concept
-- Make it easy to scan and review
+- Make content scannable and well-organized
+
+CONTENT ORGANIZATION:
+- Group related concepts together
+- Use clear, descriptive section titles
+- Include both theoretical and practical information
+- Balance depth with accessibility
+- Ensure each section has meaningful content
 
 Example structure:
-# Main Topic
-## Key Concept 1
-**Important Term**: Definition and explanation
-- Point 1
-- Point 2
+# [Main Topic Title]
+## [Key Concept 1]
+**Important Term**: Clear definition and explanation
+- Supporting point 1
+- Supporting point 2
+- Additional context
 
-## Key Concept 2
-### Subconcept A
+## [Key Concept 2]
+### [Subconcept A]
 **Term**: Definition
-1. First step
-2. Second step
+1. First step in process
+2. Second step in process
+3. Final step
 
-### Subconcept B
+### [Subconcept B]
 **Another Term**: Definition
+- Related information
+- Additional details
+
+## [Key Concept 3]
+**Core Concept**: Explanation
+- Key point 1
+- Key point 2
+- Key point 3
 
 Text to create study guide from:\n\n${text}`;
       break;

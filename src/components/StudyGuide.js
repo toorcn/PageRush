@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 
 export default function StudyGuide({ content, onRegenerate }) {
   const [expandedSections, setExpandedSections] = useState(new Set());
+  const [displayFormat, setDisplayFormat] = useState('sections'); // 'sections', 'table', 'cards'
 
   // Enhanced section detection with better regex patterns
   const sections = content
@@ -167,6 +168,100 @@ export default function StudyGuide({ content, onRegenerate }) {
     return section;
   };
 
+  // Enhanced rendering functions for different display formats
+  const renderAsTable = () => {
+    if (!sections || sections.length === 0) return null;
+
+    return (
+      <div className="bg-white rounded-lg overflow-hidden border border-gray-200">
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-4 text-left text-sm font-medium text-gray-700 border-b border-gray-200">Section</th>
+              <th className="px-6 py-4 text-left text-sm font-medium text-gray-700 border-b border-gray-200">Content Preview</th>
+              <th className="px-6 py-4 text-left text-sm font-medium text-gray-700 border-b border-gray-200">Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sections.map((section, index) => {
+              const title = extractSectionTitle(section);
+              const content = getSectionContent(section);
+              const preview = content.substring(0, 100) + (content.length > 100 ? '...' : '');
+              const isMain = isMainSection(section);
+              
+              return (
+                <tr key={index} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 text-sm font-medium text-gray-800 border-b border-gray-100">
+                    {title}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600 border-b border-gray-100">
+                    {preview}
+                  </td>
+                  <td className="px-6 py-4 text-sm border-b border-gray-100">
+                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
+                      isMain ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
+                    }`}>
+                      {isMain ? 'Main Section' : 'Subsection'}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  const renderAsCards = () => {
+    if (!sections || sections.length === 0) return null;
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {sections.map((section, index) => {
+          const title = extractSectionTitle(section);
+          const content = getSectionContent(section);
+          const isMain = isMainSection(section);
+          const isExpanded = expandedSections.has(index);
+          
+          return (
+            <div key={index} className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-all duration-200">
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-gray-800">{title}</h3>
+                  <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
+                    isMain ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
+                  }`}>
+                    {isMain ? 'Main' : 'Sub'}
+                  </span>
+                </div>
+                
+                <div className="text-sm text-gray-600 mb-3 line-clamp-2">
+                  {content.substring(0, 150) + (content.length > 150 ? '...' : '')}
+                </div>
+                
+                <button
+                  onClick={() => toggleSection(index)}
+                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                >
+                  {isExpanded ? 'Show Less' : 'Show More'}
+                </button>
+                
+                {isExpanded && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="prose prose-sm max-w-none">
+                      {renderFormattedText(content)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   // Check if content is empty or invalid
   if (!content || !content.trim()) {
     return (
@@ -212,8 +307,51 @@ export default function StudyGuide({ content, onRegenerate }) {
 
       {/* Content Section */}
       <div className="p-6">
+        {/* Format Selector */}
+        {sections.length > 1 && (
+          <div className="mb-6 bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-lg text-gray-800">Display Format</h3>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setDisplayFormat('sections')}
+                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                    displayFormat === 'sections' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Sections
+                </button>
+                <button
+                  onClick={() => setDisplayFormat('table')}
+                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                    displayFormat === 'table' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Table
+                </button>
+                <button
+                  onClick={() => setDisplayFormat('cards')}
+                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                    displayFormat === 'cards' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Cards
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-4">
           {sections.length > 1 ? (
+            displayFormat === 'table' ? renderAsTable() :
+            displayFormat === 'cards' ? renderAsCards() :
             sections.map((section, index) => {
               const isExpanded = expandedSections.has(index);
               const sectionIsMain = isMainSection(section);
