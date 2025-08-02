@@ -72,7 +72,7 @@ interface HistoryItem {
 
 export default function Home() {
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [activeDocument, setActiveDocument] = useState<Document | null>(null);
+  const [activeDocuments, setActiveDocuments] = useState<Document[]>([]);
   const [apiKey, setApiKey] = useState('');
   const [feature, setFeature] = useState('');
   const [loading, setLoading] = useState(false);
@@ -159,7 +159,7 @@ export default function Home() {
       const parsedDocs = JSON.parse(savedDocuments);
       setDocuments(parsedDocs);
       if (parsedDocs.length > 0) {
-        setActiveDocument(parsedDocs[0]);
+        setActiveDocuments([parsedDocs[0]]);
       }
     }
 
@@ -207,7 +207,7 @@ export default function Home() {
     };
     
     setDocuments(prev => [...prev, newDocument]);
-    setActiveDocument(newDocument);
+    setActiveDocuments([newDocument]);
     setResult(null);
     setQuizScore(null);
     setShowQuizGenerator(false);
@@ -246,12 +246,12 @@ export default function Home() {
       return;
     }
     
-    if (!activeDocument?.text || !apiKey) return;
+    if (!activeDocuments.length || !apiKey) return;
     
     // Check if we have a previous result for this feature and document
     const previousResult = history.find(item => 
       item.feature === ft && 
-      item.documentName === activeDocument.name
+      activeDocuments.some(doc => doc.name === item.documentName)
     );
     
     if (previousResult) {
@@ -280,7 +280,7 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          text: activeDocument?.text || '', 
+          text: activeDocuments.map(doc => doc.text).join('\n\n---\n\n'), 
           promptType: ft, 
           geminiApiKey: apiKey,
           topics,
@@ -300,8 +300,8 @@ export default function Home() {
         id: Date.now(),
         timestamp: new Date().toISOString(),
         feature: ft,
-        documentName: activeDocument?.name || '',
-        text: (activeDocument?.text || '').substring(0, 100) + '...',
+        documentName: activeDocuments.map(doc => doc.name).join(', '),
+        text: (activeDocuments.map(doc => doc.text).join('\n\n---\n\n')).substring(0, 100) + '...',
         result: data,
         topics,
         questionCount,
@@ -407,7 +407,7 @@ export default function Home() {
         id: Date.now(),
         timestamp: new Date().toISOString(),
         examId: result?.id || Date.now(),
-        documentName: activeDocument?.name || '',
+        documentName: activeDocuments.map(doc => doc.name).join(', '),
         score: data.score,
         total: data.total,
         percentage: data.percentage,
@@ -439,7 +439,7 @@ export default function Home() {
     // Find or create document from history
     const existingDoc = documents.find(doc => doc.name === historyItem.documentName);
     if (existingDoc) {
-      setActiveDocument(existingDoc);
+      setActiveDocuments([existingDoc]);
     } else {
       const newDoc = {
         id: Date.now(),
@@ -448,7 +448,7 @@ export default function Home() {
         timestamp: historyItem.timestamp
       };
       setDocuments(prev => [...prev, newDoc]);
-      setActiveDocument(newDoc);
+              setActiveDocuments([newDoc]);
     }
     
     // Set the result and feature
@@ -476,7 +476,7 @@ export default function Home() {
     setHistory([]);
     setPerformanceSummaries([]);
     setDocuments([]);
-    setActiveDocument(null);
+    setActiveDocuments([]);
     setApiKey('');
     localStorage.removeItem('studyHistory');
     localStorage.removeItem('performanceSummaries');
@@ -486,14 +486,15 @@ export default function Home() {
 
   const removeDocument = (documentId: number) => {
     setDocuments(prev => prev.filter(doc => doc.id !== documentId));
-    if (activeDocument?.id === documentId) {
+    if (activeDocuments.some(doc => doc.id === documentId)) {
       const remainingDocs = documents.filter(doc => doc.id !== documentId);
-      setActiveDocument(remainingDocs.length > 0 ? remainingDocs[0] : null);
+      const updatedActiveDocs = activeDocuments.filter(doc => doc.id !== documentId);
+      setActiveDocuments(updatedActiveDocs.length > 0 ? updatedActiveDocs : remainingDocs.length > 0 ? [remainingDocs[0]] : []);
     }
   };
 
   // Step logic
-  const step = !activeDocument ? 0 : !apiKey ? 1 : !result ? 2 : 3;
+  const step = !activeDocuments.length ? 0 : !apiKey ? 1 : !result ? 2 : 3;
 
   // Auto-expand sections when they become relevant
   useEffect(() => {
@@ -551,7 +552,7 @@ export default function Home() {
     return (
       <NotificationProvider notifications={notifications} removeNotification={removeNotification}>
         <FocusMode
-          activeDocument={activeDocument}
+          activeDocument={activeDocuments}
           apiKey={apiKey}
           onExit={() => setFocusMode(false)}
           currentProgress={typeof currentQuestionIndex === 'number' ? undefined : null}
@@ -609,10 +610,10 @@ export default function Home() {
               <h1 className={`text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent ${focusMode ? 'sr-only' : ''}`}>
                 PageRush AI
               </h1>
-              {activeDocument && (
+              {activeDocuments.length > 0 && (
                 <div className="flex items-center space-x-2">
                   <span className="text-gray-500">📄</span>
-                  <span className="text-sm font-medium text-gray-700">{activeDocument.name}</span>
+                  <span className="text-sm font-medium text-gray-700">{activeDocuments.map(doc => doc.name).join(', ')}</span>
                 </div>
               )}
             </div>
@@ -650,17 +651,29 @@ export default function Home() {
           </div>
 
           {/* Mobile Document Info */}
-          {activeDocument && (
-            <div className="lg:hidden bg-white/80 backdrop-blur-sm rounded-lg p-3 shadow-sm border border-gray-200">
-              <div className="flex items-center space-x-2">
-                <span className="text-gray-500">📄</span>
-                <span className="text-sm font-medium text-gray-700 truncate">{activeDocument.name}</span>
+          {activeDocuments.length > 0 && (
+            <div className="lg:hidden space-y-2">
+              <div className="text-xs font-medium text-gray-600 px-1">
+                Active Documents ({activeDocuments.length})
               </div>
+              {activeDocuments.map((doc, index) => (
+                <div key={doc.id} className="bg-white/80 backdrop-blur-sm rounded-lg p-3 shadow-sm border border-gray-200">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-gray-500">📄</span>
+                    <span className="text-sm font-medium text-gray-700 truncate">{doc.name}</span>
+                    {index === 0 && (
+                      <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium flex-shrink-0">
+                        Primary
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
           {/* Mobile Action Buttons */}
-          <div className="lg:hidden flex flex-wrap gap-2">
+          {/* <div className="lg:hidden flex flex-wrap gap-2">
             <button
               onClick={() => setFocusMode(true)}
               className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:from-purple-700 hover:to-indigo-700 flex items-center justify-center space-x-2"
@@ -668,7 +681,7 @@ export default function Home() {
               <span>🎯</span>
               <span>Focus Mode</span>
             </button>
-          </div>
+          </div> */}
 
           {/* Data Restored Notification intentionally removed for linting */}
 
@@ -676,14 +689,14 @@ export default function Home() {
           {showDocumentManager && (
             <DocumentManager 
               documents={documents}
-              activeDocument={activeDocument}
-              onSelectDocument={setActiveDocument}
+              activeDocument={activeDocuments}
+                              onSelectDocument={setActiveDocuments}
               onRemoveDocument={removeDocument}
               onClose={() => setShowDocumentManager(false)}
               onAddMoreDocuments={() => {
                 setShowDocumentManager(false);
                 // Clear active document to show the PdfUploader (step 0)
-                setActiveDocument(null);
+                setActiveDocuments([]);
               }}
             />
           )}
@@ -705,7 +718,7 @@ export default function Home() {
           )}
 
           {/* Mobile Bottom Spacer */}
-          <div className="lg:hidden h-20"></div>
+          <div className="lg:hidden h-8"></div>
 
           {/* Main Content */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
@@ -856,14 +869,14 @@ export default function Home() {
               {showQuizGenerator && (
                 <QuizGenerator 
                   onGenerate={handleQuizGenerate} 
-                  extractedText={activeDocument?.text || ''} 
+                  extractedText={activeDocuments.map(doc => doc.text).join('\n\n---\n\n')} 
                   apiKey={apiKey}
                 />
               )}
               {showExamGenerator && (
                 <ExamGenerator 
                   onGenerate={handleExamGenerate} 
-                  extractedText={activeDocument?.text || ''} 
+                  extractedText={activeDocuments.map(doc => doc.text).join('\n\n---\n\n')} 
                   apiKey={apiKey}
                   performanceSummaries={performanceSummaries}
                 />
@@ -876,10 +889,10 @@ export default function Home() {
                   />
                 </div>
               )}
-              {!loading && feature === 'examCram' && activeDocument && (
-                <ExamCram 
-                  content={activeDocument.text || ''}
-                  documentName={activeDocument.name || ''}
+                            {!loading && feature === 'examCram' && activeDocuments.length > 0 && (
+                <ExamCram
+                  content={activeDocuments.map(doc => doc.text).join('\n\n---\n\n')}
+                  documentName={activeDocuments.map(doc => doc.name).join(', ')}
                   apiKey={apiKey}
                   onGenerateContent={generateContent}
                 />

@@ -134,7 +134,7 @@ const FocusMode = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          text: activeDocument?.text || '', 
+          text: Array.isArray(activeDocument) ? activeDocument.map(doc => doc.text).join('\n\n---\n\n') : activeDocument?.text || '', 
           promptType: studyTool.feature, 
           geminiApiKey: apiKey
         }),

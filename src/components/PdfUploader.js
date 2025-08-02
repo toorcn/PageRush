@@ -46,6 +46,12 @@ export default function PdfUploader({ onExtracted }) {
     try {
       // Process each file individually
       for (const file of files) {
+        // Check file size before upload (50MB limit)
+        if (file.size > 50 * 1024 * 1024) {
+          alert(`File "${file.name}" is too large. Maximum size is 50MB.`);
+          continue;
+        }
+
         const formData = new FormData();
         formData.append('pdfs', file);
         
@@ -53,13 +59,26 @@ export default function PdfUploader({ onExtracted }) {
           method: 'POST',
           body: formData,
         });
+
+        if (!res.ok) {
+          if (res.status === 413) {
+            throw new Error(`File "${file.name}" is too large for upload. Please try a smaller file.`);
+          } else {
+            const errorData = await res.json().catch(() => ({ error: 'Unknown error occurred' }));
+            throw new Error(errorData.error || `Upload failed with status ${res.status}`);
+          }
+        }
+
         const data = await res.json();
         if (data.text) {
           onExtracted(data.text, file.name);
+        } else {
+          throw new Error(`No text could be extracted from "${file.name}"`);
         }
       }
     } catch (error) {
       console.error('Upload error:', error);
+      alert(`Upload failed: ${error.message}`);
     } finally {
       setIsProcessing(false);
       setFiles([]); // Clear files after processing

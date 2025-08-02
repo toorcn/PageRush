@@ -188,21 +188,21 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
       {content && apiKey && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <h3 className="font-semibold text-blue-800 mb-3">📚 Content Status</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {breakdown?.topics.map((topic) => {
               const status = topicContentStatus[topic.id];
               const isLoaded = topicContentManager.isTopicContentLoaded(topic.id);
               const hasCachedContent = topicContent.has(topic.id);
               
               return (
-                <div key={topic.id} className="flex items-center justify-between p-2 bg-white rounded border">
-                  <span className="text-sm font-medium text-gray-700">{topic.title}</span>
-                  <div className="flex items-center space-x-2">
+                <div key={topic.id} className="flex items-center justify-between p-2 bg-white rounded border min-w-0">
+                  <span className="text-sm font-medium text-gray-700 truncate mr-2">{topic.title}</span>
+                  <div className="flex items-center space-x-2 flex-shrink-0">
                     {status === 'loading' && <span className="text-blue-600">⏳</span>}
                     {status === 'error' && <span className="text-red-600">❌</span>}
                     {(isLoaded || hasCachedContent) && !status && <span className="text-green-600">✅</span>}
                     {status === 'loaded' && <span className="text-green-600">✅</span>}
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-gray-500 whitespace-nowrap">
                       {isLoaded || hasCachedContent ? 'Loaded' : 'Not loaded'}
                     </span>
                   </div>
@@ -214,42 +214,44 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
       )}
 
       {/* Filter Tabs */}
-      <div className="flex items-center justify-between border-b border-gray-200">
-        <div className="flex space-x-2">
-          {[
-            { key: 'all', label: 'All Topics', count: breakdown.topics.length },
-            { key: 'high', label: 'High Priority', count: priorityStats.high },
-            { key: 'medium', label: 'Medium Priority', count: priorityStats.medium },
-            { key: 'low', label: 'Low Priority', count: priorityStats.low }
-          ].map(filter => (
+      <div className="border-b border-gray-200">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-wrap gap-2 overflow-x-auto">
+            {[
+              { key: 'all', label: 'All Topics', count: breakdown.topics.length },
+              { key: 'high', label: 'High Priority', count: priorityStats.high },
+              { key: 'medium', label: 'Medium Priority', count: priorityStats.medium },
+              { key: 'low', label: 'Low Priority', count: priorityStats.low }
+            ].map(filter => (
+              <button
+                key={filter.key}
+                onClick={() => setFilterPriority(filter.key)}
+                className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  filterPriority === filter.key
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {filter.label} ({filter.count})
+              </button>
+            ))}
+          </div>
+          
+          {/* Preload Content Button */}
+          {content && apiKey && (
             <button
-              key={filter.key}
-              onClick={() => setFilterPriority(filter.key)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                filterPriority === filter.key
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              onClick={preloadAllTopicContent}
+              disabled={Object.values(topicContentStatus).some(s => s === 'loading')}
+              className={`px-3 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap ${
+                Object.values(topicContentStatus).some(s => s === 'loading')
+                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
               }`}
             >
-              {filter.label} ({filter.count})
+              {Object.values(topicContentStatus).some(s => s === 'loading') ? '⏳ Loading...' : '📚 Load Content'}
             </button>
-          ))}
+          )}
         </div>
-        
-        {/* Preload Content Button */}
-        {content && apiKey && (
-          <button
-            onClick={preloadAllTopicContent}
-            disabled={Object.values(topicContentStatus).some(s => s === 'loading')}
-            className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
-              Object.values(topicContentStatus).some(s => s === 'loading')
-                ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
-                : 'bg-blue-600 text-white hover:bg-blue-700'
-            }`}
-          >
-            {Object.values(topicContentStatus).some(s => s === 'loading') ? '⏳ Loading...' : '📚 Load Remaining Content'}
-          </button>
-        )}
       </div>
 
       {/* Topics List */}
@@ -260,19 +262,19 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
           return (
             <div key={topic.id} className="border border-gray-200 rounded-lg overflow-hidden">
               <div className="bg-gray-50 p-4">
-                <div className="flex items-start justify-between">
+                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                   <div className="flex items-start space-x-3 flex-1">
                     <div className="flex-shrink-0">
                       <span className="text-2xl">{getPriorityIcon(topic.priority)}</span>
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="font-bold text-lg text-gray-800">{topic.title}</h3>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(topic.priority)}`}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <h3 className="font-bold text-lg text-gray-800 break-words">{topic.title}</h3>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(topic.priority)} whitespace-nowrap`}>
                           {topic.priority} priority
                         </span>
                         {content && apiKey && (topicContentManager.isTopicContentLoaded(topic.id) || topicContent.has(topic.id)) && (
-                          <span className="text-green-600 text-xs bg-green-100 px-2 py-1 rounded">
+                          <span className="text-green-600 text-xs bg-green-100 px-2 py-1 rounded whitespace-nowrap">
                             📚 Content loaded
                           </span>
                         )}
@@ -294,7 +296,7 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
                       </div>
 
                       {/* Study Time Estimate */}
-                      <div className="flex items-center space-x-4 text-sm text-gray-500">
+                      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
                         <span>⏱️ {topic.estimatedStudyTime} min</span>
                         <span>📚 {topic.keyConcepts.length} concepts</span>
                         <span>🎯 {topic.difficultyLevel} difficulty</span>
@@ -302,28 +304,28 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
                     </div>
                   </div>
                   
-                  <div className="flex items-center space-x-2">
+                  <div className="flex flex-wrap items-center gap-2 lg:flex-shrink-0">
                     <button
                       onClick={() => onStartLearning(topic.id)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                      className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium whitespace-nowrap"
                     >
                       Practice
                     </button>
                     <button
                       onClick={() => onViewContent(topic)}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                      className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium whitespace-nowrap"
                     >
                       Study
                     </button>
-                    {content && apiKey && !topicContentManager.isTopicContentLoaded(topic.id) && !topicContent.has(topic.id) && (
+                    {/* {content && apiKey && !topicContentManager.isTopicContentLoaded(topic.id) && !topicContent.has(topic.id) && (
                       <button
                         onClick={() => loadTopicContent(topic.id)}
                         disabled={topicContentStatus[topic.id] === 'loading'}
-                        className="px-3 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700 transition-colors disabled:opacity-50"
+                        className="px-2 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700 transition-colors disabled:opacity-50 whitespace-nowrap"
                       >
                         {topicContentStatus[topic.id] === 'loading' ? 'Loading...' : 'Load'}
                       </button>
-                    )}
+                    )} */}
                     <button
                       onClick={() => toggleTopic(topic.id)}
                       disabled={loadingTopics.has(topic.id)}
@@ -387,7 +389,7 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
                       {topicContent.has(topic.id) && (
                         <div className="space-y-6">
                           {/* Detailed Description */}
-                          {topicContent.get(topic.id).detailedDescription && (
+                          {/* {topicContent.get(topic.id).detailedDescription && (
                             <div>
                               <h4 className="font-semibold text-gray-800 mb-2">📖 Detailed Explanation:</h4>
                               <div className="bg-blue-50 p-4 rounded-lg">
@@ -396,10 +398,10 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
                                 </p>
                               </div>
                             </div>
-                          )}
+                          )} */}
 
                           {/* Key Points */}
-                          {topicContent.get(topic.id).keyPoints && (
+                          {/* {topicContent.get(topic.id).keyPoints && (
                             <div>
                               <h4 className="font-semibold text-gray-800 mb-2">🎯 Key Points:</h4>
                               <ul className="space-y-2">
@@ -411,10 +413,10 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
                                 ))}
                               </ul>
                             </div>
-                          )}
+                          )} */}
 
                           {/* Examples */}
-                          {topicContent.get(topic.id).examples && (
+                          {/* {topicContent.get(topic.id).examples && (
                             <div>
                               <h4 className="font-semibold text-gray-800 mb-2">💡 Examples:</h4>
                               <div className="space-y-3">
@@ -426,10 +428,10 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
                                 ))}
                               </div>
                             </div>
-                          )}
+                          )} */}
 
                           {/* Common Misconceptions */}
-                          {topicContent.get(topic.id).commonMisconceptions && (
+                          {/* {topicContent.get(topic.id).commonMisconceptions && (
                             <div>
                               <h4 className="font-semibold text-gray-800 mb-2">⚠️ Common Misconceptions:</h4>
                               <div className="space-y-3">
@@ -448,10 +450,10 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
                                 ))}
                               </div>
                             </div>
-                          )}
+                          )} */}
 
                           {/* Study Tips */}
-                          {topicContent.get(topic.id).studyTips && (
+                          {/* {topicContent.get(topic.id).studyTips && (
                             <div>
                               <h4 className="font-semibold text-gray-800 mb-2">📚 Study Tips:</h4>
                               <ul className="space-y-2">
@@ -463,7 +465,7 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
                                 ))}
                               </ul>
                             </div>
-                          )}
+                          )} */}
 
                           {/* Exam Tips */}
                           {topicContent.get(topic.id).examTips && (
@@ -473,7 +475,7 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
                                 {topicContent.get(topic.id).examTips.map((tip, idx) => (
                                   <li key={idx} className="flex items-start space-x-2">
                                     <span className="text-orange-500 mt-1">🎯</span>
-                                    <span className="text-gray-700">{tip}</span>
+                                    <span className="text-gray-700">{renderFormattedText(tip)}</span>
                                   </li>
                                 ))}
                               </ul>
@@ -481,7 +483,7 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
                           )}
 
                           {/* Practice Questions */}
-                          {topicContent.get(topic.id).practiceQuestions && (
+                          {/* {topicContent.get(topic.id).practiceQuestions && (
                             <div>
                               <h4 className="font-semibold text-gray-800 mb-2">🧠 Practice Questions:</h4>
                               <div className="space-y-3">
@@ -500,7 +502,7 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
                                 ))}
                               </div>
                             </div>
-                          )}
+                          )} */}
                         </div>
                       )}
 

@@ -12,6 +12,7 @@ export default function DocumentManager({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [selectedDocuments, setSelectedDocuments] = useState(new Set());
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+  const [activeTab, setActiveTab] = useState('active');
 
   const formatDate = (timestamp) => {
     return new Date(timestamp).toLocaleDateString() + ' ' + new Date(timestamp).toLocaleTimeString();
@@ -51,12 +52,12 @@ export default function DocumentManager({
 
   const handleSelectMultiple = () => {
     if (selectedDocuments.size > 0) {
-      // Use the first selected document as active, but keep track of all selected
-      const firstSelectedId = Array.from(selectedDocuments)[0];
-      const firstSelectedDoc = documents.find(doc => doc.id === firstSelectedId);
-      if (firstSelectedDoc) {
-        onSelectDocument(firstSelectedDoc);
-      }
+      // Get all selected documents
+      const selectedDocs = documents.filter(doc => selectedDocuments.has(doc.id));
+      
+      // Pass the array of selected documents to the parent component
+      // The parent component will need to handle multiple documents
+      onSelectDocument(selectedDocs);
     }
     setIsMultiSelectMode(false);
     setSelectedDocuments(new Set());
@@ -81,189 +82,279 @@ export default function DocumentManager({
   };
 
   const isDocumentActive = (documentId) => {
+    // Check if this document is in the active documents array
+    if (Array.isArray(activeDocument)) {
+      return activeDocument.some(doc => doc.id === documentId);
+    }
     return activeDocument?.id === documentId;
   };
 
+  // Get active document names for display
+  const getActiveDocumentNames = () => {
+    if (Array.isArray(activeDocument)) {
+      return activeDocument.map(doc => doc.name).join(', ');
+    }
+    return activeDocument?.name || '';
+  };
+
+  // Get all active documents for display
+  const getActiveDocuments = () => {
+    if (Array.isArray(activeDocument)) {
+      return activeDocument;
+    }
+    return activeDocument ? [activeDocument] : [];
+  };
+
   return (
-    <div className="h-full fixed inset-0 bg-gray-900/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full h-full max-h-[95vh] overflow-hidden flex flex-col">
+    <div className="h-full fixed inset-0 bg-gray-900/75 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full h-full max-h-[95vh] overflow-hidden flex flex-col mx-2">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 lg:p-6 border-b flex-shrink-0">
-          <h2 className="text-xl lg:text-2xl font-bold text-gray-800">📚 Document Manager</h2>
+        <div className="flex items-center justify-between p-6 border-b flex-shrink-0">
+          <h2 className="text-2xl font-bold text-gray-800">📚 Document Manager</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl lg:text-3xl p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            className="text-gray-500 hover:text-gray-700 text-2xl"
           >
             ×
           </button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-hidden">
-          {/* Toolbar */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 lg:p-6 border-b">
-            <div className="flex items-center space-x-2">
-              <span className="text-sm lg:text-base text-gray-600">
-                {documents.length} document{documents.length !== 1 ? 's' : ''}
-              </span>
-              {activeDocument && (
-                <span className="text-sm lg:text-base text-blue-600 font-medium">
-                  • Active: {activeDocument.name}
-                </span>
-              )}
-            </div>
-            
-            <div className="flex flex-wrap gap-2">
-              {!isMultiSelectMode ? (
-                <>
-                  <button
-                    onClick={() => setIsMultiSelectMode(true)}
-                    className="px-3 py-2 text-sm lg:text-base bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Select Multiple
-                  </button>
-                  <button
-                    onClick={handleAddMoreDocuments}
-                    className="px-3 py-2 text-sm lg:text-base bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    Add More
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={() => {
-                      setIsMultiSelectMode(false);
-                      setSelectedDocuments(new Set());
-                    }}
-                    className="px-3 py-2 text-sm lg:text-base bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSelectMultiple}
-                    disabled={selectedDocuments.size === 0}
-                    className="px-3 py-2 text-sm lg:text-base bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Select ({selectedDocuments.size})
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
+        {/* Tabs */}
+        <div className="flex border-b flex-shrink-0">
+          <button
+            onClick={() => setActiveTab('active')}
+            className={`px-6 py-3 font-medium transition-colors ${
+              activeTab === 'active' 
+                ? 'text-blue-600 border-b-2 border-blue-600' 
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Active Documents ({getActiveDocuments().length})
+          </button>
+          <button
+            onClick={() => setActiveTab('all')}
+            className={`px-6 py-3 font-medium transition-colors ${
+              activeTab === 'all' 
+                ? 'text-blue-600 border-b-2 border-blue-600' 
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            All Documents ({documents.length})
+          </button>
+        </div>
 
-          {/* Document List */}
-          <div className="flex-1 overflow-y-auto p-4 lg:p-6">
-            {documents.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-6xl mb-4">📄</div>
-                <h3 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2">No Documents</h3>
-                <p className="text-gray-600 text-sm lg:text-base mb-6">Upload your first document to get started</p>
-                <button
-                  onClick={handleAddMoreDocuments}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-                >
-                  Upload Document
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3 lg:space-y-4">
-                {documents.map((doc) => (
+        {/* Content */}
+        <div className="p-6 overflow-y-auto flex-1">
+          {activeTab === 'active' && (
+            <div className="space-y-4">
+              {getActiveDocuments().length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="text-4xl mb-4">📄</div>
+                  <p>No active documents</p>
+                  <p className="text-sm">Select documents from the "All Documents" tab to make them active</p>
+                </div>
+              ) : (
+                getActiveDocuments().map((doc) => (
                   <div
-                    key={doc.id}
-                    className={`relative p-4 lg:p-5 rounded-lg border-2 transition-all duration-200 ${
-                      isDocumentActive(doc.id)
-                        ? 'border-blue-500 bg-blue-50'
-                        : isDocumentSelected(doc.id)
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-gray-200 bg-gray-50 hover:bg-white hover:border-gray-300'
-                    }`}
+                    key={`active-${doc.id}`}
+                    className="border rounded-lg p-4 hover:bg-gray-50 transition-colors border-blue-500 bg-blue-50"
                   >
                     {/* Selection Checkbox */}
                     {isMultiSelectMode && (
-                      <div className="absolute top-3 left-3">
+                      <div className="mb-3">
                         <input
                           type="checkbox"
                           checked={isDocumentSelected(doc.id)}
                           onChange={() => toggleDocumentSelection(doc.id)}
                           className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                         />
+                        <span className="ml-2 text-sm text-gray-600">Select for multi-document operation</span>
                       </div>
                     )}
 
-                    {/* Document Content */}
-                    <div className={`${isMultiSelectMode ? 'ml-8' : ''}`}>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <span className="text-2xl lg:text-3xl">📄</span>
-                            <h3 className="font-semibold text-gray-800 text-sm lg:text-base truncate">
-                              {doc.name}
-                            </h3>
-                            {isDocumentActive(doc.id) && (
-                              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
-                                Active
-                              </span>
-                            )}
-                          </div>
-                          
-                          <div className="space-y-1 text-xs lg:text-sm text-gray-600">
-                            <div className="flex items-center space-x-4">
-                              <span>📅 {formatDate(doc.timestamp)}</span>
-                              <span>📏 {getDocumentSize(doc.text)}</span>
-                            </div>
-                            <div className="text-gray-500 truncate">
-                              {doc.text.substring(0, 100)}...
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex items-center space-x-2 ml-4">
-                          {!isDocumentActive(doc.id) && (
-                            <button
-                              onClick={() => onSelectDocument(doc)}
-                              className="px-3 py-1 lg:px-4 lg:py-2 text-xs lg:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                            >
-                              Select
-                            </button>
-                          )}
-                          <button
-                            onClick={() => setShowDeleteConfirm(doc.id)}
-                            className="px-2 py-1 lg:px-3 lg:py-2 text-xs lg:text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                          >
-                            Delete
-                          </button>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-2xl">📄</span>
+                        <div>
+                          <h3 className="font-semibold text-gray-800">
+                            {doc.name}
+                          </h3>
+                          <p className="text-sm text-gray-500">{formatDate(doc.timestamp)}</p>
                         </div>
                       </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                          Active
+                        </span>
+                        <button
+                          onClick={() => setShowDeleteConfirm(doc.id)}
+                          className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="text-sm text-gray-600 mb-2">
+                      <span className="mr-4">📏 {getDocumentSize(doc.text)}</span>
+                      <span>{doc.text.substring(0, 100)}...</span>
                     </div>
                   </div>
-                ))}
-              </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {activeTab === 'all' && (
+            <div className="space-y-4">
+              {documents.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="text-4xl mb-4">📄</div>
+                  <p>No documents uploaded yet</p>
+                  <p className="text-sm">Upload your first document to get started</p>
+                </div>
+              ) : (
+                documents.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className={`border rounded-lg p-4 hover:bg-gray-50 transition-colors ${
+                      isDocumentActive(doc.id)
+                        ? 'border-blue-500 bg-blue-50'
+                        : isDocumentSelected(doc.id)
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-gray-200'
+                    }`}
+                  >
+                    {/* Selection Checkbox */}
+                    {isMultiSelectMode && (
+                      <div className="mb-3">
+                        <input
+                          type="checkbox"
+                          checked={isDocumentSelected(doc.id)}
+                          onChange={() => toggleDocumentSelection(doc.id)}
+                          className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className="ml-2 text-sm text-gray-600">Select for multi-document operation</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-2xl">📄</span>
+                        <div>
+                          <h3 className="font-semibold text-gray-800">
+                            {doc.name}
+                          </h3>
+                          <p className="text-sm text-gray-500">{formatDate(doc.timestamp)}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {isDocumentActive(doc.id) && (
+                          <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                            Active
+                          </span>
+                        )}
+                        {!isDocumentActive(doc.id) && (
+                          <button
+                            onClick={() => onSelectDocument(doc)}
+                            className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
+                          >
+                            Select
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setShowDeleteConfirm(doc.id)}
+                          className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="text-sm text-gray-600 mb-2">
+                      <span className="mr-4">📏 {getDocumentSize(doc.text)}</span>
+                      <span>{doc.text.substring(0, 100)}...</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between p-6 border-t bg-gray-50">
+          <div className="text-sm text-gray-500">
+            {activeTab === 'active' 
+              ? `${getActiveDocuments().length} active document${getActiveDocuments().length !== 1 ? 's' : ''}`
+              : `${documents.length} document${documents.length !== 1 ? 's' : ''} total`
+            }
+          </div>
+          <div className="flex space-x-2">
+            {!isMultiSelectMode ? (
+              <>
+                <button
+                  onClick={() => setIsMultiSelectMode(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Select Multiple
+                </button>
+                <button
+                  onClick={handleAddMoreDocuments}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Add More
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => {
+                    setIsMultiSelectMode(false);
+                    setSelectedDocuments(new Set());
+                  }}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSelectMultiple}
+                  disabled={selectedDocuments.size === 0}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Select ({selectedDocuments.size})
+                </button>
+              </>
             )}
+            {/* <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+            >
+              Close
+            </button> */}
           </div>
         </div>
 
         {/* Delete Confirmation Modal */}
         {showDeleteConfirm && (
           <div className="absolute inset-0 bg-gray-900/75 backdrop-blur-sm flex items-center justify-center z-10">
-            <div className="bg-white rounded-xl shadow-xl p-6 lg:p-8 max-w-md w-full mx-4">
+            <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4">
               <div className="text-center">
-                <div className="text-4xl lg:text-5xl mb-4">⚠️</div>
-                <h3 className="text-lg lg:text-xl font-bold text-gray-800 mb-2">Delete Document?</h3>
-                <p className="text-gray-600 text-sm lg:text-base mb-6">
+                <div className="text-4xl mb-4">⚠️</div>
+                <h3 className="text-lg font-bold text-gray-800 mb-2">Delete Document?</h3>
+                <p className="text-gray-600 mb-6">
                   This action cannot be undone. The document will be permanently removed.
                 </p>
-                <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex space-x-3">
                   <button
                     onClick={() => setShowDeleteConfirm(null)}
-                    className="flex-1 px-4 py-3 text-sm lg:text-base bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                    className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={() => handleRemoveDocument(showDeleteConfirm)}
-                    className="flex-1 px-4 py-3 text-sm lg:text-base bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                   >
                     Delete
                   </button>

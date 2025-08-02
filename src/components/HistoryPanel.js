@@ -35,8 +35,8 @@ export default function HistoryPanel({ history, performanceSummaries, onLoadFrom
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-900/75 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full h-full max-h-[95vh] overflow-hidden flex flex-col">
+    <div className="h-full fixed inset-0 bg-gray-900/75 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full h-full max-h-[95vh] overflow-hidden flex flex-col mx-2">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b flex-shrink-0">
           <h2 className="text-2xl font-bold text-gray-800">📚 Study History</h2>

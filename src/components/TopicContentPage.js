@@ -1,6 +1,5 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import LottieLoader from './LottieLoader';
 import { topicContentManager } from '../utils/topicContentManager';
 
 export default function TopicContentPage({ topic, onBack, content, apiKey, onStartPractice }) {
@@ -50,6 +49,11 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
     setCompletedSections(newCompleted);
   };
 
+  const markSectionIncomplete = (sectionId) => {
+    const newCompleted = new Set(completedSections);
+    newCompleted.delete(sectionId);
+    setCompletedSections(newCompleted);
+  };
 
 
   const renderFormattedText = (text) => {
@@ -179,6 +183,14 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
                 ✓ Mark as Complete
               </button>
             )}
+            {isCompleted && (
+              <button
+                onClick={() => markSectionIncomplete(sectionId)}
+                className="mt-4 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+              >
+                ↺ Mark as Incomplete
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -186,7 +198,7 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
   };
 
   const getProgressPercentage = () => {
-    const totalSections = 7; // overview, description, keyPoints, examples, misconceptions, studyTips, examTips
+    const totalSections = 9; // objectives, description, keyPoints, examples, misconceptions, studyTips, examTips, practice, related
     const completedCount = completedSections.size;
     return Math.round((completedCount / totalSections) * 100);
   };
@@ -372,9 +384,7 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
                   </div>
                   <div className="flex-1">
                     <h4 className="font-semibold text-gray-800 mb-2">{example.title}</h4>
-                    <div className="prose prose-sm max-w-none">
-                      {renderFormattedText(example.description)}
-                    </div>
+                    <p className="text-gray-700 leading-relaxed text-sm">{example.description}</p>
                     <div className="mt-2">
                       <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
                         Example
@@ -407,10 +417,8 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
         </div>
         
         <div className="text-center py-12">
-          <LottieLoader 
-            text="Loading comprehensive topic content..." 
-            size="large"
-          />
+          <div className="animate-spin text-4xl mb-4">⏳</div>
+          <p className="text-gray-600">Loading comprehensive topic content...</p>
         </div>
       </div>
     );
@@ -533,21 +541,25 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
           )}
 
           {/* Key Points */}
-          {renderKeyPointsAsTable(
-            topicContent.keyPoints,
+          {renderContentSection(
+            'keyPoints',
             'Key Points',
+            topicContent.keyPoints,
             '🎯',
             'bg-green-50',
-            'text-green-800'
+            'text-green-800',
+            'border-green-200'
           )}
 
           {/* Examples */}
-          {renderExamplesAsCards(
-            topicContent.examples,
+          {renderContentSection(
+            'examples',
             'Examples',
+            topicContent.examples,
             '💡',
             'bg-green-50',
-            'text-green-800'
+            'text-green-800',
+            'border-green-200'
           )}
 
           {/* Common Misconceptions */}
@@ -649,19 +661,25 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
           )}
 
           {/* Study Tips */}
-          {topicContent.studyTips && (
-            tipFormat === 'cards' ? renderTipsAsCards(topicContent.studyTips, 'Study Tips', '📚', 'bg-purple-50', 'text-purple-800') :
-            tipFormat === 'table' ? renderTipsAsTable(topicContent.studyTips, 'Study Tips', '📚', 'bg-purple-50', 'text-purple-800') :
-            tipFormat === 'steps' ? renderTipsAsSteps(topicContent.studyTips, 'Study Tips', '📚', 'bg-purple-50', 'text-purple-800') :
-            renderTipsAsCards(topicContent.studyTips, 'Study Tips', '📚', 'bg-purple-50', 'text-purple-800')
+          {renderContentSection(
+            'studyTips',
+            'Study Tips',
+            topicContent.studyTips,
+            '📚',
+            'bg-purple-50',
+            'text-purple-800',
+            'border-purple-200'
           )}
 
           {/* Exam Tips */}
-          {topicContent.examTips && (
-            tipFormat === 'cards' ? renderTipsAsCards(topicContent.examTips, 'Exam Tips', '📝', 'bg-orange-50', 'text-orange-800') :
-            tipFormat === 'table' ? renderTipsAsTable(topicContent.examTips, 'Exam Tips', '📝', 'bg-orange-50', 'text-orange-800') :
-            tipFormat === 'steps' ? renderTipsAsSteps(topicContent.examTips, 'Exam Tips', '📝', 'bg-orange-50', 'text-orange-800') :
-            renderTipsAsSteps(topicContent.examTips, 'Exam Tips', '📝', 'bg-orange-50', 'text-orange-800')
+          {renderContentSection(
+            'examTips',
+            'Exam Tips',
+            topicContent.examTips,
+            '📝',
+            'bg-orange-50',
+            'text-orange-800',
+            'border-orange-200'
           )}
 
           {/* Practice Questions */}
@@ -789,7 +807,7 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
         {/* Progress Summary */}
         <div className="mt-4 pt-4 border-t border-gray-200">
           <div className="flex items-center justify-between text-sm text-gray-600">
-            <span>Learning Progress: {completedSections.size} of 7 sections completed</span>
+            <span>Learning Progress: {completedSections.size} of 9 sections completed</span>
             <span className="font-medium text-blue-600">{getProgressPercentage()}% Complete</span>
           </div>
         </div>
