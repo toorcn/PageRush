@@ -312,7 +312,7 @@ function HomeContent() {
 
   const generateContent = async (ft: string, topics: any = null, questionCount: any = null, knowledgeType: any = null, questionTypes: any = null, performanceSummary: any = null) => {
     setLoading(true);
-    startLoading('global', `Generating ${getFeatureLabel(ft)} with AI...`);
+    startLoading('global', `Generating ${getFeatureLabel(ft)}...`);
     try {
       const res = await fetch('/api/gemini-generate', {
         method: 'POST',
@@ -609,7 +609,7 @@ function HomeContent() {
               <img 
                 src="/pagerushai-logo.png" 
                 alt="PageRush AI" 
-                className="h-8 w-auto"
+                className="h-5 w-3/4"
               />
             </div>
             <div className="flex items-center space-x-2">
@@ -1025,7 +1025,6 @@ function HomeContent() {
                   alt="PageRush AI" 
                   className="h-8 w-auto"
                 />
-                <span className="text-lg font-semibold text-gray-700">PageRush AI</span>
               </div>
               <p className="text-sm text-gray-500 mb-2">
                 Transform your study materials into interactive learning tools

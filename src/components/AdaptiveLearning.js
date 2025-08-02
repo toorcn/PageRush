@@ -624,78 +624,86 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
 
   const renderPracticeMode = () => (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">🎯 Practice: {currentTopic?.title}</h2>
-          <div className="flex items-center space-x-4 text-gray-600">
-            <span>Questions: {sessionStats.questionsAnswered}</span>
-            <span>Correct: {sessionStats.correctAnswers}</span>
-            <span>Avg Time: {sessionStats.averageTime.toFixed(1)}s</span>
-            {currentQuestion && (
-              <>
-                <span className={`px-2 py-1 rounded text-xs font-medium ${
-                  currentQuestion.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
-                  currentQuestion.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-red-100 text-red-800'
-                }`}>
-                  {currentQuestion.difficulty}
-                </span>
-                <span className={`px-2 py-1 rounded text-xs font-medium ${
-                  currentQuestion.type === 'mcq' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-                }`}>
-                  {currentQuestion?.type?.toUpperCase()}
-                </span>
-              </>
-            )}
+      {/* Header - Responsive layout */}
+      <div className="space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="flex-1">
+            <h2 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2">🎯 Practice: {currentTopic?.title}</h2>
+            {/* Stats - Responsive grid */}
+            <div className="grid grid-cols-2 lg:flex lg:items-center lg:space-x-4 gap-2 lg:gap-4 text-sm lg:text-base text-gray-600">
+              <span className="bg-gray-100 px-2 py-1 rounded text-xs lg:text-sm">Questions: {sessionStats.questionsAnswered}</span>
+              <span className="bg-gray-100 px-2 py-1 rounded text-xs lg:text-sm">Correct: {sessionStats.correctAnswers}</span>
+              <span className="bg-gray-100 px-2 py-1 rounded text-xs lg:text-sm">Avg Time: {sessionStats.averageTime.toFixed(1)}s</span>
+            </div>
           </div>
+          <button
+            onClick={completeSession}
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm lg:text-base w-full lg:w-auto"
+          >
+            End Session
+          </button>
         </div>
-        <button
-          onClick={completeSession}
-          className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-        >
-          End Session
-        </button>
+        
+        {/* Question badges - Responsive */}
+        {currentQuestion && (
+          <div className="flex flex-wrap gap-2">
+            <span className={`px-2 py-1 rounded text-xs font-medium ${
+              currentQuestion.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
+              currentQuestion.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+              'bg-red-100 text-red-800'
+            }`}>
+              {currentQuestion.difficulty}
+            </span>
+            <span className={`px-2 py-1 rounded text-xs font-medium ${
+              currentQuestion.type === 'mcq' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+            }`}>
+              {currentQuestion?.type?.toUpperCase()}
+            </span>
+          </div>
+        )}
       </div>
 
       {currentQuestion ? (
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <div className="space-y-6">
-            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-lg">
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Question:</h3>
-              <div className="text-gray-700 leading-relaxed">
+        <div className="bg-white border border-gray-200 rounded-lg p-4 lg:p-6">
+          <div className="space-y-4 lg:space-y-6">
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-3 lg:p-4 rounded-r-lg">
+              <h3 className="text-base lg:text-lg font-semibold text-gray-800 mb-2">Question:</h3>
+              <div className="text-gray-700 leading-relaxed text-sm lg:text-base overflow-hidden">
                 {renderFormattedText(currentQuestion.question)}
               </div>
             </div>
             
             {currentQuestion.type === 'mcq' && (
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-gray-800">Select the best answer:</h4>
-                  <span className="text-green-600 text-sm font-medium bg-green-100 px-2 py-1 rounded">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <h4 className="font-medium text-gray-800 text-sm lg:text-base">Select the best answer:</h4>
+                  <span className="text-green-600 text-xs lg:text-sm font-medium bg-green-100 px-2 py-1 rounded self-start sm:self-auto">
                     ⚡ Instant Feedback
                   </span>
                 </div>
-                {currentQuestion.options.map((option, index) => (
-                  <label key={index} className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
-                    <input
-                      type="radio"
-                      name="answer"
-                      value={option}
-                      checked={userAnswer === option}
-                      onChange={(e) => setUserAnswer(e.target.value)}
-                      className="text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-gray-700 flex-1">{option}</span>
-                  </label>
-                ))}
+                <div className="space-y-2">
+                  {currentQuestion.options.map((option, index) => (
+                    <label key={index} className="flex items-start space-x-3 p-3 lg:p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+                      <input
+                        type="radio"
+                        name="answer"
+                        value={option}
+                        checked={userAnswer === option}
+                        onChange={(e) => setUserAnswer(e.target.value)}
+                        className="text-blue-600 focus:ring-blue-500 mt-1 flex-shrink-0"
+                      />
+                      <span className="text-gray-700 flex-1 text-sm lg:text-base break-words">{option}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
             )}
 
             {currentQuestion.type === 'text' && (
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-gray-800">Your answer:</h4>
-                  <span className="text-blue-600 text-sm font-medium bg-blue-100 px-2 py-1 rounded">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <h4 className="font-medium text-gray-800 text-sm lg:text-base">Your answer:</h4>
+                  <span className="text-blue-600 text-xs lg:text-sm font-medium bg-blue-100 px-2 py-1 rounded self-start sm:self-auto">
                     🤖 AI Grading
                   </span>
                 </div>
@@ -703,7 +711,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
                   value={userAnswer}
                   onChange={(e) => setUserAnswer(e.target.value)}
                   placeholder="Type your answer here..."
-                  className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  className="w-full p-3 lg:p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm lg:text-base"
                   rows={4}
                 />
               </div>
@@ -721,38 +729,38 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
 
             {showExplanation && (
               <div className="space-y-4">
-                <div className={`p-6 rounded-lg border-l-4 ${
+                <div className={`p-4 lg:p-6 rounded-lg border-l-4 ${
                   questionHistory[questionHistory.length - 1]?.isCorrect 
                     ? 'bg-green-50 border-green-400' 
                     : 'bg-red-50 border-red-400'
                 }`}>
                   <div className="flex items-center space-x-3 mb-4">
-                    <span className="text-2xl">
+                    <span className="text-xl lg:text-2xl">
                       {questionHistory[questionHistory.length - 1]?.isCorrect ? '✅' : '❌'}
                     </span>
-                    <span className="font-semibold text-lg">
+                    <span className="font-semibold text-base lg:text-lg">
                       {questionHistory[questionHistory.length - 1]?.isCorrect ? 'Correct!' : 'Incorrect'}
                     </span>
                   </div>
                   
                   <div className="space-y-3">
                     <div>
-                      <strong className="text-gray-800">Your answer:</strong>
-                      <div className="text-gray-700 mt-1 p-2 bg-gray-100 rounded">
+                      <strong className="text-gray-800 text-sm lg:text-base">Your answer:</strong>
+                      <div className="text-gray-700 mt-1 p-2 bg-gray-100 rounded text-sm lg:text-base overflow-hidden">
                         {renderFormattedText(questionHistory[questionHistory.length - 1]?.userAnswer || '')}
                       </div>
                     </div>
                     
                     <div>
-                      <strong className="text-gray-800">Correct answer:</strong>
-                      <div className="text-gray-700 mt-1 p-2 bg-green-100 rounded">
+                      <strong className="text-gray-800 text-sm lg:text-base">Correct answer:</strong>
+                      <div className="text-gray-700 mt-1 p-2 bg-green-100 rounded text-sm lg:text-base overflow-hidden">
                         {renderFormattedText(questionHistory[questionHistory.length - 1]?.correctAnswer || '')}
                       </div>
                     </div>
                     
                     <div>
-                      <strong className="text-gray-800">Explanation:</strong>
-                      <div className="text-gray-700 mt-1 leading-relaxed">
+                      <strong className="text-gray-800 text-sm lg:text-base">Explanation:</strong>
+                      <div className="text-gray-700 mt-1 leading-relaxed text-sm lg:text-base overflow-hidden">
                         {renderFormattedText(questionHistory[questionHistory.length - 1]?.explanation || '')}
                       </div>
                     </div>
@@ -770,7 +778,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
           </div>
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
+        <div className="bg-white border border-gray-200 rounded-lg p-4 lg:p-6 text-center">
           <LottieLoader 
             text="Generating your first question..." 
             size="large"
@@ -783,14 +791,14 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">🎯 Adaptive Learning</h2>
-          <p className="text-gray-600">Practice until you master each concept</p>
+          <h2 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2">🎯 Adaptive Learning</h2>
+          <p className="text-gray-600 text-sm lg:text-base">Practice until you master each concept</p>
         </div>
         <button
           onClick={handleBackToOverview}
-          className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium"
+          className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium text-sm lg:text-base self-start sm:self-auto"
         >
           ← Back to Overview
         </button>

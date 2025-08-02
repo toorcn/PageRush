@@ -201,14 +201,14 @@ export default function HelpfulResourcesSidebar({ history, performanceSummaries,
             </span>
           )}
         </h3>
-        {totalResources > 3 && (
+        {/* {totalResources > 3 && (
           <button
             onClick={() => setShowAllResources(!showAllResources)}
             className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium"
           >
             {showAllResources ? 'Show Recent' : 'Show All'}
           </button>
-        )}
+        )} */}
       </div>
       
       <div className="space-y-3">
