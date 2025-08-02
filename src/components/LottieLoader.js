@@ -42,7 +42,7 @@ const LottieLoader = ({
 
   if (overlay) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="h-full fixed inset-0 bg-gray-900/75 backdrop-blur-sm flex items-center justify-center z-50">
         <div className="bg-white rounded-xl p-8 text-center shadow-2xl">
           {loaderContent}
         </div>
