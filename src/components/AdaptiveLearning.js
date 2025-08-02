@@ -205,6 +205,51 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
     generatePracticeQuestion(topic, 'medium');
   };
 
+  const renderFormattedText = (text) => {
+    return text
+      .split('\n')
+      .map((line, index) => {
+        // Handle headers
+        if (line.startsWith('#')) {
+          const level = line.match(/^#+/)[0].length;
+          const content = line.replace(/^#+\s*/, '');
+          const Tag = `h${Math.min(level, 6)}`;
+          return React.createElement(Tag, {
+            key: index,
+            className: `font-bold text-gray-800 ${level === 1 ? 'text-xl' : level === 2 ? 'text-lg' : 'text-base'}`
+          }, content);
+        }
+        
+        // Handle bold text
+        if (line.includes('**')) {
+          const parts = line.split(/(\*\*.*?\*\*)/);
+          return (
+            <div key={index} className="mb-2">
+              {parts.map((part, partIndex) => {
+                if (part.startsWith('**') && part.endsWith('**')) {
+                  return <strong key={partIndex} className="font-semibold">{part.slice(2, -2)}</strong>;
+                }
+                return <span key={partIndex}>{part}</span>;
+              })}
+            </div>
+          );
+        }
+        
+        // Handle lists
+        if (line.match(/^[-*]\s/)) {
+          return <li key={index} className="ml-4">{line.replace(/^[-*]\s/, '')}</li>;
+        }
+        
+        // Handle numbered lists
+        if (line.match(/^\d+\.\s/)) {
+          return <li key={index} className="ml-4">{line.replace(/^\d+\.\s/, '')}</li>;
+        }
+        
+        // Regular text
+        return <p key={index} className="mb-2">{line}</p>;
+      });
+  };
+
   const renderTopicSelection = () => (
     <div className="space-y-6">
       <div className="text-center">
@@ -296,11 +341,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
                     {section.heading}
                   </h4>
                   <div className="text-gray-700 leading-relaxed">
-                    {section.text.split('\n').map((paragraph, pIndex) => (
-                      <p key={pIndex} className="mb-3 last:mb-0">
-                        {paragraph}
-                      </p>
-                    ))}
+                    {renderFormattedText(section.text)}
                   </div>
                 </div>
               ))}
@@ -335,7 +376,9 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
           <div className="space-y-6">
             <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-lg">
               <h3 className="text-lg font-semibold text-gray-800 mb-2">Question:</h3>
-              <p className="text-gray-700 leading-relaxed">{currentQuestion.question}</p>
+              <div className="text-gray-700 leading-relaxed">
+                {renderFormattedText(currentQuestion.question)}
+              </div>
             </div>
             
             {currentQuestion.type === 'mcq' && (
@@ -399,23 +442,23 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
                   <div className="space-y-3">
                     <div>
                       <strong className="text-gray-800">Your answer:</strong>
-                      <p className="text-gray-700 mt-1 p-2 bg-gray-100 rounded">
-                        {questionHistory[questionHistory.length - 1]?.userAnswer}
-                      </p>
+                      <div className="text-gray-700 mt-1 p-2 bg-gray-100 rounded">
+                        {renderFormattedText(questionHistory[questionHistory.length - 1]?.userAnswer || '')}
+                      </div>
                     </div>
                     
                     <div>
                       <strong className="text-gray-800">Correct answer:</strong>
-                      <p className="text-gray-700 mt-1 p-2 bg-green-100 rounded">
-                        {questionHistory[questionHistory.length - 1]?.correctAnswer}
-                      </p>
+                      <div className="text-gray-700 mt-1 p-2 bg-green-100 rounded">
+                        {renderFormattedText(questionHistory[questionHistory.length - 1]?.correctAnswer || '')}
+                      </div>
                     </div>
                     
                     <div>
                       <strong className="text-gray-800">Explanation:</strong>
-                      <p className="text-gray-700 mt-1 leading-relaxed">
-                        {questionHistory[questionHistory.length - 1]?.explanation}
-                      </p>
+                      <div className="text-gray-700 mt-1 leading-relaxed">
+                        {renderFormattedText(questionHistory[questionHistory.length - 1]?.explanation || '')}
+                      </div>
                     </div>
                   </div>
                 </div>

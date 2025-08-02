@@ -19,35 +19,94 @@ export function parseTopics(response) {
   
   console.log('Extracted text for topic parsing:', text);
   
+  // Clean the text - remove markdown code blocks and extra whitespace
+  text = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  
   // Try to parse as JSON first
   try {
     const topics = JSON.parse(text);
     console.log('Successfully parsed topics as JSON:', topics);
     if (Array.isArray(topics)) {
-      const filteredTopics = topics.filter(topic => typeof topic === 'string' && topic.trim().length > 0);
+      const filteredTopics = topics
+        .filter(topic => typeof topic === 'string' && topic.trim().length > 0)
+        .map(topic => topic.trim())
+        .filter(topic => topic.length >= 2 && topic.length <= 50);
       console.log('Filtered topics:', filteredTopics);
-      return filteredTopics;
+      return filteredTopics.length > 0 ? filteredTopics : ['General Concepts', 'Key Definitions', 'Important Processes', 'Main Topics'];
     }
   } catch (error) {
     console.log('Failed to parse topics as JSON, trying text parsing:', error);
     console.log('Raw text that failed JSON parsing:', text);
   }
 
-  // Fallback: parse topics from text
+  // Enhanced text parsing fallback
   const lines = text.split('\n').filter(line => line.trim());
   const topics = [];
+  const seen = new Set();
   
   lines.forEach(line => {
     // Look for numbered lists, bullet points, or standalone topics
-    const cleanLine = line.replace(/^[\d\-\.\s]+/, '').trim();
-    if (cleanLine && cleanLine.length > 2 && cleanLine.length < 50) {
-      topics.push(cleanLine);
+    let cleanLine = line.replace(/^[\d\-\.\s•]+/, '').trim();
+    
+    // Remove common prefixes and suffixes
+    cleanLine = cleanLine
+      .replace(/^["']/, '')  // Remove leading quotes
+      .replace(/["']$/, '')  // Remove trailing quotes
+      .replace(/^[-–—]\s*/, '')  // Remove dashes
+      .trim();
+    
+    if (cleanLine && cleanLine.length >= 2 && cleanLine.length <= 50 && !seen.has(cleanLine.toLowerCase())) {
+      // Additional filtering for quality topics
+      const words = cleanLine.split(/\s+/);
+      if (words.length >= 1 && words.length <= 8) {
+        topics.push(cleanLine);
+        seen.add(cleanLine.toLowerCase());
+      }
     }
   });
   
   console.log('Topics extracted from text parsing:', topics);
-  // return topics.slice(0, 8); // Limit to 8 topics
+  
+  // If we still don't have enough topics, try to extract from the original text
+  if (topics.length < 4) {
+    console.log('Not enough topics found, attempting to extract from original text...');
+    const fallbackTopics = extractTopicsFromText(text);
+    return fallbackTopics.length > 0 ? fallbackTopics : ['General Concepts', 'Key Definitions', 'Important Processes', 'Main Topics'];
+  }
+  
   return topics;
+}
+
+// Helper function to extract topics from text when JSON parsing fails
+function extractTopicsFromText(text) {
+  const topics = [];
+  const seen = new Set();
+  
+  // Look for capitalized phrases that might be topics
+  const capitalizedPhrases = text.match(/[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*/g) || [];
+  capitalizedPhrases.forEach(phrase => {
+    if (phrase.length >= 3 && phrase.length <= 40 && !seen.has(phrase.toLowerCase())) {
+      // Filter out common words that aren't topics
+      const commonWords = ['the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'up', 'down', 'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'can', 'will', 'just', 'should', 'now'];
+      const words = phrase.toLowerCase().split(/\s+/);
+      if (words.length >= 1 && words.length <= 6 && !words.every(word => commonWords.includes(word))) {
+        topics.push(phrase);
+        seen.add(phrase.toLowerCase());
+      }
+    }
+  });
+  
+  // Look for phrases in quotes or parentheses
+  const quotedPhrases = text.match(/["']([^"']{3,30})["']/g) || [];
+  quotedPhrases.forEach(phrase => {
+    const cleanPhrase = phrase.replace(/["']/g, '').trim();
+    if (cleanPhrase && !seen.has(cleanPhrase.toLowerCase())) {
+      topics.push(cleanPhrase);
+      seen.add(cleanPhrase.toLowerCase());
+    }
+  });
+  
+  return topics.slice(0, 10); // Limit to 10 topics
 }
 
 export function parseFlashcards(response) {

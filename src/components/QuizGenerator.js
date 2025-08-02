@@ -159,14 +159,14 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
     extractTopicsWithGemini();
   };
 
-  // Fallback simple topic extraction
+  // Enhanced fallback topic extraction
   const extractTopicsSimple = (text) => {
-    console.log('Running fallback topic extraction on text length:', text.length);
-    const lines = text.split('\n');
+    console.log('Running enhanced fallback topic extraction on text length:', text.length);
     const topics = [];
     const seen = new Set();
 
     // First pass: look for obvious headings and titles
+    const lines = text.split('\n');
     lines.forEach(line => {
       // Look for lines that might be headings (all caps, numbered, or with special characters)
       if (line.match(/^[A-Z][A-Z\s]+$/) || line.match(/^\d+\./) || line.match(/^[#*]/)) {
@@ -178,14 +178,28 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
       }
     });
 
-    // Second pass: look for sentences that might contain key concepts
-    if (topics.length < 4) {
+    // Second pass: look for capitalized phrases that might be topics
+    const capitalizedPhrases = text.match(/[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*/g) || [];
+    capitalizedPhrases.forEach(phrase => {
+      if (phrase.length >= 4 && phrase.length <= 40 && !seen.has(phrase.toLowerCase())) {
+        // Filter out common words that aren't topics
+        const commonWords = ['the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'up', 'down', 'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'can', 'will', 'just', 'should', 'now'];
+        const words = phrase.toLowerCase().split(/\s+/);
+        if (words.length >= 1 && words.length <= 6 && !words.every(word => commonWords.includes(word))) {
+          topics.push(phrase);
+          seen.add(phrase.toLowerCase());
+        }
+      }
+    });
+
+    // Third pass: look for sentences that might contain key concepts
+    if (topics.length < 6) {
       const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 20);
       sentences.forEach(sentence => {
         const words = sentence.split(/\s+/);
         // Look for sentences with key terms like "is", "are", "refers to", "defined as"
-        if (sentence.match(/\b(is|are|refers to|defined as|consists of|includes)\b/i)) {
-          const keyPhrase = sentence.split(/\b(is|are|refers to|defined as|consists of|includes)\b/i)[0].trim();
+        if (sentence.match(/\b(is|are|refers to|defined as|consists of|includes|process|method|technique|system|approach)\b/i)) {
+          const keyPhrase = sentence.split(/\b(is|are|refers to|defined as|consists of|includes|process|method|technique|system|approach)\b/i)[0].trim();
           const cleanPhrase = keyPhrase.replace(/^[A-Z\s]+$/, '').trim();
           if (cleanPhrase && cleanPhrase.length > 3 && cleanPhrase.length < 40 && !seen.has(cleanPhrase)) {
             topics.push(cleanPhrase);
@@ -195,19 +209,21 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
       });
     }
 
-    // Third pass: extract common terms and phrases
-    if (topics.length < 4) {
+    // Fourth pass: extract common terms and phrases
+    if (topics.length < 6) {
       const words = text.toLowerCase().match(/\b[a-z]{4,}\b/g) || [];
       const wordCount = {};
+      const stopWords = ['this', 'that', 'with', 'from', 'have', 'will', 'they', 'their', 'them', 'then', 'than', 'been', 'were', 'been', 'said', 'each', 'which', 'she', 'will', 'more', 'when', 'there', 'can', 'an', 'its', 'it', 'we', 'he', 'as', 'you', 'do', 'at', 'this', 'but', 'his', 'by', 'from', 'they', 'we', 'say', 'her', 'she', 'or', 'an', 'will', 'my', 'one', 'all', 'would', 'there', 'their', 'what', 'so', 'up', 'out', 'if', 'about', 'who', 'get', 'which', 'go', 'me', 'when', 'make', 'can', 'like', 'time', 'no', 'just', 'him', 'know', 'take', 'people', 'into', 'year', 'your', 'good', 'some', 'could', 'them', 'see', 'other', 'than', 'then', 'now', 'look', 'only', 'come', 'its', 'over', 'think', 'also', 'back', 'after', 'use', 'two', 'how', 'our', 'work', 'first', 'well', 'way', 'even', 'new', 'want', 'because', 'any', 'these', 'give', 'day', 'most', 'us'];
+      
       words.forEach(word => {
-        if (!['this', 'that', 'with', 'from', 'have', 'will', 'they', 'their', 'them', 'then', 'than', 'been', 'were', 'been', 'said', 'each', 'which', 'she', 'will', 'more', 'when', 'there', 'can', 'an', 'its', 'it', 'we', 'he', 'as', 'you', 'do', 'at', 'this', 'but', 'his', 'by', 'from', 'they', 'we', 'say', 'her', 'she', 'or', 'an', 'will', 'my', 'one', 'all', 'would', 'there', 'their', 'what', 'so', 'up', 'out', 'if', 'about', 'who', 'get', 'which', 'go', 'me', 'when', 'make', 'can', 'like', 'time', 'no', 'just', 'him', 'know', 'take', 'people', 'into', 'year', 'your', 'good', 'some', 'could', 'them', 'see', 'other', 'than', 'then', 'now', 'look', 'only', 'come', 'its', 'over', 'think', 'also', 'back', 'after', 'use', 'two', 'how', 'our', 'work', 'first', 'well', 'way', 'even', 'new', 'want', 'because', 'any', 'these', 'give', 'day', 'most', 'us'].includes(word)) {
+        if (!stopWords.includes(word)) {
           wordCount[word] = (wordCount[word] || 0) + 1;
         }
       });
       
       const sortedWords = Object.entries(wordCount)
         .sort(([,a], [,b]) => b - a)
-        .slice(0, 10)
+        .slice(0, 15)
         .map(([word]) => word.charAt(0).toUpperCase() + word.slice(1));
       
       sortedWords.forEach(word => {
@@ -221,12 +237,11 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
     // If no topics found, create some generic ones
     if (topics.length === 0) {
       console.log('No topics found, using generic fallback topics');
-      return ['General Concepts', 'Key Definitions', 'Important Processes', 'Main Topics'];
+      return ['General Concepts', 'Key Definitions', 'Important Processes', 'Main Topics', 'Core Principles', 'Essential Methods'];
     }
 
-    console.log('Fallback extracted topics:', topics);
-    // return topics.slice(0, 8); // Limit to 8 topics
-    return topics;
+    console.log('Enhanced fallback extracted topics:', topics);
+    return topics.slice(0, 12); // Limit to 12 topics
   };
 
   const handleTopicToggle = (topic) => {

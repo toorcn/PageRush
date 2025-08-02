@@ -2,6 +2,21 @@
 import React from 'react';
 
 export default function Insights({ score, total, details }) {
+  console.log('Insights component received:', { score, total, details });
+  
+  // Handle undefined or null values
+  if (score === undefined || score === null || total === undefined || total === null) {
+    console.warn('Insights component received invalid score/total:', { score, total });
+    return (
+      <div className="bg-white rounded-xl shadow p-6 space-y-6">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">📊 Performance Insights</h2>
+          <p className="text-gray-600">Unable to display results - missing score data</p>
+        </div>
+      </div>
+    );
+  }
+  
   const percentage = Math.round((score / total) * 100);
   const getPerformanceLevel = () => {
     if (percentage >= 90) return { level: 'Excellent', color: 'green', icon: '🏆' };

@@ -12,21 +12,32 @@ export default async function handler(req, res) {
   let prompt = '';
   switch (promptType) {
     case 'extractTopics':
-      prompt = `Analyze the following text and extract at least 4 to 10 main topics or themes that would be suitable for creating questions. 
+      prompt = `Analyze the following text and extract 6-15 main topics, concepts, or themes that would be suitable for creating educational content.
 
-Focus on:
-- Key concepts and definitions
-- Important processes or procedures
-- Main theories or principles
-- Significant facts or data points
-- Core subject areas
+INSTRUCTIONS:
+1. Identify key concepts, definitions, processes, theories, principles, and important subject areas
+2. Look for both broad topics and specific subtopics
+3. Consider different levels of complexity (basic to advanced)
+4. Include both theoretical and practical concepts
+5. Extract topics that would make good quiz/exam questions
+6. Look for recurring themes and central ideas
 
-CRITICAL: You must return ONLY a valid JSON array of strings, no markdown formatting, no code blocks, no additional text.
+ANALYSIS APPROACH:
+- Scan for headings, titles, and emphasized text
+- Identify key terms and their definitions
+- Look for lists, enumerations, and structured content
+- Find cause-and-effect relationships
+- Identify processes, steps, and procedures
+- Extract main arguments and supporting points
+- Look for comparisons and contrasts
+- Identify examples and case studies
+
+CRITICAL: Return ONLY a valid JSON array of strings, no markdown formatting, no code blocks, no additional text.
 
 Example format:
-["Topic 1", "Topic 2", "Topic 3", "Topic 4", "Topic 5", "Topic 6"]
+["Basic Concept", "Advanced Theory", "Key Process", "Important Definition", "Main Principle", "Practical Application", "Core Theory", "Essential Process", "Fundamental Concept", "Key Application"]
 
-Each topic should be 2-6 words and clearly identifiable.
+Each topic should be 2-8 words, descriptive, and clearly identifiable for educational purposes.
 
 Text to analyze:\n\n${text}`;
       break;

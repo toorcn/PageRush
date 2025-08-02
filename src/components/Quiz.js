@@ -40,21 +40,44 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
   const handleSubmit = (e) => {
     e.preventDefault();
     setSubmitted(true);
+    
+    console.log('Quiz submission - questions:', questions);
+    console.log('Quiz submission - answers:', answers);
+    
     // Calculate feedback for each question
     const newFeedback = questions.map((q, i) => {
-      if (!q.options || q.options.length < 2) return false; // Invalid question
-      return answers[i] === q.answer;
+      if (!q.options || q.options.length < 2) {
+        console.log(`Invalid question ${i + 1}:`, q);
+        return false; // Invalid question
+      }
+      const isCorrect = answers[i] === q.answer;
+      console.log(`Question ${i + 1}: User answer "${answers[i]}" vs correct "${q.answer}" = ${isCorrect}`);
+      return isCorrect;
     });
     setFeedback(newFeedback);
+    
     const numCorrect = newFeedback.filter(Boolean).length;
     const totalQuestions = questions.length;
     const percentCorrect = Math.round((numCorrect / totalQuestions) * 100);
+    
+    console.log('Quiz results:', { numCorrect, totalQuestions, percentCorrect });
+    
     // Create details for Insights
     const details = questions.map((q, i) => {
       if (!q.options || q.options.length < 2) return `Question ${i + 1}: Invalid format`;
       return `${i + 1}. ${q.question} — ${answers[i] === q.answer ? 'Correct' : `Incorrect (Correct: ${q.answer})`}`;
     });
-    onSubmit({ answers, numCorrect, totalQuestions, percentCorrect, details });
+    
+    const submissionData = { 
+      answers, 
+      numCorrect, 
+      totalQuestions, 
+      percentCorrect, 
+      details 
+    };
+    
+    console.log('Submitting quiz data:', submissionData);
+    onSubmit(submissionData);
   };
 
   const toggleExplanation = (questionIndex) => {

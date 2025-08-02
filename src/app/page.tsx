@@ -25,7 +25,7 @@ export default function Home() {
   const [documents, setDocuments] = useState([]);
   const [activeDocument, setActiveDocument] = useState(null);
   const [apiKey, setApiKey] = useState('');
-  const [feature, setFeature] = useState('studyGuide');
+  const [feature, setFeature] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [quizAnswers, setQuizAnswers] = useState([]);
@@ -44,6 +44,7 @@ export default function Home() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [notifications, setNotifications] = useState([]);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Helper to add a notification
   const addNotification = (notification) => {
@@ -255,12 +256,23 @@ export default function Home() {
 
   const handleQuizSubmit = async (answers) => {
     setQuizAnswers(answers);
+    
+    // Parse the quiz questions from the result
+    const quizQuestions = parseQuiz(result);
+    console.log('Quiz questions for grading:', quizQuestions);
+    console.log('User answers for grading:', answers);
+    
     const res = await fetch('/api/grade-quiz', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userAnswers: answers, quiz: parseQuiz(result) }),
+      body: JSON.stringify({ 
+        userAnswers: answers.answers || answers, 
+        quiz: quizQuestions,
+        geminiApiKey: apiKey
+      }),
     });
     const data = await res.json();
+    console.log('Grading result:', data);
     setQuizScore(data);
     
     addNotification({
@@ -486,21 +498,19 @@ export default function Home() {
               >
                 📊 History ({history.length})
               </button>
-              {step >= 2 && !showQuizGenerator && !showExamGenerator && !result && (
-                <button
-                  onClick={() => {
-                    // Scroll to feature selector
-                    const featureSection = document.querySelector('[data-feature-selector]');
-                    if (featureSection) {
-                      featureSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
-                  }}
-                  className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:from-green-700 hover:to-emerald-700 flex items-center space-x-2"
-                >
-                  <span>✨</span>
-                  <span>Study Tools</span>
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  // Scroll to feature selector
+                  const featureSection = document.querySelector('[data-feature-selector]');
+                  if (featureSection) {
+                    featureSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }
+                }}
+                className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:from-green-700 hover:to-emerald-700 flex items-center space-x-2"
+              >
+                <span>✨</span>
+                <span>Study Tools</span>
+              </button>
               <button
                 className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:from-purple-700 hover:to-indigo-700 flex items-center space-x-2"
                 onClick={() => setFocusMode(true)}
@@ -551,7 +561,7 @@ export default function Home() {
           )}
 
           {/* Floating Action Button for Study Tools */}
-          {step >= 2 && !showQuizGenerator && !showExamGenerator && !result && (
+          {/* {step >= 2 && !showQuizGenerator && !showExamGenerator && !result && (
             <div className="fixed bottom-6 right-6 z-50">
               <button
                 onClick={() => {
@@ -566,16 +576,32 @@ export default function Home() {
                 ✨
               </button>
             </div>
-          )}
+          )} */}
 
           {/* Main Content */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left Sidebar - Setup + Helpful Resources */}
-            <div className="lg:col-span-1 space-y-6">
-              {step === 0 && <PdfUploader onExtracted={handleExtracted} />}
+            <div className={`lg:col-span-1 space-y-6 transition-all duration-300 ${
+              sidebarCollapsed ? 'lg:col-span-0 lg:w-16' : ''
+            }`}>
+              {/* Collapse/Expand Button */}
+              <div className="hidden lg:flex justify-end">
+                <button
+                  onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                  className="p-2 bg-white/80 backdrop-blur-sm rounded-lg shadow-sm border border-gray-200 hover:bg-white transition-all duration-200"
+                  title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+                >
+                  <span className={`transform transition-transform duration-200 ${
+                    sidebarCollapsed ? 'rotate-180' : ''
+                  }`}>
+                    {sidebarCollapsed ? '→' : '←'}
+                  </span>
+                </button>
+              </div>
+              {step === 0 && !sidebarCollapsed && <PdfUploader onExtracted={handleExtracted} />}
               
               {/* Collapsible Setup Section */}
-              {step >= 1 && (
+              {step >= 1 && !sidebarCollapsed && (
                 <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 overflow-hidden">
                   {/* API Key Section */}
                   <div className="border-b border-gray-200">
@@ -619,17 +645,19 @@ export default function Home() {
               )}
 
               {/* Focus Mode Stats */}
-              <FocusModeStats onEnterFocusMode={() => setFocusMode(true)} />
+              {!sidebarCollapsed && <FocusModeStats onEnterFocusMode={() => setFocusMode(true)} />}
 
               {/* Helpful Resources Sidebar */}
-              <HelpfulResourcesSidebar 
-                history={history} 
-                performanceSummaries={performanceSummaries} 
-                onLoadFromHistory={loadFromHistory} 
-              />
+              {!sidebarCollapsed && (
+                <HelpfulResourcesSidebar 
+                  history={history} 
+                  performanceSummaries={performanceSummaries} 
+                  onLoadFromHistory={loadFromHistory} 
+                />
+              )}
 
               {/* Progress Tracker for Quiz/Exam */}
-              {(feature === 'quiz' || feature === 'exam') && result && (
+              {(feature === 'quiz' || feature === 'exam') && result && !sidebarCollapsed && (
                 <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 p-4">
                   <h3 className="font-semibold text-gray-800 mb-3 flex items-center">
                     <span className="mr-2">📊</span>
@@ -652,10 +680,29 @@ export default function Home() {
                   </div>
                 </div>
               )}
+
+              {/* Collapsed Sidebar - Show only icons */}
+              {sidebarCollapsed && (
+                <div className="space-y-4">
+                  {/* API Key Status */}
+
+              {/* Progress Indicator (if quiz/exam active) */}
+              {(feature === 'quiz' || feature === 'exam') && result && (
+                <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-sm border border-gray-200 p-3 flex justify-center">
+                  <div className="text-center" title={`Question ${currentQuestionIndex + 1} of ${totalQuestions}`}>
+                    <div className="text-lg font-bold text-blue-600">{currentQuestionIndex + 1}</div>
+                    <div className="text-xs text-gray-500">/ {totalQuestions}</div>
+                  </div>
+                </div>
+              )}
+                </div>
+              )}
             </div>
 
             {/* Main Content Area */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className={`space-y-6 transition-all duration-300 ${
+              sidebarCollapsed ? 'lg:col-span-3' : 'lg:col-span-2'
+            }`}>
               {/* Feature Selection - Moved to main content area */}
               {step >= 2 && !showQuizGenerator && !showExamGenerator && !result && (
                 <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 p-6" data-feature-selector>

@@ -185,13 +185,14 @@ export default function ExamGenerator({ onGenerate, extractedText, apiKey, perfo
     };
   }, [extractedText, apiKey]);
 
-  // Fallback simple topic extraction
+  // Enhanced fallback topic extraction
   const extractTopicsSimple = (text) => {
-    console.log('Running fallback topic extraction on text length:', text.length);
-    const lines = text.split('\n');
+    console.log('Running enhanced fallback topic extraction on text length:', text.length);
     const topics = [];
     const seen = new Set();
 
+    // First pass: look for obvious headings and titles
+    const lines = text.split('\n');
     lines.forEach(line => {
       if (line.match(/^[A-Z][A-Z\s]+$/) || line.match(/^\d+\./) || line.match(/^[#*]/)) {
         const cleanTopic = line.replace(/^[#*\d\.\s]+/, '').trim();
@@ -202,11 +203,42 @@ export default function ExamGenerator({ onGenerate, extractedText, apiKey, perfo
       }
     });
 
-    if (topics.length === 0) {
-      return ['General Concepts', 'Key Definitions', 'Important Processes', 'Main Topics'];
+    // Second pass: look for capitalized phrases that might be topics
+    const capitalizedPhrases = text.match(/[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*/g) || [];
+    capitalizedPhrases.forEach(phrase => {
+      if (phrase.length >= 4 && phrase.length <= 40 && !seen.has(phrase.toLowerCase())) {
+        // Filter out common words that aren't topics
+        const commonWords = ['the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'up', 'down', 'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'can', 'will', 'just', 'should', 'now'];
+        const words = phrase.toLowerCase().split(/\s+/);
+        if (words.length >= 1 && words.length <= 6 && !words.every(word => commonWords.includes(word))) {
+          topics.push(phrase);
+          seen.add(phrase.toLowerCase());
+        }
+      }
+    });
+
+    // Third pass: look for sentences that might contain key concepts
+    if (topics.length < 6) {
+      const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 20);
+      sentences.forEach(sentence => {
+        const words = sentence.split(/\s+/);
+        // Look for sentences with key terms like "is", "are", "refers to", "defined as"
+        if (sentence.match(/\b(is|are|refers to|defined as|consists of|includes|process|method|technique|system|approach)\b/i)) {
+          const keyPhrase = sentence.split(/\b(is|are|refers to|defined as|consists of|includes|process|method|technique|system|approach)\b/i)[0].trim();
+          const cleanPhrase = keyPhrase.replace(/^[A-Z\s]+$/, '').trim();
+          if (cleanPhrase && cleanPhrase.length > 3 && cleanPhrase.length < 40 && !seen.has(cleanPhrase)) {
+            topics.push(cleanPhrase);
+            seen.add(cleanPhrase);
+          }
+        }
+      });
     }
 
-    return topics.slice(0, 8);
+    if (topics.length === 0) {
+      return ['General Concepts', 'Key Definitions', 'Important Processes', 'Main Topics', 'Core Principles', 'Essential Methods'];
+    }
+
+    return topics.slice(0, 12);
   };
 
   const handleTopicToggle = (topic) => {
