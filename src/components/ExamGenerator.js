@@ -14,6 +14,8 @@ export default function ExamGenerator({ onGenerate, extractedText, apiKey, perfo
   const [autoSelectionReason, setAutoSelectionReason] = useState('');
   const [questionTypeAutoSelection, setQuestionTypeAutoSelection] = useState('');
   const [cacheStatus, setCacheStatus] = useState(''); // NEW: Track cache status
+  const [isGeneratingSuggestions, setIsGeneratingSuggestions] = useState(false);
+  const [suggestionsGenerated, setSuggestionsGenerated] = useState(false);
   
   // Question type configurations
   const [questionTypes, setQuestionTypes] = useState({
@@ -135,6 +137,46 @@ export default function ExamGenerator({ onGenerate, extractedText, apiKey, perfo
       });
     }
     
+    // Also look for topics mentioned in the context of incorrect answers or low scores
+    if (summaryLower.includes('incorrect') || summaryLower.includes('wrong') || summaryLower.includes('failed')) {
+      availableTopics.forEach(topic => {
+        const topicLower = topic.toLowerCase();
+        // Check if topic appears near words indicating poor performance
+        const topicIndex = summaryLower.indexOf(topicLower);
+        if (topicIndex !== -1) {
+          // Look for performance indicators near the topic
+          const contextStart = Math.max(0, topicIndex - 100);
+          const contextEnd = Math.min(summaryLower.length, topicIndex + topicLower.length + 100);
+          const context = summaryLower.substring(contextStart, contextEnd);
+          
+          const performanceIndicators = ['incorrect', 'wrong', 'failed', 'low', 'poor', 'weak', 'struggled', 'difficulty'];
+          if (performanceIndicators.some(indicator => context.includes(indicator))) {
+            if (!weakTopics.includes(topic)) {
+              weakTopics.push(topic);
+            }
+          }
+        }
+      });
+    }
+    
+    // Look for topics mentioned in questions that were answered incorrectly
+    const questionMatches = summaryLower.match(/\d+\.\s*([^.\n]+)/g);
+    if (questionMatches) {
+      questionMatches.forEach(question => {
+        availableTopics.forEach(topic => {
+          const topicLower = topic.toLowerCase();
+          if (question.includes(topicLower) && !weakTopics.includes(topic)) {
+            // Check if this question was answered incorrectly
+            const questionIndex = summaryLower.indexOf(question);
+            const afterQuestion = summaryLower.substring(questionIndex + question.length, questionIndex + 200);
+            if (afterQuestion.includes('incorrect') || afterQuestion.includes('wrong') || afterQuestion.includes('failed')) {
+              weakTopics.push(topic);
+            }
+          }
+        });
+      });
+    }
+    
     return weakTopics;
   };
 
@@ -145,28 +187,42 @@ export default function ExamGenerator({ onGenerate, extractedText, apiKey, perfo
       reason: ''
     };
 
-    // If we have performance data but no weak topics, suggest foundational topics
+    // If we have performance data, try to extract weak topics first
     if (performanceSummary && performanceSummary.trim()) {
-      // Look for topics that might be foundational or core concepts
-      const foundationalKeywords = ['introduction', 'basic', 'fundamental', 'core', 'overview', 'principles', 'concepts', 'theory', 'method', 'approach'];
-      const foundationalTopics = availableTopics.filter(topic => 
-        foundationalKeywords.some(keyword => 
-          topic.toLowerCase().includes(keyword)
-        )
-      );
-
-      if (foundationalTopics.length > 0) {
-        suggestions.topics = foundationalTopics.slice(0, 4);
-        suggestions.reason = 'No weak areas found - suggesting foundational topics for comprehensive review';
+      // Extract weak topics from performance summary
+      const weakTopics = extractWeakTopicsFromSummary(performanceSummary, availableTopics);
+      
+      if (weakTopics.length > 0) {
+        suggestions.topics = weakTopics;
+        suggestions.reason = 'Based on performance summary - focusing on weak areas for improvement';
       } else {
-        // Select diverse topics from different areas
-        suggestions.topics = selectDiverseTopics(availableTopics, 4);
-        suggestions.reason = 'No weak areas found - selecting diverse topics for balanced assessment';
+        // No weak topics found, look for foundational topics
+        const foundationalKeywords = ['introduction', 'basic', 'fundamental', 'core', 'overview', 'principles', 'concepts', 'theory', 'method', 'approach'];
+        const foundationalTopics = availableTopics.filter(topic => 
+          foundationalKeywords.some(keyword => 
+            topic.toLowerCase().includes(keyword)
+          )
+        );
+
+        if (foundationalTopics.length > 0) {
+          suggestions.topics = foundationalTopics.slice(0, 4);
+          suggestions.reason = 'No weak areas found in performance summary - suggesting foundational topics for comprehensive review';
+        } else {
+          // Select diverse topics from different areas
+          suggestions.topics = selectDiverseTopics(availableTopics, 4);
+          suggestions.reason = 'No weak areas found in performance summary - selecting diverse topics for balanced assessment';
+        }
       }
     } else {
       // No performance data - suggest based on topic characteristics
       suggestions.topics = selectDiverseTopics(availableTopics, 4);
       suggestions.reason = 'No performance data - selecting diverse topics for comprehensive assessment';
+    }
+
+    // Ensure we don't select more than 6 topics total
+    if (suggestions.topics.length > 6) {
+      suggestions.topics = suggestions.topics.slice(0, 6);
+      suggestions.reason += ' (limited to 6 topics)';
     }
 
     return suggestions;
@@ -524,6 +580,35 @@ export default function ExamGenerator({ onGenerate, extractedText, apiKey, perfo
     setShowPerformanceHistory(false);
   };
 
+  const triggerTopicSuggestions = () => {
+    if (!performanceSummary || !topics.length) {
+      alert('Please load a performance summary first and ensure topics are available');
+      return;
+    }
+
+    setIsGeneratingSuggestions(true);
+
+    // Use setTimeout to show the loading state briefly
+    setTimeout(() => {
+      // Clear current selection and auto-selection reason
+      setSelectedTopics([]);
+      setAutoSelectionReason('');
+
+      // Generate new suggestions based on current performance summary
+      const suggestions = generateTopicSuggestions(topics, performanceSummary);
+      setSelectedTopics(suggestions.topics);
+      setAutoSelectionReason(suggestions.reason);
+      
+      setIsGeneratingSuggestions(false);
+      setSuggestionsGenerated(true);
+      
+      // Clear the success message after 3 seconds
+      setTimeout(() => {
+        setSuggestionsGenerated(false);
+      }, 3000);
+    }, 500);
+  };
+
   const createPerformanceSummary = (summary) => {
     const weakQuestions = summary.details?.filter(d => !d.isCorrect) || [];
     const strongQuestions = summary.details?.filter(d => d.isCorrect) || [];
@@ -618,6 +703,41 @@ WEAK AREAS (${weakQuestions.length} questions):
         <p className="text-xs text-gray-500">
           This will help create questions that focus on areas where you need improvement
         </p>
+        
+        {/* Topic Suggestions Button */}
+        {performanceSummary && topics.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={triggerTopicSuggestions}
+                disabled={isGeneratingSuggestions}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
+                  isGeneratingSuggestions
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                    : 'bg-green-600 text-white hover:bg-green-700'
+                }`}
+              >
+                <span>{isGeneratingSuggestions ? '⏳' : '🎯'}</span>
+                <span>{isGeneratingSuggestions ? 'Generating...' : 'Generate Topic Suggestions'}</span>
+              </button>
+              <p className="text-xs text-gray-500">
+                Automatically select topics based on your performance summary
+              </p>
+            </div>
+            
+            {/* Success Message */}
+            {suggestionsGenerated && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <div className="flex items-center space-x-2">
+                  <span className="text-green-600">✅</span>
+                  <p className="text-sm text-green-800">
+                    <strong>Topic suggestions generated!</strong> Topics have been automatically selected based on your performance summary.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Performance History Dropdown */}

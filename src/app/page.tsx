@@ -48,22 +48,42 @@ interface NotificationInput {
   autoDismiss?: boolean;
 }
 
+interface Document {
+  id: number;
+  name: string;
+  text: string;
+  timestamp: string;
+}
+
+interface HistoryItem {
+  id: number;
+  timestamp: string;
+  feature: string;
+  documentName: string;
+  text: string;
+  result: any;
+  topics?: any;
+  questionCount?: any;
+  knowledgeType?: any;
+  questionTypes?: any;
+}
+
 export default function Home() {
-  const [documents, setDocuments] = useState([]);
-  const [activeDocument, setActiveDocument] = useState(null);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [activeDocument, setActiveDocument] = useState<Document | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [feature, setFeature] = useState('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [quizAnswers, setQuizAnswers] = useState([]);
-  const [quizScore, setQuizScore] = useState(null);
+  const [result, setResult] = useState<any>(null);
+  const [quizAnswers, setQuizAnswers] = useState<any[]>([]);
+  const [quizScore, setQuizScore] = useState<any>(null);
   const [focusMode, setFocusMode] = useState(false);
   const [showQuizGenerator, setShowQuizGenerator] = useState(false);
   const [showExamGenerator, setShowExamGenerator] = useState(false);
-  const [examFeedback, setExamFeedback] = useState(null);
+  const [examFeedback, setExamFeedback] = useState<any>(null);
   const [showHistory, setShowHistory] = useState(false);
-  const [history, setHistory] = useState([]);
-  const [performanceSummaries, setPerformanceSummaries] = useState([]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [performanceSummaries, setPerformanceSummaries] = useState<any[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [showDocumentManager, setShowDocumentManager] = useState(false);
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
@@ -176,7 +196,7 @@ export default function Home() {
     localStorage.setItem('performanceSummaries', JSON.stringify(performanceSummaries));
   }, [performanceSummaries]);
 
-  const handleExtracted = (text, fileName) => {
+  const handleExtracted = (text: string, fileName?: string) => {
     const newDocument = {
       id: Date.now(),
       name: fileName || `Document ${documents.length + 1}`,
@@ -200,7 +220,7 @@ export default function Home() {
     });
   };
 
-  const handleFeature = async (ft) => {
+  const handleFeature = async (ft: string) => {
     setFeature(ft);
     setResult(null);
     setQuizScore(null);
@@ -228,7 +248,7 @@ export default function Home() {
     await generateContent(ft);
   };
 
-  const generateContent = async (ft, topics = null, questionCount = null, knowledgeType = null, questionTypes = null, performanceSummary = null) => {
+  const generateContent = async (ft: string, topics: any = null, questionCount: any = null, knowledgeType: any = null, questionTypes: any = null, performanceSummary: any = null) => {
     setLoading(true);
     try {
       const res = await fetch('/api/gemini-generate', {
@@ -295,17 +315,17 @@ export default function Home() {
     }
   };
 
-  const handleQuizGenerate = async (topics, questionCount, knowledgeType) => {
+  const handleQuizGenerate = async (topics: any, questionCount: any, knowledgeType: any) => {
     setShowQuizGenerator(false);
     await generateContent('quiz', topics, questionCount, knowledgeType);
   };
 
-  const handleExamGenerate = async (topics, questionTypes, knowledgeType, performanceSummary = null) => {
+  const handleExamGenerate = async (topics: any, questionTypes: any, knowledgeType: any, performanceSummary: any = null) => {
     setShowExamGenerator(false);
     await generateContent('exam', topics, null, knowledgeType, questionTypes, performanceSummary);
   };
 
-  const handleQuizSubmit = async (answers) => {
+  const handleQuizSubmit = async (answers: any) => {
     setQuizAnswers(answers);
     
     // Parse the quiz questions from the result
@@ -341,7 +361,7 @@ export default function Home() {
     });
   };
 
-  const handleExamSubmit = async (answers) => {
+  const handleExamSubmit = async (answers: any) => {
     setQuizAnswers(answers);
     const res = await fetch('/api/grade-quiz', {
       method: 'POST',
@@ -388,7 +408,7 @@ export default function Home() {
     }
   };
 
-  const loadFromHistory = (historyItem) => {
+  const loadFromHistory = (historyItem: HistoryItem) => {
     // console.log('Loading from history:', historyItem);
     
     // Find or create document from history
@@ -439,7 +459,7 @@ export default function Home() {
     localStorage.removeItem('geminiApiKey');
   };
 
-  const removeDocument = (documentId) => {
+  const removeDocument = (documentId: number) => {
     setDocuments(prev => prev.filter(doc => doc.id !== documentId));
     if (activeDocument?.id === documentId) {
       const remainingDocs = documents.filter(doc => doc.id !== documentId);
@@ -467,7 +487,7 @@ export default function Home() {
     }
   }, [apiKey, showApiKeyInput]);
 
-  const getFeatureLabel = (feature) => {
+  const getFeatureLabel = (feature: string) => {
     switch (feature) {
       case 'examCram':
         return 'Exam Cram';
@@ -484,7 +504,7 @@ export default function Home() {
     }
   };
 
-  const getFeatureIcon = (feature) => {
+  const getFeatureIcon = (feature: string) => {
     switch (feature) {
       case 'examCram':
         return '🚀';
