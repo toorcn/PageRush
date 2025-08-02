@@ -2,8 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { questionBankManager } from '../utils/questionBankManager';
 import LottieLoader from './LottieLoader';
+import { useLoading } from './LoadingProvider';
 
 export default function AdaptiveLearning({ topicBreakdown, learningProgress, onBack, onProgressUpdate, apiKey, content, skipReview = false }) {
+  const { startLoading, stopLoading } = useLoading();
   const [currentTopic, setCurrentTopic] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [userAnswer, setUserAnswer] = useState('');
@@ -95,6 +97,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
   const generateReviewContent = async (topic) => {
     return debounceCall(async () => {
       setLoading(true);
+      startLoading('global', 'Generating review content...');
       try {
         const response = await fetch('/api/exam-cram', {
           method: 'POST',
@@ -112,6 +115,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
         console.error('Error generating review content:', error);
       } finally {
         setLoading(false);
+        stopLoading('global');
       }
     });
   };
@@ -121,6 +125,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
     
     try {
       setLoading(true);
+      startLoading('global', 'Loading practice question...');
       
       // Ensure we have a question bank for this topic
       if (!questionBankManager.questionBanks.has(topic.id)) {
@@ -158,6 +163,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
       });
     } finally {
       setLoading(false);
+      stopLoading('global');
     }
   };
 
@@ -168,6 +174,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
     const responseTime = (endTime - sessionStats.startTime) / 1000;
 
     setLoading(true);
+    startLoading('global', 'Checking your answer...');
     try {
       let result;
       
@@ -218,6 +225,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
       console.error('Error grading answer:', error);
     } finally {
       setLoading(false);
+      stopLoading('global');
     }
   };
 
@@ -313,11 +321,14 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
   const preloadQuestionBank = async (topic) => {
     try {
       setQuestionBankStatus(prev => ({ ...prev, [topic.id]: 'loading' }));
+      startLoading('global', `Loading question bank for ${topic.title}...`);
       await questionBankManager.getQuestionBank(topic, content, apiKey);
       setQuestionBankStatus(prev => ({ ...prev, [topic.id]: 'loaded' }));
+      stopLoading('global');
     } catch (error) {
       console.error('Error preloading question bank:', error);
       setQuestionBankStatus(prev => ({ ...prev, [topic.id]: 'error' }));
+      stopLoading('global');
     }
   };
 
@@ -325,6 +336,8 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
     const topicsToLoad = topicBreakdown.topics.filter(topic => 
       !questionBankManager.questionBanks.has(topic.id)
     );
+    
+    startLoading('global', 'Preloading all question banks...');
     
     for (const topic of topicsToLoad) {
       try {
@@ -336,6 +349,8 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
         setQuestionBankStatus(prev => ({ ...prev, [topic.id]: 'error' }));
       }
     }
+    
+    stopLoading('global');
   };
 
   // Helper function to check if a topic is truly completed

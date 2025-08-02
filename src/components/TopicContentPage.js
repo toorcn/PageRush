@@ -1,8 +1,10 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { topicContentManager } from '../utils/topicContentManager';
+import { useLoading } from './LoadingProvider';
 
 export default function TopicContentPage({ topic, onBack, content, apiKey, onStartPractice }) {
+  const { startLoading, stopLoading } = useLoading();
   const [topicContent, setTopicContent] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -20,6 +22,7 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
     if (!topic || !content || !apiKey) return;
 
     setLoading(true);
+    startLoading('global', 'Loading detailed topic content...');
     setError(null);
 
     try {
@@ -30,6 +33,7 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
       setError('Failed to load topic content. Please try again.');
     } finally {
       setLoading(false);
+      stopLoading('global');
     }
   };
 

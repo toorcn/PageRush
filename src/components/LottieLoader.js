@@ -9,6 +9,8 @@ const LottieLoader = ({
   size = 'medium', 
   text = 'Loading...', 
   overlay = false, 
+  fullPage = false,
+  showLogo = false,
   className = '' 
 }) => {
   const sizeClasses = {
@@ -22,6 +24,17 @@ const LottieLoader = ({
 
   const loaderContent = (
     <div className={`flex flex-col items-center justify-center ${className}`}>
+      {/* PageRush AI Logo */}
+      {showLogo && (
+        <div className="mb-4">
+          <img 
+            src="/pagerushai-logo.png" 
+            alt="PageRush AI" 
+            className="h-12 w-auto mx-auto"
+          />
+        </div>
+      )}
+      
       <div className={lottieSize}>
         <Lottie 
           src={processingAnimationUrl}
@@ -37,8 +50,23 @@ const LottieLoader = ({
       {text && (
         <p className="text-gray-600 text-sm mt-2 font-medium">{text}</p>
       )}
+      
+      {/* Additional branding for full page */}
+      {fullPage && (
+        <p className="text-gray-500 text-sm mt-2">Powered by PageRush AI</p>
+      )}
     </div>
   );
+
+  if (fullPage) {
+    return (
+      <div className="fixed inset-0 bg-gray-900/90 backdrop-blur-sm flex items-center justify-center z-[9999]">
+        <div className="bg-white rounded-2xl p-8 lg:p-12 text-center shadow-2xl max-w-md mx-4">
+          {loaderContent}
+        </div>
+      </div>
+    );
+  }
 
   if (overlay) {
     return (

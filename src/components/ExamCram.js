@@ -6,6 +6,7 @@ import AdaptiveLearning from './AdaptiveLearning';
 import StudyGuide from './StudyGuide';
 import TopicContentPage from './TopicContentPage';
 import LottieLoader from './LottieLoader';
+import { useLoading } from './LoadingProvider';
 
 /**
  * ExamCram Component
@@ -22,6 +23,7 @@ import LottieLoader from './LottieLoader';
  * @param {function} onGenerateContent - Callback for content generation
  */
 export default function ExamCram({ content, documentName, apiKey, onGenerateContent }) {
+  const { startLoading, stopLoading } = useLoading();
   const [currentView, setCurrentView] = useState('overview'); // overview, breakdown, assessment, learning, study, topicContent
   const [selectedTopic, setSelectedTopic] = useState(null);
   const [topicBreakdown, setTopicBreakdown] = useState(null);
@@ -139,6 +141,7 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
   // Regenerate content
   const regenerateContent = async () => {
     setLoading(true);
+    startLoading('global', 'Regenerating exam cram content...');
     try {
       // Generate new topic breakdown
       const breakdownResponse = await fetch('/api/exam-cram', {
@@ -177,6 +180,7 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
       console.error('Error regenerating content:', error);
     } finally {
       setLoading(false);
+      stopLoading('global');
     }
   };
 
@@ -193,6 +197,7 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
 
   const generateTopicBreakdown = async () => {
     setLoading(true);
+    startLoading('global', 'Generating topic breakdown...');
     try {
       const response = await fetch('/api/exam-cram', {
         method: 'POST',
@@ -213,11 +218,13 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
       console.error('Error generating topic breakdown:', error);
     } finally {
       setLoading(false);
+      stopLoading('global');
     }
   };
 
   const generateReadinessAssessment = async () => {
     setLoading(true);
+    startLoading('global', 'Generating readiness assessment...');
     try {
       const response = await fetch('/api/exam-cram', {
         method: 'POST',
@@ -238,6 +245,7 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
       console.error('Error generating readiness assessment:', error);
     } finally {
       setLoading(false);
+      stopLoading('global');
     }
   };
 

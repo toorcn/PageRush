@@ -159,7 +159,7 @@ export default function Flashcards({ cards, onRegenerate }) {
         <button
           onClick={() => { setIndex(i => Math.max(0, i - 1)); setFlipped(false); }}
           disabled={index === 0}
-          className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-4 lg:px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label="Previous card"
         >
           ← Previous
@@ -176,7 +176,7 @@ export default function Flashcards({ cards, onRegenerate }) {
         <button
           onClick={() => { setIndex(i => Math.min(cards.length - 1, i + 1)); setFlipped(false); }}
           disabled={index === cards.length - 1}
-          className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-4 lg:px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label="Next card"
         >
           Next →

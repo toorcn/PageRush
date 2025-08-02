@@ -21,6 +21,7 @@ import FocusModeStats from '../components/FocusModeStats';
 import { parseFlashcards, parseQuiz, parseExam } from '../utils/parseGeminiResponse';
 import NotificationProvider, { useNotification } from '../components/NotificationProvider';
 import Notification from '../components/Notification';
+import { LoadingProvider, useLoading } from '../components/LoadingProvider';
 import LottieLoader from '../components/LottieLoader';
 
 // Define notification interface
@@ -70,12 +71,48 @@ interface HistoryItem {
   questionTypes?: any;
 }
 
-export default function Home() {
+function HomeContent() {
+  const { startLoading, stopLoading } = useLoading();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [activeDocuments, setActiveDocuments] = useState<Document[]>([]);
   const [apiKey, setApiKey] = useState('');
   const [feature, setFeature] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // Helper functions
+  const getFeatureLabel = (feature: string) => {
+    switch (feature) {
+      case 'examCram':
+        return 'Exam Cram';
+      case 'studyGuide':
+        return 'Study Guide';
+      case 'flashcards':
+        return 'Flashcards';
+      case 'quiz':
+        return 'Quiz';
+      case 'exam':
+        return 'Exam';
+      default:
+        return 'Study Tools';
+    }
+  };
+
+  const getFeatureIcon = (feature: string) => {
+    switch (feature) {
+      case 'examCram':
+        return '🚀';
+      case 'studyGuide':
+        return '📚';
+      case 'flashcards':
+        return '📝';
+      case 'quiz':
+        return '🎓';
+      case 'exam':
+        return '📊';
+      default:
+        return '✨';
+    }
+  };
   const [result, setResult] = useState<any>(null);
   const [quizAnswers, setQuizAnswers] = useState<any[]>([]);
   const [quizScore, setQuizScore] = useState<any>(null);
@@ -275,6 +312,7 @@ export default function Home() {
 
   const generateContent = async (ft: string, topics: any = null, questionCount: any = null, knowledgeType: any = null, questionTypes: any = null, performanceSummary: any = null) => {
     setLoading(true);
+    startLoading('global', `Generating ${getFeatureLabel(ft)} with AI...`);
     try {
       const res = await fetch('/api/gemini-generate', {
         method: 'POST',
@@ -293,6 +331,7 @@ export default function Home() {
       const data = await res.json();
       console.log({data});
       setLoading(false);
+      stopLoading('global');
       setResult(data);
       
       // Save to history
@@ -326,6 +365,7 @@ export default function Home() {
     } catch (error) {
       console.error('Generation error:', error);
       setLoading(false);
+      stopLoading('global');
       
       addNotification({
         type: 'error',
@@ -352,54 +392,72 @@ export default function Home() {
 
   const handleQuizSubmit = async (answers: any) => {
     setQuizAnswers(answers);
+    startLoading('global', 'Grading your quiz...');
     
-    // Parse the quiz questions from the result
-    const quizQuestions = parseQuiz(result);
-    console.log('Quiz questions for grading:', quizQuestions);
-    console.log('User answers for grading:', answers);
-    
-    const res = await fetch('/api/grade-quiz', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        userAnswers: answers.answers || answers, 
-        quiz: quizQuestions,
-        geminiApiKey: apiKey
-      }),
-    });
-    const data = await res.json();
-    console.log('Grading result:', data);
-    setQuizScore(data);
-    
-    addNotification({
-      type: 'success',
-      icon: '📊',
-      title: 'Quiz Completed',
-      message: `You scored ${data.score}/${data.total} (${Math.round((data.score/data.total)*100)}%)`,
-      action: {
-        label: 'View Results',
-        onClick: () => {
-          // Scroll to results
-          window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    try {
+      // Parse the quiz questions from the result
+      const quizQuestions = parseQuiz(result);
+      console.log('Quiz questions for grading:', quizQuestions);
+      console.log('User answers for grading:', answers);
+      
+      const res = await fetch('/api/grade-quiz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userAnswers: answers.answers || answers, 
+          quiz: quizQuestions,
+          geminiApiKey: apiKey
+        }),
+      });
+      const data = await res.json();
+      console.log('Grading result:', data);
+            setQuizScore(data);
+      stopLoading('global');
+      
+      addNotification({
+        type: 'success',
+        icon: '📊',
+        title: 'Quiz Completed',
+        message: `You scored ${data.score}/${data.total} (${Math.round((data.score/data.total)*100)}%)`,
+        action: {
+          label: 'View Results',
+          onClick: () => {
+            // Scroll to results
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+          }
         }
-      }
-    });
+      });
+    } catch (error) {
+      console.error('Quiz grading error:', error);
+      stopLoading('global');
+      
+      addNotification({
+        type: 'error',
+        icon: '❌',
+        title: 'Grading Failed',
+        message: 'There was an error grading your quiz. Please try again.',
+      });
+    }
   };
 
   const handleExamSubmit = async (answers: any) => {
     setQuizAnswers(answers);
-    const res = await fetch('/api/grade-quiz', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        userAnswers: answers, 
-        quiz: parseExam(result),
-        geminiApiKey: apiKey
-      }),
-    });
-    const data = await res.json();
-    setQuizScore(data);
-    setExamFeedback(data.details || null);
+    startLoading('global', 'Grading your exam...');
+    
+    try {
+      const res = await fetch('/api/grade-quiz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userAnswers: answers, 
+          quiz: parseExam(result),
+          geminiApiKey: apiKey
+        }),
+      });
+      const data = await res.json();
+      setQuizScore(data);
+      setExamFeedback(data.details || null);
+      stopLoading('global');
     
     // Save performance summary
     if (data.details) {
@@ -431,6 +489,17 @@ export default function Home() {
         }
       });
     }
+  } catch (error) {
+    console.error('Exam grading error:', error);
+    stopLoading('global');
+    
+    addNotification({
+      type: 'error',
+      icon: '❌',
+      title: 'Grading Failed',
+      message: 'There was an error grading your exam. Please try again.',
+    });
+  }
   };
 
   const loadFromHistory = (historyItem: HistoryItem) => {
@@ -513,40 +582,6 @@ export default function Home() {
     }
   }, [apiKey, showApiKeyInput]);
 
-  const getFeatureLabel = (feature: string) => {
-    switch (feature) {
-      case 'examCram':
-        return 'Exam Cram';
-      case 'studyGuide':
-        return 'Study Guide';
-      case 'flashcards':
-        return 'Flashcards';
-      case 'quiz':
-        return 'Quiz';
-      case 'exam':
-        return 'Exam';
-      default:
-        return 'Study Tools';
-    }
-  };
-
-  const getFeatureIcon = (feature: string) => {
-    switch (feature) {
-      case 'examCram':
-        return '🚀';
-      case 'studyGuide':
-        return '📚';
-      case 'flashcards':
-        return '📝';
-      case 'quiz':
-        return '🎓';
-      case 'exam':
-        return '📊';
-      default:
-        return '✨';
-    }
-  };
-
   // If focus mode is active, render the FocusMode component
   if (focusMode) {
     return (
@@ -570,9 +605,13 @@ export default function Home() {
         {/* Mobile Header - Fixed at top */}
         <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
           <div className="flex items-center justify-between px-4 py-3">
-            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              PageRush AI
-            </h1>
+            <div className="flex items-center space-x-3">
+              <img 
+                src="/pagerushai-logo.png" 
+                alt="PageRush AI" 
+                className="h-8 w-auto"
+              />
+            </div>
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setShowDocumentManager(!showDocumentManager)}
@@ -607,9 +646,11 @@ export default function Home() {
           {/* Desktop Header */}
           <div className="hidden lg:flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <h1 className={`text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent ${focusMode ? 'sr-only' : ''}`}>
-                PageRush AI
-              </h1>
+              <img 
+                src="/pagerushai-logo.png" 
+                alt="PageRush AI" 
+                className="h-12 w-auto"
+              />
               {activeDocuments.length > 0 && (
                 <div className="flex items-center space-x-2">
                   <span className="text-gray-500">📄</span>
@@ -719,6 +760,44 @@ export default function Home() {
 
           {/* Mobile Bottom Spacer */}
           <div className="lg:hidden h-8"></div>
+
+          {/* Welcome Section - Show when no documents are loaded */}
+          {step === 0 && (
+            <div className="text-center py-12 lg:py-16">
+              <div className="max-w-2xl mx-auto">
+                <div className="flex justify-center mb-8">
+                  <img 
+                    src="/pagerushai-logo.png" 
+                    alt="PageRush AI" 
+                    className="h-24 w-auto"
+                  />
+                </div>
+                <h2 className="text-3xl lg:text-4xl font-bold text-gray-800 mb-4">
+                  Welcome to PageRush AI
+                </h2>
+                <p className="text-lg text-gray-600 mb-8 max-w-xl mx-auto">
+                  Transform your study materials into interactive learning tools with AI-powered flashcards, quizzes, study guides, and more.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                  <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 shadow-sm border border-gray-200">
+                    <div className="text-2xl mb-2">📚</div>
+                    <h3 className="font-semibold text-gray-800 mb-2">Upload Documents</h3>
+                    <p className="text-sm text-gray-600">Upload your PDFs and let AI extract the content</p>
+                  </div>
+                  <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 shadow-sm border border-gray-200">
+                    <div className="text-2xl mb-2">✨</div>
+                    <h3 className="font-semibold text-gray-800 mb-2">Choose Tools</h3>
+                    <p className="text-sm text-gray-600">Select from flashcards, quizzes, study guides, and more</p>
+                  </div>
+                  <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 shadow-sm border border-gray-200">
+                    <div className="text-2xl mb-2">🎯</div>
+                    <h3 className="font-semibold text-gray-800 mb-2">Study Smart</h3>
+                    <p className="text-sm text-gray-600">Learn efficiently with AI-powered adaptive learning</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Main Content */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
@@ -859,6 +938,13 @@ export default function Home() {
               {step >= 2 && ((!showQuizGenerator || !showExamGenerator || !result) || showFeatureSelector) && (
                 <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 p-4 lg:p-6" data-feature-selector>
                   <div className="text-center mb-4 lg:mb-6">
+                    <div className="flex justify-center mb-4">
+                      <img 
+                        src="/pagerushai-logo.png" 
+                        alt="PageRush AI" 
+                        className="h-12 w-auto"
+                      />
+                    </div>
                     <h2 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2">✨ Choose Your Study Tool</h2>
                     <p className="text-gray-600 text-sm lg:text-base">Select how you'd like to study your materials</p>
                   </div>
@@ -881,14 +967,7 @@ export default function Home() {
                   performanceSummaries={performanceSummaries}
                 />
               )}
-              {loading && (
-                <div className="flex items-center justify-center py-12">
-                  <LottieLoader 
-                    text="Generating with Gemini..." 
-                    size="large"
-                  />
-                </div>
-              )}
+
                             {!loading && feature === 'examCram' && activeDocuments.length > 0 && (
                 <ExamCram
                   content={activeDocuments.map(doc => doc.text).join('\n\n---\n\n')}
@@ -936,8 +1015,36 @@ export default function Home() {
               )}
             </div>
           </div>
+          
+          {/* Footer with Logo */}
+          <div className="mt-12 lg:mt-16 pt-8 border-t border-gray-200">
+            <div className="text-center">
+              <div className="flex justify-center items-center space-x-4 mb-4">
+                <img 
+                  src="/pagerushai-logo.png" 
+                  alt="PageRush AI" 
+                  className="h-8 w-auto"
+                />
+                <span className="text-lg font-semibold text-gray-700">PageRush AI</span>
+              </div>
+              <p className="text-sm text-gray-500 mb-2">
+                Transform your study materials into interactive learning tools
+              </p>
+              <p className="text-xs text-gray-400">
+                Powered by AI • Built for Students • By Students (<a href="https://linkedin.com/in/hong-bing" className="text-blue-500">Hong</a>)
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </NotificationProvider>
+  );
+}
+
+export default function Home() {
+  return (
+    <LoadingProvider>
+      <HomeContent />
+    </LoadingProvider>
   );
 }
