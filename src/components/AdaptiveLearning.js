@@ -29,11 +29,11 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
   }, [learningProgress.currentFocus, topicBreakdown]);
 
   // Debounce function to prevent duplicate API calls
-  const debounceCall = (func, delay = 1000) => {
+  const debounceCall = (func, delay = 500) => {
     const now = Date.now();
     if (now - lastCallTime < delay) {
       console.log('API call debounced - too soon since last call');
-      return;
+      return Promise.resolve(); // Return a resolved promise instead of undefined
     }
     setLastCallTime(now);
     return func();
@@ -64,6 +64,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
   };
 
   const generatePracticeQuestion = async (topic, difficulty = 'medium') => {
+    console.log('Generating practice question for topic:', topic.title, 'difficulty:', difficulty);
     return debounceCall(async () => {
       setLoading(true);
       try {
@@ -78,11 +79,30 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
             geminiApiKey: apiKey
           }),
         });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
-        setCurrentQuestion(data.question);
-        setSessionStats(prev => ({ ...prev, startTime: Date.now() }));
+        console.log('Practice question response:', data);
+        
+        if (data.question) {
+          setCurrentQuestion(data.question);
+          setSessionStats(prev => ({ ...prev, startTime: Date.now() }));
+        } else {
+          console.error('No question data received:', data);
+        }
       } catch (error) {
         console.error('Error generating practice question:', error);
+        // Set a fallback question or error state
+        setCurrentQuestion({
+          question: "Sorry, there was an error generating the question. Please try again.",
+          type: "text",
+          options: [],
+          correctAnswer: "Please try again",
+          explanation: "There was an error with the question generation."
+        });
       } finally {
         setLoading(false);
       }
@@ -200,8 +220,10 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
   };
 
   const startTopicPractice = (topic) => {
+    console.log('Starting topic practice for:', topic.title);
     setCurrentTopic(topic);
     setCurrentMode('practice');
+    setCurrentQuestion(null); // Reset any previous question
     generatePracticeQuestion(topic, 'medium');
   };
 
@@ -371,7 +393,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
         </button>
       </div>
 
-      {currentQuestion && (
+      {currentQuestion ? (
         <div className="bg-white border border-gray-200 rounded-lg p-6">
           <div className="space-y-6">
             <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-lg">
@@ -471,6 +493,14 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
+          <div className="text-gray-500">
+            <div className="text-4xl mb-4">⏳</div>
+            <p className="text-lg font-medium mb-2">Generating your first question...</p>
+            <p className="text-sm">This may take a few moments</p>
           </div>
         </div>
       )}
