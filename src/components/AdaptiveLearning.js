@@ -18,17 +18,59 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
   const [currentMode, setCurrentMode] = useState('select'); // select, review, practice, quiz
   const [lastCallTime, setLastCallTime] = useState(0); // Track last API call time
   const [questionBankStatus, setQuestionBankStatus] = useState({}); // Track question bank loading status
+  const [shouldAutoReview, setShouldAutoReview] = useState(false); // Track if we should auto-enter review mode
 
   useEffect(() => {
-    if (learningProgress.currentFocus) {
+    if (learningProgress.currentFocus && shouldAutoReview) {
       const topic = topicBreakdown?.topics.find(t => t.id === learningProgress.currentFocus);
       if (topic) {
         setCurrentTopic(topic);
         setCurrentMode('review');
         generateReviewContent(topic);
       }
+    } else if (!learningProgress.currentFocus) {
+      // Reset to select mode when no current focus
+      setCurrentMode('select');
+      setCurrentTopic(null);
+      setCurrentQuestion(null);
+      setUserAnswer('');
+      setShowExplanation(false);
+      setQuestionHistory([]);
+      setSessionStats({
+        questionsAnswered: 0,
+        correctAnswers: 0,
+        averageTime: 0,
+        startTime: null
+      });
+      setShouldAutoReview(false);
     }
-  }, [learningProgress.currentFocus, topicBreakdown]);
+  }, [learningProgress.currentFocus, topicBreakdown, shouldAutoReview]);
+
+  // Cleanup effect to reset state when component unmounts
+  useEffect(() => {
+    return () => {
+      // Reset state when component unmounts
+      setCurrentMode('select');
+      setCurrentTopic(null);
+      setCurrentQuestion(null);
+      setUserAnswer('');
+      setShowExplanation(false);
+      setQuestionHistory([]);
+      setSessionStats({
+        questionsAnswered: 0,
+        correctAnswers: 0,
+        averageTime: 0,
+        startTime: null
+      });
+    };
+  }, []);
+
+  // Set auto-review flag when component mounts with current focus
+  useEffect(() => {
+    if (learningProgress.currentFocus && !shouldAutoReview) {
+      setShouldAutoReview(true);
+    }
+  }, [learningProgress.currentFocus, shouldAutoReview]);
 
   // Debounce function to prevent duplicate API calls
   const debounceCall = (func, delay = 500) => {
@@ -202,12 +244,25 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
     const currentIndex = topicBreakdown.topics.findIndex(t => t.id === currentTopic.id);
     const nextTopic = topicBreakdown.topics[currentIndex + 1];
     
-    if (nextTopic && !learningProgress.completedTopics.includes(nextTopic.id)) {
-      return nextTopic;
+    // Check if next topic is available and has questions
+    if (nextTopic) {
+      const cacheStatus = questionBankManager.getCacheStatus()[nextTopic.id];
+      const hasQuestionsLeft = cacheStatus && cacheStatus.remainingQuestions > 0;
+      const isCompleted = learningProgress.completedTopics.includes(nextTopic.id);
+      
+      if (!isCompleted || hasQuestionsLeft) {
+        return nextTopic;
+      }
     }
     
-    // Find first incomplete topic
-    return topicBreakdown.topics.find(t => !learningProgress.completedTopics.includes(t.id));
+    // Find first topic that's either not completed or has questions left
+    return topicBreakdown.topics.find(topic => {
+      const cacheStatus = questionBankManager.getCacheStatus()[topic.id];
+      const hasQuestionsLeft = cacheStatus && cacheStatus.remainingQuestions > 0;
+      const isCompleted = learningProgress.completedTopics.includes(topic.id);
+      
+      return !isCompleted || hasQuestionsLeft;
+    });
   };
 
   const completeSession = () => {
@@ -218,7 +273,13 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
       averageTime: sessionStats.averageTime
     };
     
-    onProgressUpdate(currentTopic.id, performance);
+    // Only mark as completed if there are no more questions in the bank
+    const cacheStatus = questionBankManager.getCacheStatus()[currentTopic.id];
+    const hasQuestionsLeft = cacheStatus && cacheStatus.remainingQuestions > 0;
+    
+    if (!hasQuestionsLeft) {
+      onProgressUpdate(currentTopic.id, performance);
+    }
     
     // Reset session
     setSessionStats({
@@ -266,6 +327,47 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
         setQuestionBankStatus(prev => ({ ...prev, [topic.id]: 'error' }));
       }
     }
+  };
+
+  // Helper function to check if a topic is truly completed
+  const isTopicTrulyCompleted = (topicId) => {
+    const isCompleted = learningProgress.completedTopics.includes(topicId);
+    const cacheStatus = questionBankManager.getCacheStatus()[topicId];
+    const hasQuestionsLeft = cacheStatus && cacheStatus.remainingQuestions > 0;
+    
+    return isCompleted && !hasQuestionsLeft;
+  };
+
+  // Reset topic completion status to allow practicing remaining questions
+  const resetTopicCompletion = (topicId) => {
+    // Reset the used questions for this topic so they can be practiced again
+    questionBankManager.usedQuestions.set(topicId, new Set());
+    
+    // Force a re-render by updating the question bank status
+    setQuestionBankStatus(prev => ({ ...prev }));
+    
+    console.log(`Reset completion status for topic ${topicId}`);
+  };
+
+  // Reset component state when navigating back
+  const handleBackToOverview = () => {
+    // Reset all component state
+    setCurrentMode('select');
+    setCurrentTopic(null);
+    setCurrentQuestion(null);
+    setUserAnswer('');
+    setShowExplanation(false);
+    setQuestionHistory([]);
+    setSessionStats({
+      questionsAnswered: 0,
+      correctAnswers: 0,
+      averageTime: 0,
+      startTime: null
+    });
+    setShouldAutoReview(false);
+    
+    // Call the original onBack function
+    onBack();
   };
 
   const renderFormattedText = (text) => {
@@ -326,14 +428,21 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
           {topicBreakdown?.topics.map((topic) => {
             const cacheStatus = questionBankManager.getCacheStatus()[topic.id];
             const status = questionBankStatus[topic.id];
+            const isCompleted = learningProgress.completedTopics.includes(topic.id);
+            const isTrulyCompleted = isTopicTrulyCompleted(topic.id);
             
             return (
               <div key={topic.id} className="flex items-center justify-between p-2 bg-white rounded border">
                 <span className="text-sm font-medium text-gray-700">{topic.title}</span>
                 <div className="flex items-center space-x-2">
                   {status === 'loading' && <span className="text-blue-600">⏳</span>}
+                  {isTrulyCompleted && <span className="text-green-600">✅</span>}
+                  {isCompleted && !isTrulyCompleted && <span className="text-yellow-600">🔄</span>}
                   {cacheStatus ? (
-                    <span className="text-green-600 text-xs">
+                    <span className={`text-xs ${
+                      isTrulyCompleted ? 'text-green-600' : 
+                      cacheStatus.remainingQuestions > 0 ? 'text-blue-600' : 'text-gray-500'
+                    }`}>
                       {cacheStatus.remainingQuestions} left
                     </span>
                   ) : (
@@ -361,9 +470,13 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
           const isWeak = learningProgress.weakAreas.includes(topic.id);
           const cacheStatus = questionBankManager.getCacheStatus()[topic.id];
           
+          // A topic is truly completed only if it's marked as completed AND has no questions left
+          const hasQuestionsLeft = cacheStatus && cacheStatus.remainingQuestions > 0;
+          const isTrulyCompleted = isCompleted && !hasQuestionsLeft;
+          
           return (
             <div key={topic.id} className={`border rounded-lg p-4 transition-all duration-300 ${
-              isCompleted 
+              isTrulyCompleted 
                 ? 'bg-green-50 border-green-200' 
                 : isWeak 
                   ? 'bg-red-50 border-red-200' 
@@ -372,7 +485,8 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
               <div className="flex items-start justify-between mb-3">
                 <h3 className="font-bold text-lg text-gray-800">{topic.title}</h3>
                 <div className="flex items-center space-x-2">
-                  {isCompleted && <span className="text-green-600">✅</span>}
+                  {isTrulyCompleted && <span className="text-green-600">✅</span>}
+                  {isCompleted && hasQuestionsLeft && <span className="text-yellow-600">🔄</span>}
                   {isWeak && <span className="text-red-600">⚠️</span>}
                   {cacheStatus && (
                     <span className="text-blue-600 text-xs bg-blue-100 px-2 py-1 rounded">
@@ -407,15 +521,24 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
                   )}
                   <button
                     onClick={() => startTopicPractice(topic)}
-                    disabled={isCompleted}
+                    disabled={isTrulyCompleted}
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isCompleted
+                      isTrulyCompleted
                         ? 'bg-green-100 text-green-700 cursor-not-allowed'
                         : 'bg-blue-600 text-white hover:bg-blue-700'
                     }`}
                   >
-                    {isCompleted ? 'Completed' : 'Practice'}
+                    {isTrulyCompleted ? 'Completed' : 'Practice'}
                   </button>
+                  {isCompleted && hasQuestionsLeft && (
+                    <button
+                      onClick={() => resetTopicCompletion(topic.id)}
+                      className="px-3 py-1 bg-yellow-600 text-white rounded text-xs hover:bg-yellow-700 transition-colors"
+                      title="Reset completion status to practice remaining questions"
+                    >
+                      Reset
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -432,12 +555,20 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
           <h2 className="text-2xl font-bold text-gray-800 mb-2">📖 Review: {currentTopic?.title}</h2>
           <p className="text-gray-600">Review the key concepts before practicing</p>
         </div>
-        <button
-          onClick={() => setCurrentMode('practice')}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          Start Practice
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={() => setCurrentMode('select')}
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+          >
+            ← Back to Topics
+          </button>
+          <button
+            onClick={() => startTopicPractice(currentTopic)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Start Practice
+          </button>
+        </div>
       </div>
 
       {currentQuestion && (
@@ -635,7 +766,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
           <p className="text-gray-600">Practice until you master each concept</p>
         </div>
         <button
-          onClick={onBack}
+          onClick={handleBackToOverview}
           className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium"
         >
           ← Back to Overview

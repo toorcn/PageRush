@@ -271,7 +271,13 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
   };
 
   const startAdaptiveLearning = (topicId) => {
-    setLearningProgress(prev => ({ ...prev, currentFocus: topicId }));
+    if (topicId) {
+      // If a specific topic is provided, set it as current focus
+      setLearningProgress(prev => ({ ...prev, currentFocus: topicId }));
+    } else {
+      // If no topic provided (from overview), clear current focus to show topic selection
+      setLearningProgress(prev => ({ ...prev, currentFocus: null }));
+    }
     setCurrentView('learning');
   };
 
@@ -376,7 +382,7 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
         </button>
 
         <button
-          onClick={() => setCurrentView('learning')}
+          onClick={() => startAdaptiveLearning()}
           className="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 text-left group hover:scale-105"
         >
           <div className="text-4xl mb-4">🎯</div>
@@ -459,7 +465,11 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
           <AdaptiveLearning 
             topicBreakdown={topicBreakdown}
             learningProgress={learningProgress}
-            onBack={() => setCurrentView('overview')}
+            onBack={() => {
+              // Clear current focus when going back to overview
+              setLearningProgress(prev => ({ ...prev, currentFocus: null }));
+              setCurrentView('overview');
+            }}
             onProgressUpdate={updateLearningProgress}
             apiKey={apiKey}
             content={content}
