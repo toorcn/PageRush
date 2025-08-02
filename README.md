@@ -1,4 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Exam Study AI
+
+An AI-powered study assistant that helps you create study guides, flashcards, quizzes, and practice exams from your documents.
+
+## 🎯 Focus Mode
+
+Experience **minimal, structured, and dopamine-boosted learning** with our revolutionary Focus Mode:
+
+### ✨ Key Features
+
+- **Bite-sized Lessons**: Complete 3-5 minute focused learning sessions
+- **Structured Learning**: 4 different lesson types (Key Concepts, Quick Quiz, Summary, Flashcards)
+- **Dopamine Boost**: Encouragement messages and achievement tracking
+- **Progress Tracking**: Streak counter, session timer, and completion stats
+- **Break Timer**: Automatic 5-minute breaks after completing session goals
+- **No Distractions**: Clean, minimal interface designed for deep focus
+
+### 🚀 How to Use Focus Mode
+
+1. **Upload a Document**: Start with any PDF or text document
+2. **Enter Focus Mode**: Click the "🎯 Focus Mode" button
+3. **Choose Study Tool**: Select from your favorite study tools (Study Guide, Flashcards, Quiz, Exam)
+4. **Complete Focused Sessions**: Work through bite-sized, distraction-free learning
+5. **Track Progress**: Monitor your streak and achievements
+6. **Take Breaks**: Enjoy well-deserved breaks between sessions
+
+### 📊 Learning Types
+
+- **📚 Study Guide**: Organized notes and summaries with focus mode benefits
+- **🃏 Flashcards**: Interactive study cards with memory enhancement
+- **❓ Quick Quiz**: Test knowledge with engaging questions
+- **📝 Practice Exam**: Full practice tests with structured learning
+
+### 🏆 Achievement System
+
+- **Daily Streaks**: Build momentum with consecutive study days
+- **Lesson Count**: Track total lessons completed
+- **Time Spent**: Monitor your learning investment
+- **Focus Score**: Measure your learning efficiency
+
+### 🧠 Science-Based Design
+
+Focus Mode is designed around proven learning principles:
+- **Spaced Repetition**: Optimal timing for memory retention
+- **Active Recall**: Engaging questions that strengthen memory
+- **Chunking**: Breaking complex topics into digestible pieces
+- **Positive Reinforcement**: Encouragement that builds motivation
 
 ## Getting Started
 

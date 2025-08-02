@@ -51,22 +51,78 @@ export function parseTopics(response) {
 }
 
 export function parseFlashcards(response) {
+  console.log('parseFlashcards called with response:', response);
+  
+  // Check if response has the expected structure
+  if (!response || !response.result || !response.result.candidates || !response.result.candidates[0]) {
+    console.error('Invalid response structure for flashcards:', response);
+    return [];
+  }
+  
   // Try to parse as JSON, fallback to line-based parsing
   try {
     const text = response.result.candidates[0].content.parts[0].text;
+    console.log('Extracted text from response:', text.substring(0, 200) + '...');
+    
+    // Check for obvious invalid responses (e.g., email, error, or generic text)
+    // if (/\b(email|@|error|support|contact|gmail|yahoo|outlook|hotmail)\b/i.test(text)) {
+    //   console.warn('Invalid flashcard response detected:', text);
+    //   return [];
+    // }
     const cards = JSON.parse(text);
-    if (Array.isArray(cards)) return cards;
-  } catch {}
+    console.log('Successfully parsed JSON cards:', cards);
+    if (Array.isArray(cards) && cards.every(card => card.question && card.answer)) {
+      console.log('Valid JSON cards found:', cards.length);
+      return cards;
+    } else {
+      console.log('JSON parsed but invalid structure:', cards);
+    }
+  } catch (error) {
+    console.log('JSON parsing failed, trying text parsing:', error);
+  }
+  
   // Fallback: parse Q/A pairs from text
   const text = response.result.candidates[0].content.parts[0].text;
+  console.log('Attempting text-based parsing with:', text.substring(0, 200) + '...');
+  
+  // Check for obvious invalid responses again
+  if (/\b(email|@|error|support|contact|gmail|yahoo|outlook|hotmail)\b/i.test(text)) {
+    console.warn('Invalid flashcard response detected:', text);
+    return [];
+  }
   const lines = text.split('\n').filter(Boolean);
+  console.log('Parsed lines:', lines.length);
   const cards = [];
   let q = '', a = '';
-  lines.forEach(line => {
-    if (/^Q[:\-]/i.test(line)) q = line.replace(/^Q[:\-]?/i, '').trim();
-    else if (/^A[:\-]/i.test(line)) a = line.replace(/^A[:\-]?/i, '').trim();
-    if (q && a) { cards.push({ question: q, answer: a }); q = ''; a = ''; }
+  lines.forEach((line, index) => {
+    if (/^Q[:\-]/i.test(line)) {
+      q = line.replace(/^Q[:\-]?/i, '').trim();
+      console.log(`Found question ${index}:`, q);
+    }
+    else if (/^A[:\-]/i.test(line)) {
+      a = line.replace(/^A[:\-]?/i, '').trim();
+      console.log(`Found answer ${index}:`, a);
+    }
+    else if (/^Term[:\-]/i.test(line)) {
+      q = line.replace(/^Term[:\-]?/i, '').trim();
+      console.log(`Found term ${index}:`, q);
+    }
+    else if (/^Definition[:\-]/i.test(line)) {
+      a = line.replace(/^Definition[:\-]?/i, '').trim();
+      console.log(`Found definition ${index}:`, a);
+    }
+    if (q && a) { 
+      cards.push({ question: q, answer: a }); 
+      console.log(`Created card:`, { question: q, answer: a });
+      q = ''; a = ''; 
+    }
   });
+  // If no valid cards, warn and return []
+  if (!cards.length) {
+    console.warn('No valid flashcards parsed from response. Full text:', text);
+    return [];
+  }
+  console.log('Final parsed cards:', cards);
   return cards;
 }
 

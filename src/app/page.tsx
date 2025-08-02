@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import PdfUploader from '../components/PdfUploader';
 import ApiKeyInput from '../components/ApiKeyInput';
 import FeatureSelector from '../components/FeatureSelector';
@@ -52,6 +52,26 @@ export default function Home() {
   const removeNotification = (id) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
+
+  // Memoize parsed flashcards to prevent unnecessary re-parsing
+  const parsedFlashcards = useMemo(() => {
+    if (feature === 'flashcards' && result) {
+      console.log('Memoizing flashcards with result:', result);
+      const cards = parseFlashcards(result);
+      console.log('Memoized cards result:', cards);
+      return cards;
+    }
+    return [];
+  }, [feature, result]);
+
+  // Debug useEffect to track result changes for flashcards
+  useEffect(() => {
+    if (feature === 'flashcards' && result) {
+      console.log('Flashcards result changed:', result);
+      const parsedCards = parseFlashcards(result);
+      console.log('Parsed cards on result change:', parsedCards);
+    }
+  }, [result, feature]);
 
   // Load saved data on component mount
   useEffect(() => {
@@ -306,6 +326,8 @@ export default function Home() {
   };
 
   const loadFromHistory = (historyItem) => {
+    // console.log('Loading from history:', historyItem);
+    
     // Find or create document from history
     const existingDoc = documents.find(doc => doc.name === historyItem.documentName);
     if (existingDoc) {
@@ -321,10 +343,25 @@ export default function Home() {
       setActiveDocument(newDoc);
     }
     
+    // Set the result and feature
     setResult(historyItem.result);
     setFeature(historyItem.feature);
     setShowQuizGenerator(false);
     setShowExamGenerator(false);
+    
+    // Add notification for successful load
+    addNotification({
+      type: 'success',
+      icon: getFeatureIcon(historyItem.feature),
+      title: `${getFeatureLabel(historyItem.feature)} Loaded`,
+      message: `Successfully loaded ${historyItem.documentName} from history.`,
+      action: {
+        label: 'View',
+        onClick: () => {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }
+    });
   };
 
   const clearHistory = () => {
@@ -665,7 +702,7 @@ export default function Home() {
                 <StudyGuide content={result.result?.candidates?.[0]?.content?.parts?.[0]?.text || ''} />
               )}
               {!loading && result && feature === 'flashcards' && (
-                <Flashcards cards={parseFlashcards(result)} />
+                <Flashcards cards={parsedFlashcards} />
               )}
               {!loading && result && feature === 'quiz' && (
                 <>

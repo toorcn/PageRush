@@ -46,7 +46,15 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
       return answers[i] === q.answer;
     });
     setFeedback(newFeedback);
-    onSubmit(answers);
+    const numCorrect = newFeedback.filter(Boolean).length;
+    const totalQuestions = questions.length;
+    const percentCorrect = Math.round((numCorrect / totalQuestions) * 100);
+    // Create details for Insights
+    const details = questions.map((q, i) => {
+      if (!q.options || q.options.length < 2) return `Question ${i + 1}: Invalid format`;
+      return `${i + 1}. ${q.question} — ${answers[i] === q.answer ? 'Correct' : `Incorrect (Correct: ${q.answer})`}`;
+    });
+    onSubmit({ answers, numCorrect, totalQuestions, percentCorrect, details });
   };
 
   const toggleExplanation = (questionIndex) => {
@@ -62,6 +70,11 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
   const navigateToQuestion = (index) => {
     setCurrentQuestionIndex(index);
   };
+
+  // Calculate summary after submission
+  const numCorrect = feedback.filter(Boolean).length;
+  const totalQuestions = questions.length;
+  const percentCorrect = Math.round((numCorrect / totalQuestions) * 100);
 
   if (!questions || !questions.length) {
     return (

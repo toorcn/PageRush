@@ -2,8 +2,9 @@
 import React, { useState } from 'react';
 
 export default function HelpfulResourcesSidebar({ history, performanceSummaries, onLoadFromHistory }) {
-  const [expandedFeatures, setExpandedFeatures] = useState(new Set());
+  const [expandedFeatures, setExpandedFeatures] = useState(new Set(['studyGuide', 'flashcards'])); // Default expanded
   const [showAllResources, setShowAllResources] = useState(false);
+  const [loadingItem, setLoadingItem] = useState(null);
 
   // Get resources by feature type
   const getResourcesByFeature = (feature) => {
@@ -28,7 +29,7 @@ export default function HelpfulResourcesSidebar({ history, performanceSummaries,
   const getFeatureIcon = (feature) => {
     switch (feature) {
       case 'studyGuide': return '📚';
-      case 'flashcards': return '🗂️';
+      case 'flashcards': return '🃏';
       case 'quiz': return '❓';
       case 'exam': return '📝';
       default: return '📄';
@@ -55,59 +56,101 @@ export default function HelpfulResourcesSidebar({ history, performanceSummaries,
     }
   };
 
+  const getFeatureBgColor = (feature) => {
+    switch (feature) {
+      case 'studyGuide': return 'bg-blue-50';
+      case 'flashcards': return 'bg-green-50';
+      case 'quiz': return 'bg-purple-50';
+      case 'exam': return 'bg-orange-50';
+      default: return 'bg-gray-50';
+    }
+  };
+
+  const handleLoadFromHistory = async (item) => {
+    setLoadingItem(item.id);
+    try {
+      await onLoadFromHistory(item);
+    } catch (error) {
+      console.error('Error loading from history:', error);
+    } finally {
+      setLoadingItem(null);
+    }
+  };
+
   const renderResourceItem = (item, index) => {
     const preview = item.result?.result?.candidates?.[0]?.content?.parts?.[0]?.text?.slice(0, 120) || 'No preview available.';
     const date = new Date(item.timestamp).toLocaleDateString();
+    const isLoading = loadingItem === item.id;
     
     return (
-      <div key={item.id} className="border-l-2 border-gray-200 pl-3 py-2 hover:bg-gray-50 rounded-r transition-colors">
-        <div className="flex items-center justify-between mb-1">
+      <div key={item.id} className={`border-l-2 ${getFeatureBorderColor(item.feature)} pl-3 py-3 hover:bg-gray-50 rounded-r transition-all duration-200 group ${isLoading ? 'opacity-75' : ''}`}>
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center space-x-2">
-            <span className="text-xs text-gray-500">{date}</span>
+            <span className="text-xs text-gray-500 font-medium">{date}</span>
             {item.questionCount && (
-              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full font-medium">
                 {item.questionCount} Q
+              </span>
+            )}
+            {item.topics && item.topics.length > 0 && (
+              <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full font-medium">
+                {item.topics.length} topics
               </span>
             )}
           </div>
           <button
-            onClick={() => onLoadFromHistory(item)}
-            className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium"
+            onClick={() => handleLoadFromHistory(item)}
+            disabled={isLoading}
+            className={`text-xs font-medium px-3 py-1 rounded-full transition-all duration-200 ${
+              isLoading 
+                ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
+                : 'bg-blue-100 text-blue-700 hover:bg-blue-200 hover:text-blue-800'
+            }`}
           >
-            Load
+            {isLoading ? (
+              <span className="flex items-center space-x-1">
+                <span className="animate-spin text-xs">⏳</span>
+                <span>Loading...</span>
+              </span>
+            ) : (
+              'Load'
+            )}
           </button>
         </div>
-        <div className="text-xs text-gray-600 line-clamp-2 leading-relaxed">
+        <div className="text-xs text-gray-600 line-clamp-3 leading-relaxed mb-2">
           {preview}
+        </div>
+        <div className="text-xs text-gray-400">
+          {item.documentName}
         </div>
       </div>
     );
   };
 
   const renderFeatureSection = (feature, resources, title) => {
-    if (resources.length === 0) return null;
-    
     const isExpanded = expandedFeatures.has(feature);
-    const displayCount = isExpanded ? resources.length : 1;
-    const displayResources = resources.slice(0, displayCount);
-    
+    const displayResources = showAllResources ? resources : resources.slice(0, 3);
+    const hasMore = resources.length > 3 && !showAllResources;
+
     return (
-      <div className={`border rounded-lg ${getFeatureBorderColor(feature)} overflow-hidden`}>
+      <div className={`${getFeatureBgColor(feature)} rounded-lg border ${getFeatureBorderColor(feature)} overflow-hidden`}>
         <button
           onClick={() => toggleFeature(feature)}
-          className="w-full p-3 bg-gray-50 hover:bg-gray-100 text-left flex items-center justify-between transition-colors"
+          className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-white/50 transition-colors"
         >
-          <div className="flex items-center space-x-2">
-            <span className="text-lg">{getFeatureIcon(feature)}</span>
+          <div className="flex items-center space-x-3">
+            <span className="text-xl">{getFeatureIcon(feature)}</span>
             <div>
-              <span className={`font-semibold ${getFeatureColor(feature)}`}>{title}</span>
-              <span className="text-xs text-gray-500 ml-2">({resources.length})</span>
+              <h4 className={`font-semibold ${getFeatureColor(feature)}`}>{title}</h4>
+              <p className="text-xs text-gray-500">{resources.length} resource{resources.length !== 1 ? 's' : ''}</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            {resources.length > 1 && (
-              <span className="text-xs text-gray-500">
-                {isExpanded ? 'Show Less' : `Show ${resources.length - 1} More`}
+            {resources.length > 0 && (
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                getFeatureColor(feature).replace('text-', 'bg-').replace('-700', '-100') + ' ' + getFeatureColor(feature)
+              }`}>
+                {resources.length}
               </span>
             )}
             <span className={`transform transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
@@ -116,26 +159,55 @@ export default function HelpfulResourcesSidebar({ history, performanceSummaries,
           </div>
         </button>
         
-        <div className="bg-white">
-          {displayResources.map((item, index) => renderResourceItem(item, index))}
-        </div>
+        {isExpanded && (
+          <div className="px-4 pb-3 space-y-2">
+            {resources.length === 0 ? (
+              <div className="text-center py-4">
+                <div className="text-gray-400 text-2xl mb-2">{getFeatureIcon(feature)}</div>
+                <p className="text-xs text-gray-500">No {title.toLowerCase()} yet</p>
+                <p className="text-xs text-gray-400">Generate your first one to see it here!</p>
+              </div>
+            ) : (
+              <>
+                {displayResources.map(renderResourceItem)}
+                {hasMore && (
+                  <button
+                    onClick={() => setShowAllResources(true)}
+                    className="w-full text-xs text-blue-600 hover:text-blue-800 font-medium py-2 hover:bg-white/50 rounded transition-colors"
+                  >
+                    Show {resources.length - 3} more...
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </div>
     );
   };
 
+  const totalResources = studyGuides.length + flashcards.length + quizzes.length + exams.length;
+
   return (
-    <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 p-4">
+    <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 p-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-gray-800 flex items-center">
           <span className="mr-2">🧰</span>
           Study Resources
+          {totalResources > 0 && (
+            <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+              {totalResources}
+            </span>
+          )}
         </h3>
-        <button
-          onClick={() => setShowAllResources(!showAllResources)}
-          className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
-        >
-          {showAllResources ? 'Show Recent' : 'Show All'}
-        </button>
+        {totalResources > 3 && (
+          <button
+            onClick={() => setShowAllResources(!showAllResources)}
+            className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium"
+          >
+            {showAllResources ? 'Show Recent' : 'Show All'}
+          </button>
+        )}
       </div>
       
       <div className="space-y-3">
@@ -144,11 +216,14 @@ export default function HelpfulResourcesSidebar({ history, performanceSummaries,
         {renderFeatureSection('quiz', quizzes, 'Quizzes')}
         {renderFeatureSection('exam', exams, 'Exams')}
         
-        {studyGuides.length === 0 && flashcards.length === 0 && quizzes.length === 0 && exams.length === 0 && (
-          <div className="text-center py-6">
-            <div className="text-gray-400 text-4xl mb-2">📚</div>
-            <div className="text-sm text-gray-500">No resources generated yet.</div>
-            <div className="text-xs text-gray-400 mt-1">Generate your first study material to see it here!</div>
+        {totalResources === 0 && (
+          <div className="text-center py-8">
+            <div className="text-gray-400 text-4xl mb-3">📚</div>
+            <div className="text-sm text-gray-500 font-medium mb-1">No resources generated yet</div>
+            <div className="text-xs text-gray-400">Generate your first study material to see it here!</div>
+            <div className="mt-3 text-xs text-gray-400">
+              💡 Try uploading a document and creating flashcards, quizzes, or study guides
+            </div>
           </div>
         )}
       </div>

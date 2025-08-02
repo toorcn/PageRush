@@ -232,7 +232,7 @@ export default function ExamGenerator({ onGenerate, extractedText, apiKey, perfo
       ...prev,
       [type]: {
         ...prev[type],
-        count: Math.max(0, Math.min(10, count)) // Limit between 0-10
+        count: Math.max(0, Math.min(30, count)) // Limit between 0-10
       }
     }));
   };
@@ -514,7 +514,7 @@ WEAK AREAS (${weakQuestions.length} questions):
                     <input
                       type="number"
                       min="0"
-                      max="10"
+                      max="30"
                       value={questionTypes[key].count}
                       onChange={(e) => handleQuestionCountChange(key, parseInt(e.target.value) || 0)}
                       className="w-16 px-2 py-1 border border-gray-300 rounded text-center text-sm"

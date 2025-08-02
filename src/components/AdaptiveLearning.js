@@ -15,6 +15,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
   });
   const [loading, setLoading] = useState(false);
   const [currentMode, setCurrentMode] = useState('select'); // select, review, practice, quiz
+  const [lastCallTime, setLastCallTime] = useState(0); // Track last API call time
 
   useEffect(() => {
     if (learningProgress.currentFocus) {
@@ -27,50 +28,65 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
     }
   }, [learningProgress.currentFocus, topicBreakdown]);
 
-  const generateReviewContent = async (topic) => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/exam-cram', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'generateReviewContent',
-          topic,
-          content,
-          geminiApiKey: apiKey
-        }),
-      });
-      const data = await response.json();
-      setCurrentQuestion(data.reviewContent);
-    } catch (error) {
-      console.error('Error generating review content:', error);
-    } finally {
-      setLoading(false);
+  // Debounce function to prevent duplicate API calls
+  const debounceCall = (func, delay = 1000) => {
+    const now = Date.now();
+    if (now - lastCallTime < delay) {
+      console.log('API call debounced - too soon since last call');
+      return;
     }
+    setLastCallTime(now);
+    return func();
+  };
+
+  const generateReviewContent = async (topic) => {
+    return debounceCall(async () => {
+      setLoading(true);
+      try {
+        const response = await fetch('/api/exam-cram', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'generateReviewContent',
+            topic,
+            content,
+            geminiApiKey: apiKey
+          }),
+        });
+        const data = await response.json();
+        setCurrentQuestion(data.reviewContent);
+      } catch (error) {
+        console.error('Error generating review content:', error);
+      } finally {
+        setLoading(false);
+      }
+    });
   };
 
   const generatePracticeQuestion = async (topic, difficulty = 'medium') => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/exam-cram', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'generatePracticeQuestion',
-          topic,
-          difficulty,
-          content,
-          geminiApiKey: apiKey
-        }),
-      });
-      const data = await response.json();
-      setCurrentQuestion(data.question);
-      setSessionStats(prev => ({ ...prev, startTime: Date.now() }));
-    } catch (error) {
-      console.error('Error generating practice question:', error);
-    } finally {
-      setLoading(false);
-    }
+    return debounceCall(async () => {
+      setLoading(true);
+      try {
+        const response = await fetch('/api/exam-cram', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'generatePracticeQuestion',
+            topic,
+            difficulty,
+            content,
+            geminiApiKey: apiKey
+          }),
+        });
+        const data = await response.json();
+        setCurrentQuestion(data.question);
+        setSessionStats(prev => ({ ...prev, startTime: Date.now() }));
+      } catch (error) {
+        console.error('Error generating practice question:', error);
+      } finally {
+        setLoading(false);
+      }
+    });
   };
 
   const handleAnswerSubmit = async () => {
@@ -79,47 +95,49 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
     const endTime = Date.now();
     const responseTime = (endTime - sessionStats.startTime) / 1000;
 
-    setLoading(true);
-    try {
-      const response = await fetch('/api/exam-cram', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'gradeAnswer',
+    return debounceCall(async () => {
+      setLoading(true);
+      try {
+        const response = await fetch('/api/exam-cram', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'gradeAnswer',
+            question: currentQuestion,
+            userAnswer,
+            geminiApiKey: apiKey
+          }),
+        });
+        const data = await response.json();
+        
+        const isCorrect = data.isCorrect;
+        const newQuestionHistory = {
           question: currentQuestion,
           userAnswer,
-          geminiApiKey: apiKey
-        }),
-      });
-      const data = await response.json();
-      
-      const isCorrect = data.isCorrect;
-      const newQuestionHistory = {
-        question: currentQuestion,
-        userAnswer,
-        correctAnswer: data.correctAnswer,
-        explanation: data.explanation,
-        isCorrect,
-        responseTime,
-        timestamp: new Date().toISOString()
-      };
+          correctAnswer: data.correctAnswer,
+          explanation: data.explanation,
+          isCorrect,
+          responseTime,
+          timestamp: new Date().toISOString()
+        };
 
-      setQuestionHistory(prev => [...prev, newQuestionHistory]);
-      setShowExplanation(true);
-      
-      // Update session stats
-      setSessionStats(prev => ({
-        questionsAnswered: prev.questionsAnswered + 1,
-        correctAnswers: prev.correctAnswers + (isCorrect ? 1 : 0),
-        averageTime: (prev.averageTime + responseTime) / 2,
-        startTime: null
-      }));
+        setQuestionHistory(prev => [...prev, newQuestionHistory]);
+        setShowExplanation(true);
+        
+        // Update session stats
+        setSessionStats(prev => ({
+          questionsAnswered: prev.questionsAnswered + 1,
+          correctAnswers: prev.correctAnswers + (isCorrect ? 1 : 0),
+          averageTime: (prev.averageTime + responseTime) / 2,
+          startTime: null
+        }));
 
-    } catch (error) {
-      console.error('Error grading answer:', error);
-    } finally {
-      setLoading(false);
-    }
+      } catch (error) {
+        console.error('Error grading answer:', error);
+      } finally {
+        setLoading(false);
+      }
+    });
   };
 
   const handleNextQuestion = () => {
@@ -265,12 +283,25 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
       {currentQuestion && (
         <div className="bg-white border border-gray-200 rounded-lg p-6">
           <div className="prose max-w-none">
-            <h3 className="text-lg font-semibold mb-4">{currentQuestion.title}</h3>
-            <div className="space-y-4">
+            <h3 className="text-xl font-semibold mb-6 text-gray-800 border-b border-gray-200 pb-3">
+              {currentQuestion.title}
+            </h3>
+            <div className="space-y-6">
               {currentQuestion.content.map((section, index) => (
-                <div key={index}>
-                  <h4 className="font-medium text-gray-800 mb-2">{section.heading}</h4>
-                  <p className="text-gray-700">{section.text}</p>
+                <div key={index} className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-semibold text-lg text-gray-800 mb-3 flex items-center">
+                    <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold mr-3">
+                      {index + 1}
+                    </span>
+                    {section.heading}
+                  </h4>
+                  <div className="text-gray-700 leading-relaxed">
+                    {section.text.split('\n').map((paragraph, pIndex) => (
+                      <p key={pIndex} className="mb-3 last:mb-0">
+                        {paragraph}
+                      </p>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -301,42 +332,49 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
 
       {currentQuestion && (
         <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-800">{currentQuestion.question}</h3>
+          <div className="space-y-6">
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-lg">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Question:</h3>
+              <p className="text-gray-700 leading-relaxed">{currentQuestion.question}</p>
+            </div>
             
             {currentQuestion.type === 'mcq' && (
-              <div className="space-y-2">
+              <div className="space-y-3">
+                <h4 className="font-medium text-gray-800 mb-3">Select the best answer:</h4>
                 {currentQuestion.options.map((option, index) => (
-                  <label key={index} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <label key={index} className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
                     <input
                       type="radio"
                       name="answer"
                       value={option}
                       checked={userAnswer === option}
                       onChange={(e) => setUserAnswer(e.target.value)}
-                      className="text-blue-600"
+                      className="text-blue-600 focus:ring-blue-500"
                     />
-                    <span className="text-gray-700">{option}</span>
+                    <span className="text-gray-700 flex-1">{option}</span>
                   </label>
                 ))}
               </div>
             )}
 
             {currentQuestion.type === 'text' && (
-              <textarea
-                value={userAnswer}
-                onChange={(e) => setUserAnswer(e.target.value)}
-                placeholder="Type your answer here..."
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                rows={4}
-              />
+              <div className="space-y-3">
+                <h4 className="font-medium text-gray-800 mb-3">Your answer:</h4>
+                <textarea
+                  value={userAnswer}
+                  onChange={(e) => setUserAnswer(e.target.value)}
+                  placeholder="Type your answer here..."
+                  className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  rows={4}
+                />
+              </div>
             )}
 
             {!showExplanation && (
               <button
                 onClick={handleAnswerSubmit}
                 disabled={!userAnswer.trim() || loading}
-                className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
               >
                 {loading ? 'Checking...' : 'Submit Answer'}
               </button>
@@ -344,33 +382,47 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
 
             {showExplanation && (
               <div className="space-y-4">
-                <div className={`p-4 rounded-lg ${
+                <div className={`p-6 rounded-lg border-l-4 ${
                   questionHistory[questionHistory.length - 1]?.isCorrect 
-                    ? 'bg-green-50 border border-green-200' 
-                    : 'bg-red-50 border border-red-200'
+                    ? 'bg-green-50 border-green-400' 
+                    : 'bg-red-50 border-red-400'
                 }`}>
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span className="text-xl">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <span className="text-2xl">
                       {questionHistory[questionHistory.length - 1]?.isCorrect ? '✅' : '❌'}
                     </span>
-                    <span className="font-semibold">
+                    <span className="font-semibold text-lg">
                       {questionHistory[questionHistory.length - 1]?.isCorrect ? 'Correct!' : 'Incorrect'}
                     </span>
                   </div>
-                  <p className="text-gray-700 mb-2">
-                    <strong>Your answer:</strong> {questionHistory[questionHistory.length - 1]?.userAnswer}
-                  </p>
-                  <p className="text-gray-700 mb-2">
-                    <strong>Correct answer:</strong> {questionHistory[questionHistory.length - 1]?.correctAnswer}
-                  </p>
-                  <p className="text-gray-700">
-                    <strong>Explanation:</strong> {questionHistory[questionHistory.length - 1]?.explanation}
-                  </p>
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <strong className="text-gray-800">Your answer:</strong>
+                      <p className="text-gray-700 mt-1 p-2 bg-gray-100 rounded">
+                        {questionHistory[questionHistory.length - 1]?.userAnswer}
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <strong className="text-gray-800">Correct answer:</strong>
+                      <p className="text-gray-700 mt-1 p-2 bg-green-100 rounded">
+                        {questionHistory[questionHistory.length - 1]?.correctAnswer}
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <strong className="text-gray-800">Explanation:</strong>
+                      <p className="text-gray-700 mt-1 leading-relaxed">
+                        {questionHistory[questionHistory.length - 1]?.explanation}
+                      </p>
+                    </div>
+                  </div>
                 </div>
                 
                 <button
                   onClick={handleNextQuestion}
-                  className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
                 >
                   Next Question
                 </button>

@@ -9,6 +9,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
+  // Add request logging
+  const requestId = Math.random().toString(36).substr(2, 9);
+  console.log(`[${requestId}] Exam Cram API request:`, { action, timestamp: new Date().toISOString() });
+
   let prompt = '';
   
   switch (action) {
@@ -233,7 +237,9 @@ User Answer: ${userAnswer}`;
   }
 
   try {
-    console.log('Making Gemini API request for Exam Cram:', action);
+    console.log(`[${requestId}] Making Gemini API request for Exam Cram:`, action);
+    const startTime = Date.now();
+    
     const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
       method: 'POST',
       headers: {
@@ -245,14 +251,19 @@ User Answer: ${userAnswer}`;
       }),
     });
 
+    const endTime = Date.now();
+    console.log(`[${requestId}] Gemini API response time:`, endTime - startTime, 'ms');
+
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('Gemini API error:', errorData);
+      console.error(`[${requestId}] Gemini API error:`, errorData);
       return res.status(500).json({ error: `Gemini API error: ${response.status} - ${errorData}` });
     }
 
     const data = await response.json();
     let responseText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    
+    console.log(`[${requestId}] Raw Gemini response length:`, responseText.length);
     
     // Try to parse JSON response
     let parsedResponse;
@@ -264,30 +275,40 @@ User Answer: ${userAnswer}`;
       } else {
         parsedResponse = JSON.parse(responseText);
       }
+      console.log(`[${requestId}] Successfully parsed JSON response`);
     } catch (parseError) {
-      console.error('Failed to parse JSON response:', parseError);
-      console.error('Raw response:', responseText);
+      console.error(`[${requestId}] Failed to parse JSON response:`, parseError);
+      console.error(`[${requestId}] Raw response:`, responseText);
       return res.status(500).json({ error: 'Invalid JSON response from AI' });
     }
 
     // Return the appropriate data based on action
+    let result;
     switch (action) {
       case 'generateTopicBreakdown':
-        return res.status(200).json({ breakdown: parsedResponse });
+        result = { breakdown: parsedResponse };
+        break;
       case 'generateReadinessAssessment':
-        return res.status(200).json({ assessment: parsedResponse });
+        result = { assessment: parsedResponse };
+        break;
       case 'generateReviewContent':
-        return res.status(200).json({ reviewContent: parsedResponse.reviewContent });
+        result = { reviewContent: parsedResponse.reviewContent };
+        break;
       case 'generatePracticeQuestion':
-        return res.status(200).json({ question: parsedResponse.question });
+        result = { question: parsedResponse.question };
+        break;
       case 'gradeAnswer':
-        return res.status(200).json(parsedResponse);
+        result = parsedResponse;
+        break;
       default:
-        return res.status(200).json(parsedResponse);
+        result = parsedResponse;
     }
 
+    console.log(`[${requestId}] Successfully processed ${action} request`);
+    return res.status(200).json(result);
+
   } catch (error) {
-    console.error('Exam Cram API request error:', error);
+    console.error(`[${requestId}] Exam Cram API request error:`, error);
     res.status(500).json({ error: `Failed to process request: ${error.message}` });
   }
 } 

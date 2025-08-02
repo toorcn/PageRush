@@ -4,11 +4,14 @@ import StudyGuide from './StudyGuide';
 import Flashcards from './Flashcards';
 import Quiz from './Quiz';
 import Exam from './Exam';
+import Insights from './Insights';
 import { parseFlashcards, parseQuiz, parseExam } from '../utils/parseGeminiResponse';
 
 const LessonContent = ({ lessonType, content, onComplete, result }) => {
   console.log('LessonContent render:', { lessonType, content: content?.substring(0, 50), result: !!result });
   
+  const [quizResult, setQuizResult] = React.useState(null);
+
   const renderContent = () => {
     if (!content && !result) {
       return (
@@ -29,7 +32,11 @@ const LessonContent = ({ lessonType, content, onComplete, result }) => {
       case 'flashcards':
         return <Flashcards cards={parseFlashcards(actualResult)} />;
       case 'quiz':
-        return <Quiz questions={parseQuiz(actualResult)} onSubmit={() => onComplete()} />;
+        return quizResult ? (
+          <Insights score={quizResult.numCorrect} total={quizResult.totalQuestions} details={quizResult.details} />
+        ) : (
+          <Quiz questions={parseQuiz(actualResult)} onSubmit={setQuizResult} />
+        );
       case 'exam':
         return <Exam questions={parseExam(actualResult)} onSubmit={() => onComplete()} />;
       default:

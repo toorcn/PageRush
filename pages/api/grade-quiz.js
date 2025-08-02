@@ -6,6 +6,7 @@ export default async function handler(req, res) {
   const { userAnswers, quiz, geminiApiKey } = req.body;
 
   if (!userAnswers || !quiz || !geminiApiKey) {
+    console.error('API Grade-quiz: Missing required fields');
     return res.status(400).json({ error: 'Missing required fields' });
   }
 

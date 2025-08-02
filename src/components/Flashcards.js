@@ -6,18 +6,43 @@ export default function Flashcards({ cards }) {
   const [flipped, setFlipped] = useState(false);
   const [showProgress, setShowProgress] = useState(false);
 
+  // Debug logging
+  console.log('Flashcards component received:', { cards, cardsLength: cards?.length, cardsType: typeof cards });
+  if (cards && cards.length > 0) {
+    console.log('First card structure:', cards[0]);
+  }
+
   if (!cards || !cards.length) {
+    console.log('No cards available, showing empty state');
     return (
       <div className="bg-white rounded-xl shadow p-6 text-center">
         <div className="text-4xl mb-4">🃏</div>
         <h2 className="text-xl font-bold text-gray-800 mb-2">No Flashcards Available</h2>
         <p className="text-gray-600">Try generating flashcards from your study materials</p>
+        <div className="mt-4 text-xs text-gray-500">
+          Debug: cards = {JSON.stringify(cards)}
+        </div>
       </div>
     );
   }
   console.log({cards})
 
   const card = cards[index];
+  
+  // Validate card structure
+  if (!card || typeof card !== 'object' || !card.question || !card.answer) {
+    console.error('Invalid card structure:', card);
+    return (
+      <div className="bg-white rounded-xl shadow p-6 text-center">
+        <div className="text-4xl mb-4">⚠️</div>
+        <h2 className="text-xl font-bold text-gray-800 mb-2">Invalid Flashcard Data</h2>
+        <p className="text-gray-600">The flashcard data is not in the correct format</p>
+        <div className="mt-4 text-xs text-gray-500">
+          Debug: card = {JSON.stringify(card)}
+        </div>
+      </div>
+    );
+  }
 
   // Keyboard navigation
   useEffect(() => {
@@ -66,7 +91,7 @@ export default function Flashcards({ cards }) {
       {/* Flashcard */}
       <div className="flex justify-center">
         <div
-          className="relative w-80 h-48 perspective-1000 cursor-pointer"
+          className="relative w-80 h-48 cursor-pointer"
           onClick={() => setFlipped(f => !f)}
           tabIndex={0}
           role="button"
@@ -74,25 +99,47 @@ export default function Flashcards({ cards }) {
           style={{ perspective: '1000px' }}
         >
           <div
-            className={`w-full h-full transition-transform duration-500 transform-style-preserve-3d ${flipped ? 'rotate-y-180' : ''}`}
-            style={{ position: 'relative', width: '100%', height: '100%', transformStyle: 'preserve-3d' }}
+            className={`w-full h-full transition-transform duration-500 ${flipped ? 'rotate-y-180' : ''}`}
+            style={{ 
+              position: 'relative', 
+              width: '100%', 
+              height: '100%', 
+              transformStyle: 'preserve-3d',
+              transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
+            }}
           >
             {/* Front of card */}
             <div
               className="absolute w-full h-full bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl p-6 flex items-center justify-center text-center"
-              style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', zIndex: 2, transform: 'rotateY(0deg)' }}
+              style={{ 
+                backfaceVisibility: 'hidden', 
+                WebkitBackfaceVisibility: 'hidden', 
+                zIndex: 2, 
+                transform: 'rotateY(0deg)',
+                position: 'absolute',
+                top: 0,
+                left: 0
+              }}
             >
               <div className="text-lg font-medium text-blue-900">
-                {card.question}
+                {card?.question || 'Question not available'}
               </div>
             </div>
             {/* Back of card (answer) */}
             <div
               className="absolute w-full h-full bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 rounded-xl p-6 flex items-center justify-center text-center"
-              style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)', zIndex: 3 }}
+              style={{ 
+                backfaceVisibility: 'hidden', 
+                WebkitBackfaceVisibility: 'hidden', 
+                transform: 'rotateY(180deg)', 
+                zIndex: 3,
+                position: 'absolute',
+                top: 0,
+                left: 0
+              }}
             >
               <div className="text-lg font-medium text-green-900">
-                {card.answer}
+                {card?.answer || 'Answer not available'}
               </div>
             </div>
           </div>
