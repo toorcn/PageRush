@@ -630,6 +630,11 @@ export default function Home() {
               onSelectDocument={setActiveDocument}
               onRemoveDocument={removeDocument}
               onClose={() => setShowDocumentManager(false)}
+              onAddMoreDocuments={() => {
+                setShowDocumentManager(false);
+                // Clear active document to show the PdfUploader (step 0)
+                setActiveDocument(null);
+              }}
             />
           )}
 
