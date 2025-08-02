@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import { questionBankManager } from '../utils/questionBankManager';
 
 export default function AdaptiveLearning({ topicBreakdown, learningProgress, onBack, onProgressUpdate, apiKey, content }) {
   const [currentTopic, setCurrentTopic] = useState(null);
@@ -16,6 +17,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
   const [loading, setLoading] = useState(false);
   const [currentMode, setCurrentMode] = useState('select'); // select, review, practice, quiz
   const [lastCallTime, setLastCallTime] = useState(0); // Track last API call time
+  const [questionBankStatus, setQuestionBankStatus] = useState({}); // Track question bank loading status
 
   useEffect(() => {
     if (learningProgress.currentFocus) {
@@ -64,49 +66,48 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
   };
 
   const generatePracticeQuestion = async (topic, difficulty = 'medium') => {
-    console.log('Generating practice question for topic:', topic.title, 'difficulty:', difficulty);
-    return debounceCall(async () => {
+    console.log('Getting practice question for topic:', topic.title, 'difficulty:', difficulty);
+    
+    try {
       setLoading(true);
-      try {
-        const response = await fetch('/api/exam-cram', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'generatePracticeQuestion',
-            topic,
-            difficulty,
-            content,
-            geminiApiKey: apiKey
-          }),
-        });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log('Practice question response:', data);
-        
-        if (data.question) {
-          setCurrentQuestion(data.question);
-          setSessionStats(prev => ({ ...prev, startTime: Date.now() }));
-        } else {
-          console.error('No question data received:', data);
-        }
-      } catch (error) {
-        console.error('Error generating practice question:', error);
-        // Set a fallback question or error state
+      
+      // Ensure we have a question bank for this topic
+      if (!questionBankManager.questionBanks.has(topic.id)) {
+        setQuestionBankStatus(prev => ({ ...prev, [topic.id]: 'loading' }));
+        await questionBankManager.getQuestionBank(topic, content, apiKey);
+        setQuestionBankStatus(prev => ({ ...prev, [topic.id]: 'loaded' }));
+      }
+      
+      // Get next question from the bank
+      const nextQuestion = questionBankManager.getNextQuestion(topic.id, difficulty, true);
+      
+      if (nextQuestion) {
+        setCurrentQuestion(nextQuestion);
+        setSessionStats(prev => ({ ...prev, startTime: Date.now() }));
+        // Mark question as used
+        questionBankManager.markQuestionUsed(topic.id, nextQuestion.id);
+      } else {
+        console.error('No questions available in bank');
         setCurrentQuestion({
-          question: "Sorry, there was an error generating the question. Please try again.",
+          question: "No more questions available for this topic. Please try a different topic.",
           type: "text",
           options: [],
-          correctAnswer: "Please try again",
-          explanation: "There was an error with the question generation."
+          correctAnswer: "No questions available",
+          explanation: "All questions in the bank have been used."
         });
-      } finally {
-        setLoading(false);
       }
-    });
+    } catch (error) {
+      console.error('Error getting practice question:', error);
+      setCurrentQuestion({
+        question: "Sorry, there was an error loading the question. Please try again.",
+        type: "text",
+        options: [],
+        correctAnswer: "Please try again",
+        explanation: "There was an error with the question loading."
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAnswerSubmit = async () => {
@@ -115,9 +116,15 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
     const endTime = Date.now();
     const responseTime = (endTime - sessionStats.startTime) / 1000;
 
-    return debounceCall(async () => {
-      setLoading(true);
-      try {
+    setLoading(true);
+    try {
+      let result;
+      
+      // For MCQ questions, check locally without API call
+      if (currentQuestion.type === 'mcq') {
+        result = questionBankManager.checkMCQAnswer(currentQuestion, userAnswer);
+      } else {
+        // For text questions, use API for grading
         const response = await fetch('/api/exam-cram', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -128,42 +135,48 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
             geminiApiKey: apiKey
           }),
         });
-        const data = await response.json();
-        
-        const isCorrect = data.isCorrect;
-        const newQuestionHistory = {
-          question: currentQuestion,
-          userAnswer,
-          correctAnswer: data.correctAnswer,
-          explanation: data.explanation,
-          isCorrect,
-          responseTime,
-          timestamp: new Date().toISOString()
-        };
-
-        setQuestionHistory(prev => [...prev, newQuestionHistory]);
-        setShowExplanation(true);
-        
-        // Update session stats
-        setSessionStats(prev => ({
-          questionsAnswered: prev.questionsAnswered + 1,
-          correctAnswers: prev.correctAnswers + (isCorrect ? 1 : 0),
-          averageTime: (prev.averageTime + responseTime) / 2,
-          startTime: null
-        }));
-
-      } catch (error) {
-        console.error('Error grading answer:', error);
-      } finally {
-        setLoading(false);
+        result = await response.json();
       }
-    });
+      
+      const isCorrect = result.isCorrect;
+      const newQuestionHistory = {
+        question: currentQuestion,
+        userAnswer,
+        correctAnswer: result.correctAnswer,
+        explanation: result.explanation,
+        isCorrect,
+        responseTime,
+        timestamp: new Date().toISOString()
+      };
+
+      // Add to question bank manager history
+      questionBankManager.addToHistory(currentTopic.id, currentQuestion, userAnswer, isCorrect, responseTime);
+      
+      setQuestionHistory(prev => [...prev, newQuestionHistory]);
+      setShowExplanation(true);
+      
+      // Update session stats
+      setSessionStats(prev => ({
+        questionsAnswered: prev.questionsAnswered + 1,
+        correctAnswers: prev.correctAnswers + (isCorrect ? 1 : 0),
+        averageTime: (prev.averageTime + responseTime) / 2,
+        startTime: null
+      }));
+
+    } catch (error) {
+      console.error('Error grading answer:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleNextQuestion = () => {
     setUserAnswer('');
     setShowExplanation(false);
     setCurrentQuestion(null);
+    
+    // Use question bank manager to determine next difficulty
+    const nextDifficulty = questionBankManager.getNextDifficulty(currentTopic.id);
     
     // Determine next action based on performance
     const recentPerformance = questionHistory.slice(-3);
@@ -174,14 +187,14 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
       const nextTopic = getNextTopic();
       if (nextTopic) {
         setCurrentTopic(nextTopic);
-        generatePracticeQuestion(nextTopic, 'medium');
+        generatePracticeQuestion(nextTopic, nextDifficulty);
       } else {
         // All topics completed
         completeSession();
       }
     } else {
       // Need more practice on current topic
-      generatePracticeQuestion(currentTopic, 'easy');
+      generatePracticeQuestion(currentTopic, nextDifficulty);
     }
   };
 
@@ -227,9 +240,36 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
     generatePracticeQuestion(topic, 'medium');
   };
 
+  const preloadQuestionBank = async (topic) => {
+    try {
+      setQuestionBankStatus(prev => ({ ...prev, [topic.id]: 'loading' }));
+      await questionBankManager.getQuestionBank(topic, content, apiKey);
+      setQuestionBankStatus(prev => ({ ...prev, [topic.id]: 'loaded' }));
+    } catch (error) {
+      console.error('Error preloading question bank:', error);
+      setQuestionBankStatus(prev => ({ ...prev, [topic.id]: 'error' }));
+    }
+  };
+
+  const preloadAllQuestionBanks = async () => {
+    const topicsToLoad = topicBreakdown.topics.filter(topic => 
+      !questionBankManager.questionBanks.has(topic.id)
+    );
+    
+    for (const topic of topicsToLoad) {
+      try {
+        setQuestionBankStatus(prev => ({ ...prev, [topic.id]: 'loading' }));
+        await questionBankManager.getQuestionBank(topic, content, apiKey);
+        setQuestionBankStatus(prev => ({ ...prev, [topic.id]: 'loaded' }));
+      } catch (error) {
+        console.error(`Error preloading question bank for ${topic.title}:`, error);
+        setQuestionBankStatus(prev => ({ ...prev, [topic.id]: 'error' }));
+      }
+    }
+  };
+
   const renderFormattedText = (text) => {
-    return text
-      .split('\n')
+    return text?.split('\n')
       .map((line, index) => {
         // Handle headers
         if (line.startsWith('#')) {
@@ -279,10 +319,47 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
         <p className="text-gray-600">Select a topic to start adaptive learning</p>
       </div>
 
+      {/* Question Bank Status */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="font-semibold text-blue-800 mb-3">📚 Question Bank Status</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {topicBreakdown?.topics.map((topic) => {
+            const cacheStatus = questionBankManager.getCacheStatus()[topic.id];
+            const status = questionBankStatus[topic.id];
+            
+            return (
+              <div key={topic.id} className="flex items-center justify-between p-2 bg-white rounded border">
+                <span className="text-sm font-medium text-gray-700">{topic.title}</span>
+                <div className="flex items-center space-x-2">
+                  {status === 'loading' && <span className="text-blue-600">⏳</span>}
+                  {cacheStatus ? (
+                    <span className="text-green-600 text-xs">
+                      {cacheStatus.remainingQuestions} left
+                    </span>
+                  ) : (
+                    <span className="text-gray-500 text-xs">Not loaded</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-3 flex justify-center">
+          <button
+            onClick={preloadAllQuestionBanks}
+            disabled={Object.values(questionBankStatus).some(s => s === 'loading')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+          >
+            {Object.values(questionBankStatus).some(s => s === 'loading') ? 'Loading...' : 'Preload All Question Banks'}
+          </button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {topicBreakdown?.topics.map((topic) => {
           const isCompleted = learningProgress.completedTopics.includes(topic.id);
           const isWeak = learningProgress.weakAreas.includes(topic.id);
+          const cacheStatus = questionBankManager.getCacheStatus()[topic.id];
           
           return (
             <div key={topic.id} className={`border rounded-lg p-4 transition-all duration-300 ${
@@ -297,6 +374,11 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
                 <div className="flex items-center space-x-2">
                   {isCompleted && <span className="text-green-600">✅</span>}
                   {isWeak && <span className="text-red-600">⚠️</span>}
+                  {cacheStatus && (
+                    <span className="text-blue-600 text-xs bg-blue-100 px-2 py-1 rounded">
+                      {cacheStatus.remainingQuestions} questions
+                    </span>
+                  )}
                   <span className={`px-2 py-1 rounded text-xs font-medium ${
                     topic.priority === 'high' ? 'bg-red-100 text-red-800' :
                     topic.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
@@ -313,17 +395,28 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
                 <div className="text-sm text-gray-500">
                   ⏱️ {topic.estimatedStudyTime} min • 📚 {topic.keyConcepts.length} concepts
                 </div>
-                <button
-                  onClick={() => startTopicPractice(topic)}
-                  disabled={isCompleted}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isCompleted
-                      ? 'bg-green-100 text-green-700 cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
-                  }`}
-                >
-                  {isCompleted ? 'Completed' : 'Practice'}
-                </button>
+                <div className="flex space-x-2">
+                  {!cacheStatus && (
+                    <button
+                      onClick={() => preloadQuestionBank(topic)}
+                      disabled={questionBankStatus[topic.id] === 'loading'}
+                      className="px-3 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700 transition-colors disabled:opacity-50"
+                    >
+                      {questionBankStatus[topic.id] === 'loading' ? 'Loading...' : 'Load'}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => startTopicPractice(topic)}
+                    disabled={isCompleted}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isCompleted
+                        ? 'bg-green-100 text-green-700 cursor-not-allowed'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                  >
+                    {isCompleted ? 'Completed' : 'Practice'}
+                  </button>
+                </div>
               </div>
             </div>
           );
@@ -379,11 +472,27 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-800 mb-2">🎯 Practice: {currentTopic?.title}</h2>
-          <p className="text-gray-600">
-            Questions: {sessionStats.questionsAnswered} | 
-            Correct: {sessionStats.correctAnswers} | 
-            Avg Time: {sessionStats.averageTime.toFixed(1)}s
-          </p>
+          <div className="flex items-center space-x-4 text-gray-600">
+            <span>Questions: {sessionStats.questionsAnswered}</span>
+            <span>Correct: {sessionStats.correctAnswers}</span>
+            <span>Avg Time: {sessionStats.averageTime.toFixed(1)}s</span>
+            {currentQuestion && (
+              <>
+                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                  currentQuestion.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
+                  currentQuestion.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                  'bg-red-100 text-red-800'
+                }`}>
+                  {currentQuestion.difficulty}
+                </span>
+                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                  currentQuestion.type === 'mcq' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+                }`}>
+                  {currentQuestion?.type?.toUpperCase()}
+                </span>
+              </>
+            )}
+          </div>
         </div>
         <button
           onClick={completeSession}
@@ -405,7 +514,12 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
             
             {currentQuestion.type === 'mcq' && (
               <div className="space-y-3">
-                <h4 className="font-medium text-gray-800 mb-3">Select the best answer:</h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium text-gray-800">Select the best answer:</h4>
+                  <span className="text-green-600 text-sm font-medium bg-green-100 px-2 py-1 rounded">
+                    ⚡ Instant Feedback
+                  </span>
+                </div>
                 {currentQuestion.options.map((option, index) => (
                   <label key={index} className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
                     <input
@@ -424,7 +538,12 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
 
             {currentQuestion.type === 'text' && (
               <div className="space-y-3">
-                <h4 className="font-medium text-gray-800 mb-3">Your answer:</h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium text-gray-800">Your answer:</h4>
+                  <span className="text-blue-600 text-sm font-medium bg-blue-100 px-2 py-1 rounded">
+                    🤖 AI Grading
+                  </span>
+                </div>
                 <textarea
                   value={userAnswer}
                   onChange={(e) => setUserAnswer(e.target.value)}
@@ -535,6 +654,49 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
       {currentMode === 'select' && renderTopicSelection()}
       {currentMode === 'review' && renderReviewMode()}
       {currentMode === 'practice' && renderPracticeMode()}
+      
+      {/* Performance Analytics */}
+      {currentMode === 'select' && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">📊 Performance Analytics</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {topicBreakdown?.topics.map((topic) => {
+              const analytics = questionBankManager.getPerformanceAnalytics(topic.id);
+              const history = questionBankManager.getHistory(topic.id);
+              
+              if (history.length === 0) return null;
+              
+              return (
+                <div key={topic.id} className="bg-white border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-800 mb-2">{topic.title}</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Accuracy:</span>
+                      <span className={`font-medium ${analytics.accuracy >= 80 ? 'text-green-600' : analytics.accuracy >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
+                        {analytics.accuracy.toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Questions:</span>
+                      <span className="font-medium">{analytics.totalQuestions}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Avg Time:</span>
+                      <span className="font-medium">{analytics.averageTime.toFixed(1)}s</span>
+                    </div>
+                    {Object.entries(analytics.difficultyBreakdown).map(([difficulty, stats]) => (
+                      <div key={difficulty} className="flex justify-between text-xs">
+                        <span className="text-gray-500 capitalize">{difficulty}:</span>
+                        <span className="font-medium">{stats.correct}/{stats.total}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 } 
