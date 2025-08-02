@@ -246,7 +246,30 @@ export default function Home() {
     }
     
     if (!activeDocument?.text || !apiKey) return;
-    await generateContent(ft);
+    
+    // Check if we have a previous result for this feature and document
+    const previousResult = history.find(item => 
+      item.feature === ft && 
+      item.documentName === activeDocument.name
+    );
+    
+    if (previousResult) {
+      // Load the previous result
+      setResult(previousResult.result);
+      addNotification({
+        type: 'info',
+        icon: '📚',
+        title: 'Previous Content Loaded',
+        message: `Showing your last generated ${getFeatureLabel(ft)}. You can regenerate if needed.`,
+        action: {
+          label: 'Regenerate',
+          onClick: () => generateContent(ft)
+        }
+      });
+    } else {
+      // Generate new content
+      await generateContent(ft);
+    }
   };
 
   const generateContent = async (ft: string, topics: any = null, questionCount: any = null, knowledgeType: any = null, questionTypes: any = null, performanceSummary: any = null) => {
@@ -807,10 +830,16 @@ export default function Home() {
                 />
               )}
               {!loading && result && feature === 'studyGuide' && (
-                <StudyGuide content={result.result?.candidates?.[0]?.content?.parts?.[0]?.text || ''} />
+                <StudyGuide 
+                  content={result.result?.candidates?.[0]?.content?.parts?.[0]?.text || ''} 
+                  onRegenerate={() => generateContent('studyGuide')}
+                />
               )}
               {!loading && result && feature === 'flashcards' && (
-                <Flashcards cards={parsedFlashcards} />
+                <Flashcards 
+                  cards={parsedFlashcards} 
+                  onRegenerate={() => generateContent('flashcards')}
+                />
               )}
               {!loading && result && feature === 'quiz' && (
                 <>

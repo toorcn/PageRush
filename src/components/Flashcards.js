@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 
-export default function Flashcards({ cards }) {
+export default function Flashcards({ cards, onRegenerate }) {
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [showProgress, setShowProgress] = useState(false);
@@ -73,6 +73,14 @@ export default function Flashcards({ cards }) {
       <div className="text-center">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">🃏 Flashcards</h2>
         <p className="text-gray-600">Click to flip, use arrow keys to navigate</p>
+        {onRegenerate && (
+          <button
+            onClick={onRegenerate}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+          >
+            🔄 Regenerate Flashcards
+          </button>
+        )}
       </div>
 
       {/* Progress Bar */}

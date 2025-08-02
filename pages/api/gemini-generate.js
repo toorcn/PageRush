@@ -42,7 +42,47 @@ Each topic should be 2-8 words, descriptive, and clearly identifiable for educat
 Text to analyze:\n\n${text}`;
       break;
     case 'studyGuide':
-      prompt = `Summarize the following text into detailed study notes, organized by topic and subtopic:\n\n${text}`;
+      prompt = `Create a comprehensive study guide from the following text. Organize the content into clear sections with proper headings and structure.
+
+INSTRUCTIONS:
+1. Use markdown headers (# ## ###) to organize content hierarchically
+2. Include main topics as level 1 headers (# Main Topic)
+3. Use level 2 headers (##) for subtopics
+4. Use level 3 headers (###) for specific concepts
+5. Include key definitions, concepts, and important points
+6. Use **bold text** to highlight important terms and concepts
+7. Create bullet points for lists of related information
+8. Include numbered lists for processes, steps, or sequences
+9. Add brief explanations and context for each concept
+10. Focus on information that would be useful for studying and review
+
+FORMAT REQUIREMENTS:
+- Start with a main title using # 
+- Use ## for major sections
+- Use ### for subsections
+- Use **bold** for key terms and important concepts
+- Use bullet points (- or *) for lists
+- Use numbered lists (1. 2. 3.) for sequences or steps
+- Include brief explanations for each concept
+- Make it easy to scan and review
+
+Example structure:
+# Main Topic
+## Key Concept 1
+**Important Term**: Definition and explanation
+- Point 1
+- Point 2
+
+## Key Concept 2
+### Subconcept A
+**Term**: Definition
+1. First step
+2. Second step
+
+### Subconcept B
+**Another Term**: Definition
+
+Text to create study guide from:\n\n${text}`;
       break;
     case 'flashcards':
       prompt = `Generate flashcards (question and answer pairs) from the following text.\n\nReturn ONLY a valid JSON array of objects, no markdown formatting, no code blocks, no extra text.\n\nEach object must have a 'question' and an 'answer' field. The 'answer' should be a concise answer to the 'question'. The 'question' is the front of the card, the 'answer' is the back.\n\nExample format:\n[\n  {\n    \"question\": \"What is the capital of France?\",\n    \"answer\": \"Paris\"\n  },\n  {\n    \"question\": \"What is 2 + 2?\",\n    \"answer\": \"4\"\n  }\n]\n\nText to use:\n\n${text}`;

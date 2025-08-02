@@ -511,7 +511,10 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
                 ← Back to Exam Cram
               </button>
             </div>
-            <StudyGuide content={content} />
+            <StudyGuide 
+              content={content} 
+              onRegenerate={() => regenerateContent()}
+            />
           </div>
         );
       case 'topicContent':
