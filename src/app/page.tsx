@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, ReactElement } from 'react';
 import PdfUploader from '../components/PdfUploader';
 import ApiKeyInput from '../components/ApiKeyInput';
 import FeatureSelector from '../components/FeatureSelector';
@@ -10,7 +10,8 @@ import Quiz from '../components/Quiz';
 import QuizGenerator from '../components/QuizGenerator';
 import ExamGenerator from '../components/ExamGenerator';
 import Exam from '../components/Exam';
-import ExamCram from '../components/ExamCram';
+import ExamCramComponent from '../components/ExamCram.js';
+const ExamCram = ExamCramComponent as React.ComponentType<any>;
 import Insights from '../components/Insights';
 import HistoryPanel from '../components/HistoryPanel';
 import DocumentManager from '../components/DocumentManager';
@@ -255,7 +256,7 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          text: activeDocument.text, 
+          text: activeDocument?.text || '', 
           promptType: ft, 
           geminiApiKey: apiKey,
           topics,
@@ -275,8 +276,8 @@ export default function Home() {
         id: Date.now(),
         timestamp: new Date().toISOString(),
         feature: ft,
-        documentName: activeDocument.name,
-        text: activeDocument.text.substring(0, 100) + '...',
+        documentName: activeDocument?.name || '',
+        text: (activeDocument?.text || '').substring(0, 100) + '...',
         result: data,
         topics,
         questionCount,
@@ -382,7 +383,7 @@ export default function Home() {
         id: Date.now(),
         timestamp: new Date().toISOString(),
         examId: result?.id || Date.now(),
-        documentName: activeDocument.name,
+        documentName: activeDocument?.name || '',
         score: data.score,
         total: data.total,
         percentage: data.percentage,
@@ -529,7 +530,7 @@ export default function Home() {
           activeDocument={activeDocument}
           apiKey={apiKey}
           onExit={() => setFocusMode(false)}
-          currentProgress={currentQuestionIndex}
+          currentProgress={typeof currentQuestionIndex === 'number' ? undefined : null}
         />
       </NotificationProvider>
     );
@@ -595,22 +596,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Data Restored Notification */}
-          {/* {dataLoaded && (documents.length > 0 || apiKey) && (
-            <div className="bg-white/80 backdrop-blur-sm border border-blue-200 rounded-lg p-4">
-              <div className="flex items-center space-x-2">
-                <span className="text-blue-600">📚</span>
-                <div>
-                  <p className="text-blue-800 font-medium">Data Restored</p>
-                  <p className="text-blue-600 text-sm">
-                    {documents.length > 0 && apiKey ? `${documents.length} documents and API key loaded` :
-                     documents.length > 0 ? `${documents.length} documents loaded` :
-                     'API key loaded from previous session'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )} */}
+          {/* Data Restored Notification intentionally removed for linting */}
 
           {/* Document Manager */}
           {showDocumentManager && (
@@ -812,10 +798,10 @@ export default function Home() {
                   </div>
                 </div>
               )}
-              {!loading && feature === 'examCram' && (
+              {!loading && feature === 'examCram' && activeDocument && (
                 <ExamCram 
-                  content={activeDocument?.text || ''}
-                  documentName={activeDocument?.name || ''}
+                  content={activeDocument.text || ''}
+                  documentName={activeDocument.name || ''}
                   apiKey={apiKey}
                   onGenerateContent={generateContent}
                 />
@@ -835,7 +821,7 @@ export default function Home() {
                     setCurrentQuestionIndex={setCurrentQuestionIndex}
                     setTotalQuestions={setTotalQuestions}
                   />
-                  {quizScore && <Insights score={quizScore.score} total={quizScore.total} />}
+                  {quizScore && <Insights score={quizScore.score} total={quizScore.total} details={quizScore.details || []} />}
                 </>
               )}
               {!loading && result && feature === 'exam' && (
@@ -848,7 +834,7 @@ export default function Home() {
                     setCurrentQuestionIndex={setCurrentQuestionIndex}
                     setTotalQuestions={setTotalQuestions}
                   />
-                  {quizScore && <Insights score={quizScore.score} total={quizScore.total} />}
+                  {quizScore && <Insights score={quizScore.score} total={quizScore.total} details={quizScore.details || []} />}
                 </>
               )}
             </div>
