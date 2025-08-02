@@ -4,6 +4,7 @@ import TopicBreakdown from './TopicBreakdown';
 import ReadinessAssessment from './ReadinessAssessment';
 import AdaptiveLearning from './AdaptiveLearning';
 import StudyGuide from './StudyGuide';
+import TopicContentPage from './TopicContentPage';
 
 /**
  * ExamCram Component
@@ -20,7 +21,8 @@ import StudyGuide from './StudyGuide';
  * @param {function} onGenerateContent - Callback for content generation
  */
 export default function ExamCram({ content, documentName, apiKey, onGenerateContent }) {
-  const [currentView, setCurrentView] = useState('overview'); // overview, breakdown, assessment, learning, study
+  const [currentView, setCurrentView] = useState('overview'); // overview, breakdown, assessment, learning, study, topicContent
+  const [selectedTopic, setSelectedTopic] = useState(null);
   const [topicBreakdown, setTopicBreakdown] = useState(null);
   const [readinessData, setReadinessData] = useState(null);
   const [learningProgress, setLearningProgress] = useState({
@@ -270,15 +272,34 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
     });
   };
 
-  const startAdaptiveLearning = (topicId) => {
+  const startAdaptiveLearning = async (topicId) => {
     if (topicId) {
-      // If a specific topic is provided, set it as current focus
+      // If a specific topic is provided, set it as current focus and ensure question bank is loaded
       setLearningProgress(prev => ({ ...prev, currentFocus: topicId }));
+      
+      // Import question bank manager to ensure question bank is available
+      const { questionBankManager } = await import('../utils/questionBankManager');
+      
+      // Find the topic
+      const topic = topicBreakdown?.topics.find(t => t.id === topicId);
+      if (topic && !questionBankManager.questionBanks.has(topicId)) {
+        // Preload question bank if not already loaded
+        try {
+          await questionBankManager.getQuestionBank(topic, content, apiKey);
+        } catch (error) {
+          console.error('Error preloading question bank:', error);
+        }
+      }
     } else {
       // If no topic provided (from overview), clear current focus to show topic selection
       setLearningProgress(prev => ({ ...prev, currentFocus: null }));
     }
     setCurrentView('learning');
+  };
+
+  const viewTopicContent = (topic) => {
+    setSelectedTopic(topic);
+    setCurrentView('topicContent');
   };
 
   const renderOverview = () => (
@@ -448,7 +469,10 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
             breakdown={topicBreakdown}
             onBack={() => setCurrentView('overview')}
             onStartLearning={startAdaptiveLearning}
+            onViewContent={viewTopicContent}
             loading={loading}
+            content={content}
+            apiKey={apiKey}
           />
         );
       case 'assessment':
@@ -473,6 +497,7 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
             onProgressUpdate={updateLearningProgress}
             apiKey={apiKey}
             content={content}
+            skipReview={learningProgress.currentFocus !== null} // Skip review when coming from topic breakdown
           />
         );
       case 'study':
@@ -488,6 +513,16 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
             </div>
             <StudyGuide content={content} />
           </div>
+        );
+      case 'topicContent':
+        return (
+          <TopicContentPage 
+            topic={selectedTopic}
+            onBack={() => setCurrentView('breakdown')}
+            content={content}
+            apiKey={apiKey}
+            onStartPractice={startAdaptiveLearning}
+          />
         );
       default:
         return renderOverview();

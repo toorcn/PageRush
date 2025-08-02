@@ -208,6 +208,67 @@ Difficulty: ${difficulty}
 Original content: ${content}`;
       break;
 
+    case 'generateTopicContent':
+      prompt = `Generate detailed content for the specified topic to provide comprehensive information for students.
+
+IMPORTANT: Return ONLY a valid JSON object, no markdown formatting, no code blocks, no additional text.
+
+The response should have this exact structure:
+{
+  "topicContent": {
+    "detailedDescription": "Comprehensive explanation of the topic...",
+    "keyPoints": [
+      "Important point 1",
+      "Important point 2",
+      "Important point 3"
+    ],
+    "examples": [
+      {
+        "title": "Example 1",
+        "description": "Detailed explanation of the example"
+      }
+    ],
+    "commonMisconceptions": [
+      {
+        "misconception": "Common mistake students make",
+        "correction": "Correct understanding"
+      }
+    ],
+    "studyTips": [
+      "Tip for studying this topic effectively"
+    ],
+    "examTips": [
+      "Tip for answering questions on this topic"
+    ],
+    "relatedConcepts": [
+      {
+        "concept": "Related concept name",
+        "relationship": "How it relates to this topic"
+      }
+    ],
+    "practiceQuestions": [
+      {
+        "question": "Sample practice question",
+        "answer": "Correct answer",
+        "explanation": "Why this is correct"
+      }
+    ]
+  }
+}
+
+Guidelines:
+- Provide comprehensive, detailed information
+- Include practical examples and applications
+- Address common misconceptions
+- Give specific study and exam tips
+- Show relationships with other concepts
+- Include sample practice questions
+- Make content engaging and educational
+
+Topic: ${JSON.stringify(topic, null, 2)}
+Original content: ${content}`;
+      break;
+
     case 'gradeAnswer':
       prompt = `Grade the user's answer for the given question. Provide detailed feedback and explanation.
 
@@ -296,6 +357,9 @@ User Answer: ${userAnswer}`;
         break;
       case 'generatePracticeQuestion':
         result = { question: parsedResponse.question };
+        break;
+      case 'generateTopicContent':
+        result = { topicContent: parsedResponse.topicContent };
         break;
       case 'gradeAnswer':
         result = parsedResponse;

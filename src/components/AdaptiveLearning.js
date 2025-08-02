@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { questionBankManager } from '../utils/questionBankManager';
 
-export default function AdaptiveLearning({ topicBreakdown, learningProgress, onBack, onProgressUpdate, apiKey, content }) {
+export default function AdaptiveLearning({ topicBreakdown, learningProgress, onBack, onProgressUpdate, apiKey, content, skipReview = false }) {
   const [currentTopic, setCurrentTopic] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [userAnswer, setUserAnswer] = useState('');
@@ -21,12 +21,20 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
   const [shouldAutoReview, setShouldAutoReview] = useState(false); // Track if we should auto-enter review mode
 
   useEffect(() => {
-    if (learningProgress.currentFocus && shouldAutoReview) {
+    if (learningProgress.currentFocus && shouldAutoReview && !skipReview) {
       const topic = topicBreakdown?.topics.find(t => t.id === learningProgress.currentFocus);
       if (topic) {
         setCurrentTopic(topic);
         setCurrentMode('review');
         generateReviewContent(topic);
+      }
+    } else if (learningProgress.currentFocus && (!shouldAutoReview || skipReview)) {
+      // If current focus is set but auto-review is disabled or skipReview is true, go directly to practice
+      const topic = topicBreakdown?.topics.find(t => t.id === learningProgress.currentFocus);
+      if (topic) {
+        setCurrentTopic(topic);
+        setCurrentMode('practice');
+        generatePracticeQuestion(topic, 'medium');
       }
     } else if (!learningProgress.currentFocus) {
       // Reset to select mode when no current focus
@@ -44,7 +52,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
       });
       setShouldAutoReview(false);
     }
-  }, [learningProgress.currentFocus, topicBreakdown, shouldAutoReview]);
+  }, [learningProgress.currentFocus, topicBreakdown, shouldAutoReview, skipReview]);
 
   // Cleanup effect to reset state when component unmounts
   useEffect(() => {
