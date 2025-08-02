@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
+import LottieLoader from './LottieLoader';
 
 export default function Exam({ questions, onSubmit, feedback, currentQuestionIndex, setCurrentQuestionIndex, setTotalQuestions }) {
   const [answers, setAnswers] = useState(Array(questions.length).fill(''));
@@ -556,9 +557,11 @@ INSTRUCTION FOR GEMINI:
         {/* Assessment Loading */}
         {isAssessing && (
           <div className="text-center py-8">
-            <div className="animate-spin text-2xl mb-2">⏳</div>
-            <p className="text-gray-600">Assessing your answers with AI...</p>
-            <p className="text-sm text-gray-500">This may take a moment for open-ended questions</p>
+            <LottieLoader 
+              text="Assessing your answers with AI..." 
+              size="large"
+            />
+            <p className="text-sm text-gray-500 mt-2">This may take a moment for open-ended questions</p>
           </div>
         )}
       </form>

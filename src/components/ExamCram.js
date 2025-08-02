@@ -5,6 +5,7 @@ import ReadinessAssessment from './ReadinessAssessment';
 import AdaptiveLearning from './AdaptiveLearning';
 import StudyGuide from './StudyGuide';
 import TopicContentPage from './TopicContentPage';
+import LottieLoader from './LottieLoader';
 
 /**
  * ExamCram Component
@@ -535,12 +536,11 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
   return (
     <div className="bg-white rounded-xl shadow-lg p-8 space-y-8">
       {loading && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-8 text-center shadow-2xl">
-            <div className="animate-spin text-5xl mb-4">⏳</div>
-            <p className="text-gray-600 text-lg">Generating content...</p>
-          </div>
-        </div>
+        <LottieLoader 
+          overlay={true} 
+          text="Generating content..." 
+          size="large"
+        />
       )}
       
       {renderCurrentView()}

@@ -1,5 +1,6 @@
 'use client';
 import React, { useRef, useState } from 'react';
+import LottieLoader from './LottieLoader';
 
 export default function PdfUploader({ onExtracted }) {
   const fileInput = useRef();
@@ -134,8 +135,8 @@ export default function PdfUploader({ onExtracted }) {
         >
           {isProcessing ? (
             <span className="flex items-center justify-center">
-              <span className="animate-spin mr-2">⏳</span>
-              Processing PDFs...
+              <LottieLoader size="small" text="" />
+              <span className="ml-2">Processing PDFs...</span>
             </span>
           ) : (
             'Extract Text & Continue'

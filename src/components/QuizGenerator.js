@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
+import LottieLoader from './LottieLoader';
 import { parseTopics } from '../utils/parseGeminiResponse';
 import { saveTopicsToCache, getTopicsFromCache, clearTopicCache } from '../utils/topicCache';
 
@@ -393,8 +394,10 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
         
         {isExtractingTopics ? (
           <div className="text-center py-8">
-            <div className="animate-spin text-2xl mb-2">⏳</div>
-            <p className="text-gray-600">Analyzing your document for topics...</p>
+            <LottieLoader 
+              text="Analyzing your document for topics..." 
+              size="large"
+            />
           </div>
         ) : (
           <div className="space-y-4">
@@ -494,8 +497,8 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
       >
         {isGenerating ? (
           <span className="flex items-center justify-center">
-            <span className="animate-spin mr-2">⏳</span>
-            Generating Quiz...
+            <LottieLoader size="small" text="" />
+            <span className="ml-2">Generating Quiz...</span>
           </span>
         ) : (
           `Generate ${customCount || questionCount} Question Quiz`

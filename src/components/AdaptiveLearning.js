@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { questionBankManager } from '../utils/questionBankManager';
+import LottieLoader from './LottieLoader';
 
 export default function AdaptiveLearning({ topicBreakdown, learningProgress, onBack, onProgressUpdate, apiKey, content, skipReview = false }) {
   const [currentTopic, setCurrentTopic] = useState(null);
@@ -755,11 +756,10 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
-          <div className="text-gray-500">
-            <div className="text-4xl mb-4">⏳</div>
-            <p className="text-lg font-medium mb-2">Generating your first question...</p>
-            <p className="text-sm">This may take a few moments</p>
-          </div>
+          <LottieLoader 
+            text="Generating your first question..." 
+            size="large"
+          />
         </div>
       )}
     </div>
@@ -782,12 +782,11 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
       </div>
 
       {loading && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 text-center">
-            <div className="animate-spin text-4xl mb-4">⏳</div>
-            <p className="text-gray-600">Generating content...</p>
-          </div>
-        </div>
+        <LottieLoader 
+          overlay={true} 
+          text="Generating content..." 
+          size="large"
+        />
       )}
 
       {currentMode === 'select' && renderTopicSelection()}

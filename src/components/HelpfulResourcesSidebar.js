@@ -1,5 +1,6 @@
 'use client';
 import React, { useState } from 'react';
+import LottieLoader from './LottieLoader';
 
 export default function HelpfulResourcesSidebar({ history, performanceSummaries, onLoadFromHistory }) {
   const [expandedFeatures, setExpandedFeatures] = useState(new Set(['studyGuide', 'flashcards'])); // Default expanded
@@ -109,7 +110,7 @@ export default function HelpfulResourcesSidebar({ history, performanceSummaries,
           >
             {isLoading ? (
               <span className="flex items-center space-x-1">
-                <span className="animate-spin text-xs">⏳</span>
+                <LottieLoader size="small" text="" />
                 <span>Loading...</span>
               </span>
             ) : (

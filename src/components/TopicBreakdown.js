@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { topicContentManager } from '../utils/topicContentManager';
+import LottieLoader from './LottieLoader';
 
 export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onViewContent, loading, content, apiKey }) {
   const [expandedTopics, setExpandedTopics] = useState(new Set());
@@ -39,8 +40,10 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
   if (!breakdown) {
     return (
       <div className="text-center py-8">
-        <div className="animate-spin text-4xl mb-4">⏳</div>
-        <p className="text-gray-600">Generating topic breakdown...</p>
+        <LottieLoader 
+          text="Generating topic breakdown..." 
+          size="large"
+        />
       </div>
     );
   }
@@ -331,7 +334,7 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
                       }`}
                     >
                       {loadingTopics.has(topic.id) ? (
-                        <div className="animate-spin text-sm">⏳</div>
+                        <LottieLoader size="small" text="" />
                       ) : (
                         isExpanded ? '▼' : '▶'
                       )}
@@ -345,8 +348,10 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
                 <div className="bg-white p-4 border-t border-gray-200">
                   {loadingTopics.has(topic.id) ? (
                     <div className="text-center py-8">
-                      <div className="animate-spin text-2xl mb-2">⏳</div>
-                      <p className="text-gray-600">Loading detailed content...</p>
+                      <LottieLoader 
+                        text="Loading detailed content..." 
+                        size="medium"
+                      />
                     </div>
                   ) : (
                     <div className="space-y-6">

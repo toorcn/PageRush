@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import LottieLoader from './LottieLoader';
 import StudyGuide from './StudyGuide';
 import Flashcards from './Flashcards';
 import Quiz from './Quiz';
@@ -16,8 +17,10 @@ const LessonContent = ({ lessonType, content, onComplete, result }) => {
     if (!content && !result) {
       return (
         <div className="text-center py-8">
-          <div className="animate-spin text-4xl mb-4">⏳</div>
-          <p className="text-gray-600">Generating your lesson content...</p>
+          <LottieLoader 
+            text="Generating your lesson content..." 
+            size="large"
+          />
         </div>
       );
     }

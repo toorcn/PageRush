@@ -1,5 +1,6 @@
 'use client';
 import React, { useState } from 'react';
+import LottieLoader from './LottieLoader';
 
 export default function ReadinessAssessment({ assessment, onBack, onStartLearning, loading }) {
   const [currentSection, setCurrentSection] = useState('overview'); // overview, detailed, recommendations
@@ -7,8 +8,10 @@ export default function ReadinessAssessment({ assessment, onBack, onStartLearnin
   if (!assessment) {
     return (
       <div className="text-center py-8">
-        <div className="animate-spin text-4xl mb-4">⏳</div>
-        <p className="text-gray-600">Generating readiness assessment...</p>
+        <LottieLoader 
+          text="Generating readiness assessment..." 
+          size="large"
+        />
       </div>
     );
   }

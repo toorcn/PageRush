@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { parseTopics } from '../utils/parseGeminiResponse';
 import { saveTopicsToCache, getTopicsFromCache, clearTopicCache } from '../utils/topicCache';
+import LottieLoader from './LottieLoader';
 
 export default function ExamGenerator({ onGenerate, extractedText, apiKey, performanceSummaries }) {
   const [selectedTopics, setSelectedTopics] = useState([]);
@@ -844,8 +845,10 @@ WEAK AREAS (${weakQuestions.length} questions):
         
         {isExtractingTopics ? (
           <div className="text-center py-8">
-            <div className="animate-spin text-2xl mb-2">⏳</div>
-            <p className="text-gray-600">Analyzing your document for topics...</p>
+            <LottieLoader 
+              text="Analyzing your document for topics..." 
+              size="large"
+            />
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -964,8 +967,8 @@ WEAK AREAS (${weakQuestions.length} questions):
       >
         {isGenerating ? (
           <span className="flex items-center justify-center">
-            <span className="animate-spin mr-2">⏳</span>
-            Generating Exam...
+            <LottieLoader size="small" text="" />
+            <span className="ml-2">Generating Exam...</span>
           </span>
         ) : (
           `Generate ${getTotalQuestions()} Question Exam`

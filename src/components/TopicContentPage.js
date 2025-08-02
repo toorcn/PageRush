@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import LottieLoader from './LottieLoader';
 import { topicContentManager } from '../utils/topicContentManager';
 
 export default function TopicContentPage({ topic, onBack, content, apiKey, onStartPractice }) {
@@ -406,8 +407,10 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
         </div>
         
         <div className="text-center py-12">
-          <div className="animate-spin text-4xl mb-4">⏳</div>
-          <p className="text-gray-600">Loading comprehensive topic content...</p>
+          <LottieLoader 
+            text="Loading comprehensive topic content..." 
+            size="large"
+          />
         </div>
       </div>
     );

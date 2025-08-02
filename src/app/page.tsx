@@ -21,6 +21,7 @@ import FocusModeStats from '../components/FocusModeStats';
 import { parseFlashcards, parseQuiz, parseExam } from '../utils/parseGeminiResponse';
 import NotificationProvider, { useNotification } from '../components/NotificationProvider';
 import Notification from '../components/Notification';
+import LottieLoader from '../components/LottieLoader';
 
 // Define notification interface
 interface NotificationItem {
@@ -815,10 +816,10 @@ export default function Home() {
               )}
               {loading && (
                 <div className="flex items-center justify-center py-12">
-                  <div className="text-center">
-                    <div className="animate-spin text-4xl mb-4">⏳</div>
-                    <p className="text-gray-600 font-medium">Generating with Gemini...</p>
-                  </div>
+                  <LottieLoader 
+                    text="Generating with Gemini..." 
+                    size="large"
+                  />
                 </div>
               )}
               {!loading && feature === 'examCram' && activeDocument && (
