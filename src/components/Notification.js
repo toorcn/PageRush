@@ -1,9 +1,40 @@
 'use client';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNotification } from './NotificationProvider';
 
 export default function Notification() {
   const { notifications, removeNotification } = useNotification();
+  const [progress, setProgress] = useState({});
+
+  // Handle progress bars for auto-dismiss notifications
+  useEffect(() => {
+    const intervals = {};
+    
+    notifications.forEach((notification) => {
+      if (notification.autoDismiss) {
+        const startTime = Date.now();
+        const duration = 5000; // 5 seconds
+        
+        intervals[notification.id] = setInterval(() => {
+          const elapsed = Date.now() - startTime;
+          const progressPercent = Math.max(0, 100 - (elapsed / duration) * 100);
+          
+          setProgress(prev => ({
+            ...prev,
+            [notification.id]: progressPercent
+          }));
+          
+          if (progressPercent <= 0) {
+            clearInterval(intervals[notification.id]);
+          }
+        }, 50); // Update every 50ms for smooth animation
+      }
+    });
+
+    return () => {
+      Object.values(intervals).forEach(clearInterval);
+    };
+  }, [notifications]);
 
   if (!notifications || notifications.length === 0) return null;
 
@@ -28,6 +59,20 @@ export default function Notification() {
               >
                 {n.action.label}
               </button>
+            )}
+            {/* Progress bar for auto-dismiss */}
+            {n.autoDismiss && progress[n.id] !== undefined && (
+              <div className="mt-2">
+                <div className="w-full bg-gray-200 rounded-full h-1">
+                  <div 
+                    className={`h-1 rounded-full transition-all duration-50 ${
+                      n.type === 'success' ? 'bg-green-500' : 
+                      n.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+                    }`}
+                    style={{ width: `${progress[n.id]}%` }}
+                  ></div>
+                </div>
+              </div>
             )}
           </div>
           <button

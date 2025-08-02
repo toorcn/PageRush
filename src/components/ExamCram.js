@@ -5,6 +5,20 @@ import ReadinessAssessment from './ReadinessAssessment';
 import AdaptiveLearning from './AdaptiveLearning';
 import StudyGuide from './StudyGuide';
 
+/**
+ * ExamCram Component
+ * 
+ * Features:
+ * - Generates topic breakdown and readiness assessment for exam preparation
+ * - Saves generated content to localStorage for persistence
+ * - Provides regeneration option with previously generated content as default
+ * - Shows adaptive learning progress and statistics
+ * 
+ * @param {string} content - The document content to analyze
+ * @param {string} documentName - Name of the document for localStorage key
+ * @param {string} apiKey - Gemini API key for content generation
+ * @param {function} onGenerateContent - Callback for content generation
+ */
 export default function ExamCram({ content, documentName, apiKey, onGenerateContent }) {
   const [currentView, setCurrentView] = useState('overview'); // overview, breakdown, assessment, learning, study
   const [topicBreakdown, setTopicBreakdown] = useState(null);
@@ -26,12 +40,142 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
     correctAnswers: 0
   });
 
-  // Generate topic breakdown on component mount
+  // New state for tracking previously generated content
+  const [previouslyGenerated, setPreviouslyGenerated] = useState({
+    topicBreakdown: null,
+    readinessData: null,
+    hasBeenGenerated: false,
+    lastGenerated: null
+  });
+  const [showRegenerateOption, setShowRegenerateOption] = useState(false);
+
+
+  // Check if content has been previously generated for this document
   useEffect(() => {
-    if (content && !topicBreakdown) {
-      generateTopicBreakdown();
+    if (content && documentName) {
+      const savedData = localStorage.getItem(`examCram_${documentName}`);
+      if (savedData) {
+        try {
+          const parsed = JSON.parse(savedData);
+          setPreviouslyGenerated({
+            topicBreakdown: parsed.topicBreakdown,
+            readinessData: parsed.readinessData,
+            hasBeenGenerated: true,
+            lastGenerated: parsed.timestamp
+          });
+          setShowRegenerateOption(true);
+          
+          // Automatically load the previous content as default
+          if (parsed.topicBreakdown) {
+            setTopicBreakdown(parsed.topicBreakdown);
+            setStats(prev => ({ ...prev, totalTopics: parsed.topicBreakdown.topics.length }));
+          }
+          if (parsed.readinessData) {
+            setReadinessData(parsed.readinessData);
+          }
+        } catch (error) {
+          console.error('Error parsing saved exam cram data:', error);
+          // Clear corrupted data
+          localStorage.removeItem(`examCram_${documentName}`);
+        }
+      } else {
+        // No previous content found, allow generation
+        setPreviouslyGenerated({
+          topicBreakdown: null,
+          readinessData: null,
+          hasBeenGenerated: false,
+          lastGenerated: null
+        });
+      }
     }
-  }, [content]);
+  }, [content, documentName]);
+
+  // Save generated content to localStorage
+  const saveToLocalStorage = (newTopicBreakdown, newReadinessData) => {
+    if (documentName) {
+      const dataToSave = {
+        topicBreakdown: newTopicBreakdown,
+        readinessData: newReadinessData,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(`examCram_${documentName}`, JSON.stringify(dataToSave));
+    }
+  };
+
+  // Load previously generated content
+  const loadPreviousContent = () => {
+    if (previouslyGenerated.topicBreakdown) {
+      setTopicBreakdown(previouslyGenerated.topicBreakdown);
+      setStats(prev => ({ ...prev, totalTopics: previouslyGenerated.topicBreakdown.topics.length }));
+    }
+    if (previouslyGenerated.readinessData) {
+      setReadinessData(previouslyGenerated.readinessData);
+    }
+    setShowRegenerateOption(false);
+  };
+
+  // Generate topic breakdown on component mount (only if no previous content exists)
+  useEffect(() => {
+    // Only generate if we have content, no current breakdown, and no previous content exists
+    if (content && !topicBreakdown) {
+      // Check localStorage directly to avoid race conditions
+      if (documentName) {
+        const savedData = localStorage.getItem(`examCram_${documentName}`);
+        if (!savedData) {
+          // No previous content exists, safe to generate
+          generateTopicBreakdown();
+        }
+      } else {
+        // No document name, safe to generate
+        generateTopicBreakdown();
+      }
+    }
+  }, [content, topicBreakdown, documentName]);
+  
+
+  // Regenerate content
+  const regenerateContent = async () => {
+    setLoading(true);
+    try {
+      // Generate new topic breakdown
+      const breakdownResponse = await fetch('/api/exam-cram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'generateTopicBreakdown',
+          content,
+          geminiApiKey: apiKey
+        }),
+      });
+      const breakdownData = await breakdownResponse.json();
+      const newTopicBreakdown = breakdownData.breakdown;
+      setTopicBreakdown(newTopicBreakdown);
+      setStats(prev => ({ ...prev, totalTopics: newTopicBreakdown.topics.length }));
+
+      // Generate new readiness assessment
+      const assessmentResponse = await fetch('/api/exam-cram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'generateReadinessAssessment',
+          content,
+          topicBreakdown: newTopicBreakdown,
+          geminiApiKey: apiKey
+        }),
+      });
+      const assessmentData = await assessmentResponse.json();
+      const newReadinessData = assessmentData.assessment;
+      setReadinessData(newReadinessData);
+
+      // Save new content
+      saveToLocalStorage(newTopicBreakdown, newReadinessData);
+      setShowRegenerateOption(false);
+    } catch (error) {
+      console.error('Error regenerating content:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Debounce function to prevent duplicate API calls
   const debounceCall = (func, delay = 2000) => {
@@ -59,6 +203,9 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
       const data = await response.json();
       setTopicBreakdown(data.breakdown);
       setStats(prev => ({ ...prev, totalTopics: data.breakdown.topics.length }));
+      
+      // Save to localStorage
+      saveToLocalStorage(data.breakdown, readinessData);
     } catch (error) {
       console.error('Error generating topic breakdown:', error);
     } finally {
@@ -81,6 +228,9 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
       });
       const data = await response.json();
       setReadinessData(data.assessment);
+      
+      // Save to localStorage
+      saveToLocalStorage(topicBreakdown, data.assessment);
     } catch (error) {
       console.error('Error generating readiness assessment:', error);
     } finally {
@@ -132,6 +282,47 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
         <h2 className="text-4xl font-bold text-gray-800 mb-3">🚀 Exam Cram</h2>
         <p className="text-gray-600 text-lg">Accelerated study with smart topic breakdown and adaptive learning</p>
       </div>
+
+      {/* Regeneration Option */}
+      {previouslyGenerated.hasBeenGenerated && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="text-2xl">🔄</div>
+              <div>
+                <h3 className="font-bold text-lg text-blue-800">Previously Generated Content Available</h3>
+                <p className="text-blue-600 text-sm">
+                  You can use the previous content or generate new content
+                  {previouslyGenerated.lastGenerated && (
+                    <span className="block text-xs text-blue-500 mt-1">
+                      Last generated: {new Date(previouslyGenerated.lastGenerated).toLocaleString()}
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowRegenerateOption(false)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+              >
+                Continue with Previous
+              </button>
+              <button
+                onClick={regenerateContent}
+                disabled={loading}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  loading 
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                    : 'bg-white hover:bg-gray-50 text-blue-600 border border-blue-600'
+                }`}
+              >
+                {loading ? 'Regenerating...' : 'Regenerate'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">

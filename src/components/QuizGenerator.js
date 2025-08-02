@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import { parseTopics } from '../utils/parseGeminiResponse';
+import { saveTopicsToCache, getTopicsFromCache, clearTopicCache } from '../utils/topicCache';
 
 export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
   const [selectedTopics, setSelectedTopics] = useState([]);
@@ -10,6 +11,7 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
   const [isExtractingTopics, setIsExtractingTopics] = useState(false);
   const [topics, setTopics] = useState([]);
   const [knowledgeType, setKnowledgeType] = useState(''); // NEW
+  const [cacheStatus, setCacheStatus] = useState(''); // NEW: Track cache status
   
   // Use refs to track extraction state and prevent multiple calls
   const hasExtractedTopics = useRef(false);
@@ -23,8 +25,24 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
       if (!extractedText || !apiKey || hasExtractedTopics.current || extractionInProgress.current) return;
       extractionInProgress.current = true;
       setIsExtractingTopics(true);
+      
       try {
-        console.log('Starting topic extraction with Gemini...');
+        // First, try to get topics from cache
+        console.log('Checking for cached topics...');
+        const cachedTopics = getTopicsFromCache(extractedText, 'quiz');
+        
+        if (cachedTopics && cachedTopics.length > 0) {
+          console.log('Using cached topics:', cachedTopics);
+          if (!cancelled) {
+            setTopics(cachedTopics);
+            hasExtractedTopics.current = true;
+            setCacheStatus('cached');
+          }
+          return;
+        }
+        
+        // If no cached topics, extract with Gemini
+        console.log('No cached topics found, starting topic extraction with Gemini...');
         const res = await fetch('/api/gemini-generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -53,6 +71,9 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
           if (!cancelled) {
             setTopics(extractedTopics);
             hasExtractedTopics.current = true; // Mark as completed
+            // Save to cache
+            saveTopicsToCache(extractedText, extractedTopics, 'quiz');
+            setCacheStatus('generated');
           }
         } else {
           throw new Error('No result in API response');
@@ -66,6 +87,9 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
         if (!cancelled) {
           setTopics(fallbackTopics);
           hasExtractedTopics.current = true; // Mark as completed even with fallback
+          // Save fallback topics to cache as well
+          saveTopicsToCache(extractedText, fallbackTopics, 'quiz');
+          setCacheStatus('fallback');
         }
       } finally {
         if (!cancelled) setIsExtractingTopics(false);
@@ -86,6 +110,11 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
     };
   }, [extractedText, apiKey]);
 
+  // Reset cache status when text changes
+  useEffect(() => {
+    setCacheStatus('');
+  }, [extractedText]);
+
   // Reset extraction state when component unmounts or when text/apiKey changes significantly
   useEffect(() => {
     return () => {
@@ -104,7 +133,20 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
     extractionInProgress.current = true;
     setIsExtractingTopics(true);
     try {
-      console.log('Starting topic extraction with Gemini...');
+      // First, try to get topics from cache
+      console.log('Checking for cached topics...');
+      const cachedTopics = getTopicsFromCache(extractedText, 'quiz');
+      
+              if (cachedTopics && cachedTopics.length > 0) {
+          console.log('Using cached topics:', cachedTopics);
+          setTopics(cachedTopics);
+          hasExtractedTopics.current = true;
+          setCacheStatus('cached');
+          return;
+        }
+      
+      // If no cached topics, extract with Gemini
+      console.log('No cached topics found, starting topic extraction with Gemini...');
       const res = await fetch('/api/gemini-generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -132,6 +174,9 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
         console.log('Extracted topics:', extractedTopics);
         setTopics(extractedTopics);
         hasExtractedTopics.current = true; // Mark as completed
+        // Save to cache
+        saveTopicsToCache(extractedText, extractedTopics, 'quiz');
+        setCacheStatus('generated');
       } else {
         throw new Error('No result in API response');
       }
@@ -143,6 +188,9 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
       console.log('Fallback topics:', fallbackTopics);
       setTopics(fallbackTopics);
       hasExtractedTopics.current = true; // Mark as completed even with fallback
+      // Save fallback topics to cache as well
+      saveTopicsToCache(extractedText, fallbackTopics, 'quiz');
+      setCacheStatus('fallback');
     } finally {
       setIsExtractingTopics(false);
       extractionInProgress.current = false;
@@ -269,6 +317,17 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
     setIsGenerating(false);
   };
 
+  // Cache management function
+  const handleClearCache = () => {
+    clearTopicCache();
+    setCacheStatus('');
+    setTopics([]);
+    setSelectedTopics([]);
+    hasExtractedTopics.current = false;
+    extractionInProgress.current = false;
+    alert('Topic cache cleared. Topics will be regenerated next time.');
+  };
+
   return (
     <div className="bg-white rounded-xl shadow p-6 space-y-6">
       <div className="text-center">
@@ -294,6 +353,43 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
       <div className="space-y-4">
         <h3 className="font-semibold text-lg text-gray-800">📚 Select Topics</h3>
         <p className="text-sm text-gray-600">Choose which topics to include in your quiz:</p>
+        
+        {cacheStatus && (
+          <div className={`border rounded-lg p-3 ${
+            cacheStatus === 'cached' 
+              ? 'bg-green-50 border-green-200' 
+              : cacheStatus === 'generated' 
+                ? 'bg-blue-50 border-blue-200'
+                : 'bg-yellow-50 border-yellow-200'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className={cacheStatus === 'cached' ? 'text-green-600' : cacheStatus === 'generated' ? 'text-blue-600' : 'text-yellow-600'}>
+                  {cacheStatus === 'cached' ? '💾' : cacheStatus === 'generated' ? '⚡' : '⚠️'}
+                </span>
+                <p className={`text-sm ${
+                  cacheStatus === 'cached' ? 'text-green-800' : cacheStatus === 'generated' ? 'text-blue-800' : 'text-yellow-800'
+                }`}>
+                  <strong>
+                    {cacheStatus === 'cached' ? 'Using cached topics' : 
+                     cacheStatus === 'generated' ? 'Generated new topics' : 
+                     'Using fallback topics'}
+                  </strong>
+                  {cacheStatus === 'cached' && ' (faster loading)'}
+                </p>
+              </div>
+              {cacheStatus === 'cached' && (
+                <button
+                  onClick={handleClearCache}
+                  className="text-xs text-red-600 hover:text-red-700 px-2 py-1 rounded border border-red-200 hover:bg-red-50"
+                  title="Clear topic cache"
+                >
+                  Clear Cache
+                </button>
+              )}
+            </div>
+          </div>
+        )}
         
         {isExtractingTopics ? (
           <div className="text-center py-8">

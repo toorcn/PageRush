@@ -6,6 +6,7 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
   const [submitted, setSubmitted] = useState(false);
   const [isAssessing, setIsAssessing] = useState(false);
   const [showPerformanceSummary, setShowPerformanceSummary] = useState(false);
+  const [aiTopicExtraction, setAiTopicExtraction] = useState({});
   const questionRefs = useRef([]);
 
   // Set total questions when component mounts
@@ -42,10 +43,66 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
     setSubmitted(true);
     setIsAssessing(true);
     
+    // Extract topics using AI for better analysis
+    await extractTopicsWithAI();
+    
     // Submit answers for assessment
     await onSubmit(answers);
     setIsAssessing(false);
     setShowPerformanceSummary(true);
+  };
+
+  const extractTopicsWithAI = async () => {
+    try {
+      // Create a summary of all questions for AI analysis
+      const questionsSummary = questions.map((q, idx) => 
+        `Question ${idx + 1}: ${q.question} | Answer: ${q.answer}`
+      ).join('\n');
+      
+      const response = await fetch('/api/gemini-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: questionsSummary,
+          promptType: 'extractTopics',
+          geminiApiKey: window.geminiApiKey || localStorage.getItem('geminiApiKey')
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.result) {
+          // Parse AI-extracted topics and map them to questions
+          const aiTopics = parseTopicsFromAI(data);
+          setAiTopicExtraction(aiTopics);
+        }
+      }
+    } catch (error) {
+      console.log('AI topic extraction failed, using fallback methods:', error);
+    }
+  };
+
+  const parseTopicsFromAI = (aiResponse) => {
+    try {
+      const text = aiResponse.result.candidates[0].content.parts[0].text;
+      const topics = JSON.parse(text.replace(/```json\s*/g, '').replace(/```\s*/g, ''));
+      
+      // Map AI topics to questions based on content similarity
+      const topicMapping = {};
+      questions.forEach((q, idx) => {
+        const questionText = q.question.toLowerCase();
+        const matchingTopics = topics.filter(topic => 
+          questionText.includes(topic.toLowerCase()) || 
+          topic.toLowerCase().split(' ').some(word => questionText.includes(word))
+        );
+        topicMapping[idx] = matchingTopics.length > 0 ? matchingTopics : ['general knowledge'];
+      });
+      
+      return topicMapping;
+    } catch (error) {
+      console.log('Failed to parse AI topics:', error);
+      return {};
+    }
   };
 
   const navigateToQuestion = (index) => {
@@ -63,39 +120,120 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
     // Extract topics/concepts from questions and analyze performance
     const topicPerformance = {};
     questions.forEach((q, idx) => {
-      // Extract key topics from question text (simple keyword extraction)
-      const questionText = q.question.toLowerCase();
-      const answerText = q.answer.toLowerCase();
+      // Use AI-extracted topics if available, otherwise use fallback methods
+      let topics = [];
       
-      // Common academic topics/keywords to look for
-      const topicKeywords = [
-        'photosynthesis', 'respiration', 'mitosis', 'meiosis', 'evolution', 'genetics', 'dna', 'rna',
-        'cell', 'membrane', 'organelle', 'enzyme', 'protein', 'carbohydrate', 'lipid', 'nucleic acid',
-        'ecosystem', 'biodiversity', 'climate', 'energy', 'force', 'motion', 'gravity', 'electricity',
-        'magnetism', 'wave', 'light', 'sound', 'heat', 'temperature', 'pressure', 'volume', 'mass',
-        'chemical', 'reaction', 'acid', 'base', 'molecule', 'atom', 'element', 'compound', 'mixture',
-        'equation', 'formula', 'calculation', 'measurement', 'data', 'analysis', 'hypothesis', 'theory',
-        'experiment', 'observation', 'conclusion', 'variable', 'control', 'independent', 'dependent'
-      ];
-      
-      const foundTopics = topicKeywords.filter(keyword => 
-        questionText.includes(keyword) || answerText.includes(keyword)
-      );
-      
-      // If no specific topics found, use broader categories based on question content
-      let topics = foundTopics;
-      if (topics.length === 0) {
-        if (questionText.includes('what') || questionText.includes('define') || questionText.includes('is')) {
-          topics = ['definitions'];
-        } else if (questionText.includes('how') || questionText.includes('process') || questionText.includes('steps')) {
-          topics = ['processes'];
-        } else if (questionText.includes('why') || questionText.includes('explain') || questionText.includes('discuss')) {
-          topics = ['concepts'];
-        } else if (questionText.includes('compare') || questionText.includes('difference') || questionText.includes('similar')) {
-          topics = ['comparisons'];
-        } else {
-          topics = ['general knowledge'];
+      if (aiTopicExtraction[idx] && aiTopicExtraction[idx].length > 0) {
+        // Use AI-extracted topics
+        topics = aiTopicExtraction[idx];
+      } else {
+        // Fallback to dynamic topic extraction from question and answer content
+        const questionText = q.question.toLowerCase();
+        const answerText = q.answer.toLowerCase();
+        
+        // Strategy 1: Look for capitalized phrases (likely proper nouns/concepts)
+        const capitalizedPhrases = questionText.match(/[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*/g) || [];
+        const answerCapitalizedPhrases = answerText.match(/[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*/g) || [];
+        const allCapitalizedPhrases = [...capitalizedPhrases, ...answerCapitalizedPhrases];
+        
+        // Filter out common words and keep meaningful concepts
+        const commonWords = ['the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'up', 'down', 'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'can', 'will', 'just', 'should', 'now'];
+        
+        allCapitalizedPhrases.forEach(phrase => {
+          const words = phrase.toLowerCase().split(/\s+/);
+          if (words.length >= 1 && words.length <= 4 && !words.every(word => commonWords.includes(word))) {
+            topics.push(phrase.toLowerCase());
+          }
+        });
+        
+        // Strategy 2: Look for technical terms and academic vocabulary
+        const technicalTerms = [
+          'photosynthesis', 'respiration', 'mitosis', 'meiosis', 'evolution', 'genetics', 'dna', 'rna',
+          'cell', 'membrane', 'organelle', 'enzyme', 'protein', 'carbohydrate', 'lipid', 'nucleic acid',
+          'ecosystem', 'biodiversity', 'climate', 'energy', 'force', 'motion', 'gravity', 'electricity',
+          'magnetism', 'wave', 'light', 'sound', 'heat', 'temperature', 'pressure', 'volume', 'mass',
+          'chemical', 'reaction', 'acid', 'base', 'molecule', 'atom', 'element', 'compound', 'mixture',
+          'equation', 'formula', 'calculation', 'measurement', 'data', 'analysis', 'hypothesis', 'theory',
+          'experiment', 'observation', 'conclusion', 'variable', 'control', 'independent', 'dependent',
+          'algorithm', 'function', 'variable', 'loop', 'condition', 'array', 'object', 'class', 'method',
+          'inheritance', 'polymorphism', 'encapsulation', 'abstraction', 'interface', 'database', 'query',
+          'index', 'normalization', 'sql', 'nosql', 'api', 'rest', 'graphql', 'authentication', 'authorization',
+          'encryption', 'hashing', 'cryptography', 'blockchain', 'machine learning', 'artificial intelligence',
+          'neural network', 'deep learning', 'supervised', 'unsupervised', 'regression', 'classification',
+          'clustering', 'optimization', 'gradient descent', 'backpropagation', 'overfitting', 'underfitting',
+          'cross validation', 'feature engineering', 'data preprocessing', 'dimensionality reduction',
+          'principal component analysis', 'singular value decomposition', 'k means', 'hierarchical clustering',
+          'decision tree', 'random forest', 'support vector machine', 'naive bayes', 'logistic regression',
+          'linear regression', 'polynomial regression', 'ridge regression', 'lasso regression', 'elastic net',
+          'regularization', 'dropout', 'batch normalization', 'data augmentation', 'transfer learning',
+          'fine tuning', 'hyperparameter tuning', 'grid search', 'random search', 'bayesian optimization'
+        ];
+        
+        technicalTerms.forEach(term => {
+          if ((questionText.includes(term) || answerText.includes(term)) && !topics.includes(term)) {
+            topics.push(term);
+          }
+        });
+        
+        // Strategy 3: Extract concepts from question patterns
+        const questionPatterns = {
+          'definitions': /(what|define|definition|meaning|term)/i,
+          'processes': /(how|process|steps|procedure|method|technique)/i,
+          'concepts': /(why|explain|discuss|describe|elaborate|analyze)/i,
+          'comparisons': /(compare|difference|similar|contrast|versus|vs)/i,
+          'calculations': /(calculate|compute|solve|equation|formula|math)/i,
+          'applications': /(apply|use|implement|practice|real world|example)/i,
+          'analysis': /(analyze|examine|investigate|study|research)/i,
+          'evaluation': /(evaluate|assess|judge|critique|review)/i
+        };
+        
+        Object.entries(questionPatterns).forEach(([category, pattern]) => {
+          if (pattern.test(questionText) && !topics.includes(category)) {
+            topics.push(category);
+          }
+        });
+        
+        // Strategy 4: Extract domain-specific terms based on content analysis
+        const domainKeywords = {
+          'biology': ['cell', 'organism', 'species', 'evolution', 'genetics', 'ecosystem', 'photosynthesis'],
+          'chemistry': ['molecule', 'atom', 'reaction', 'compound', 'element', 'acid', 'base'],
+          'physics': ['force', 'energy', 'motion', 'gravity', 'wave', 'electricity', 'magnetism'],
+          'mathematics': ['equation', 'formula', 'calculation', 'function', 'variable', 'algorithm'],
+          'computer science': ['algorithm', 'program', 'code', 'function', 'variable', 'database'],
+          'psychology': ['behavior', 'cognition', 'memory', 'learning', 'emotion', 'personality'],
+          'economics': ['market', 'supply', 'demand', 'price', 'cost', 'profit', 'trade'],
+          'history': ['event', 'period', 'civilization', 'war', 'revolution', 'empire', 'culture']
+        };
+        
+        Object.entries(domainKeywords).forEach(([domain, keywords]) => {
+          const domainMatches = keywords.filter(keyword => 
+            questionText.includes(keyword) || answerText.includes(keyword)
+          );
+          if (domainMatches.length > 0 && !topics.includes(domain)) {
+            topics.push(domain);
+          }
+        });
+        
+        // Strategy 5: If still no topics found, use broader categories
+        if (topics.length === 0) {
+          // Analyze question type and content for broader categorization
+          if (q.type === 'mcq') {
+            topics.push('multiple choice concepts');
+          } else if (q.type === 'shortAnswer') {
+            topics.push('short answer skills');
+          } else if (q.type === 'discuss') {
+            topics.push('discussion topics');
+          } else if (q.type === 'describe') {
+            topics.push('descriptive knowledge');
+          } else if (q.type === 'fillBlanks') {
+            topics.push('completion skills');
+          } else {
+            topics.push('general knowledge');
+          }
         }
+        
+        // Remove duplicates and limit to most relevant topics
+        topics = [...new Set(topics)].slice(0, 3);
       }
       
       // Add performance data for each topic

@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import { parseTopics } from '../utils/parseGeminiResponse';
+import { saveTopicsToCache, getTopicsFromCache, clearTopicCache } from '../utils/topicCache';
 
 export default function ExamGenerator({ onGenerate, extractedText, apiKey, performanceSummaries }) {
   const [selectedTopics, setSelectedTopics] = useState([]);
@@ -12,6 +13,7 @@ export default function ExamGenerator({ onGenerate, extractedText, apiKey, perfo
   const [showPerformanceHistory, setShowPerformanceHistory] = useState(false);
   const [autoSelectionReason, setAutoSelectionReason] = useState('');
   const [questionTypeAutoSelection, setQuestionTypeAutoSelection] = useState('');
+  const [cacheStatus, setCacheStatus] = useState(''); // NEW: Track cache status
   
   // Question type configurations
   const [questionTypes, setQuestionTypes] = useState({
@@ -30,6 +32,7 @@ export default function ExamGenerator({ onGenerate, extractedText, apiKey, perfo
   useEffect(() => {
     if (topics.length > 0 && selectedTopics.length === 0) {
       let topicsToSelect = [];
+      let selectionReason = '';
       
       // If there's performance data, prioritize weak areas
       if (performanceSummary && performanceSummary.trim()) {
@@ -37,31 +40,44 @@ export default function ExamGenerator({ onGenerate, extractedText, apiKey, perfo
         const weakTopics = extractWeakTopicsFromSummary(performanceSummary, topics);
         if (weakTopics.length > 0) {
           topicsToSelect = weakTopics;
-          setAutoSelectionReason('Based on previous performance summary (weak areas)');
+          selectionReason = 'Based on previous performance summary (weak areas)';
         }
       }
       
-      // If no weak topics found or no performance data, select first 3-4 topics
+      // If no weak topics found or no performance data, generate smart suggestions
       if (topicsToSelect.length === 0) {
-        topicsToSelect = topics.slice(0, Math.min(4, topics.length));
-        setAutoSelectionReason('No specific weak areas found, selecting first 3-4 topics');
+        const suggestedTopics = generateTopicSuggestions(topics, performanceSummary);
+        topicsToSelect = suggestedTopics.topics;
+        selectionReason = suggestedTopics.reason;
       }
       
       // Ensure we don't select more than 6 topics total
       if (topicsToSelect.length > 6) {
         topicsToSelect = topicsToSelect.slice(0, 6);
-        setAutoSelectionReason('Selected more than 6 topics, limiting to 6');
+        selectionReason += ' (limited to 6 topics)';
       }
       
       setSelectedTopics(topicsToSelect);
+      setAutoSelectionReason(selectionReason);
     }
   }, [topics, performanceSummary, selectedTopics.length]);
 
-  // Auto-select question types based on performance data
+  // Auto-select question types based on performance data and topic analysis
   useEffect(() => {
+    // Only run when we have topics and selected topics, or when performance summary changes
+    if (topics.length === 0 || selectedTopics.length === 0) return;
+    
+    const newQuestionTypes = {
+      mcq: { enabled: true, count: 5 },
+      shortAnswer: { enabled: true, count: 3 },
+      discuss: { enabled: false, count: 2 },
+      describe: { enabled: false, count: 2 },
+      fillBlanks: { enabled: false, count: 2 }
+    };
+    let autoSelectionReason = '';
+    
     if (performanceSummary && performanceSummary.trim()) {
       const summaryLower = performanceSummary.toLowerCase();
-      const newQuestionTypes = { ...questionTypes };
       
       // Check if student struggled with open-ended questions
       const hasOpenEndedStruggles = summaryLower.includes('discuss') || 
@@ -80,7 +96,7 @@ export default function ExamGenerator({ onGenerate, extractedText, apiKey, perfo
         newQuestionTypes.discuss = { enabled: false, count: 2 };
         newQuestionTypes.describe = { enabled: false, count: 2 };
         newQuestionTypes.fillBlanks = { enabled: true, count: 2 };
-        setQuestionTypeAutoSelection('Adjusted for students struggling with open-ended questions - focusing on MCQ and short answer');
+        autoSelectionReason = 'Adjusted for students struggling with open-ended questions - focusing on MCQ and short answer';
       } else if (hasMcqSuccess) {
         // Add more challenging question types for students doing well
         newQuestionTypes.mcq = { enabled: true, count: 3 };
@@ -88,12 +104,18 @@ export default function ExamGenerator({ onGenerate, extractedText, apiKey, perfo
         newQuestionTypes.discuss = { enabled: true, count: 3 };
         newQuestionTypes.describe = { enabled: true, count: 2 };
         newQuestionTypes.fillBlanks = { enabled: false, count: 2 };
-        setQuestionTypeAutoSelection('Adjusted for students doing well - adding more challenging question types');
+        autoSelectionReason = 'Adjusted for students doing well - adding more challenging question types';
       }
-      
-      setQuestionTypes(newQuestionTypes);
+    } else {
+      // No performance data - generate smart question type suggestions based on topics
+      const suggestedQuestionTypes = generateQuestionTypeSuggestions(topics, selectedTopics);
+      Object.assign(newQuestionTypes, suggestedQuestionTypes.config);
+      autoSelectionReason = suggestedQuestionTypes.reason;
     }
-  }, [performanceSummary]);
+    
+    setQuestionTypes(newQuestionTypes);
+    setQuestionTypeAutoSelection(autoSelectionReason);
+  }, [performanceSummary, topics, selectedTopics]);
 
   // Extract weak topics from performance summary
   const extractWeakTopicsFromSummary = (summary, availableTopics) => {
@@ -116,6 +138,175 @@ export default function ExamGenerator({ onGenerate, extractedText, apiKey, perfo
     return weakTopics;
   };
 
+  // Generate smart topic suggestions when no weak topics are found
+  const generateTopicSuggestions = (availableTopics, performanceSummary) => {
+    const suggestions = {
+      topics: [],
+      reason: ''
+    };
+
+    // If we have performance data but no weak topics, suggest foundational topics
+    if (performanceSummary && performanceSummary.trim()) {
+      // Look for topics that might be foundational or core concepts
+      const foundationalKeywords = ['introduction', 'basic', 'fundamental', 'core', 'overview', 'principles', 'concepts', 'theory', 'method', 'approach'];
+      const foundationalTopics = availableTopics.filter(topic => 
+        foundationalKeywords.some(keyword => 
+          topic.toLowerCase().includes(keyword)
+        )
+      );
+
+      if (foundationalTopics.length > 0) {
+        suggestions.topics = foundationalTopics.slice(0, 4);
+        suggestions.reason = 'No weak areas found - suggesting foundational topics for comprehensive review';
+      } else {
+        // Select diverse topics from different areas
+        suggestions.topics = selectDiverseTopics(availableTopics, 4);
+        suggestions.reason = 'No weak areas found - selecting diverse topics for balanced assessment';
+      }
+    } else {
+      // No performance data - suggest based on topic characteristics
+      suggestions.topics = selectDiverseTopics(availableTopics, 4);
+      suggestions.reason = 'No performance data - selecting diverse topics for comprehensive assessment';
+    }
+
+    return suggestions;
+  };
+
+  // Select diverse topics from different categories
+  const selectDiverseTopics = (topics, count) => {
+    if (topics.length <= count) return topics;
+
+    // Categorize topics by keywords
+    const categories = {
+      foundational: topics.filter(t => 
+        t.toLowerCase().includes('introduction') || 
+        t.toLowerCase().includes('basic') || 
+        t.toLowerCase().includes('fundamental') ||
+        t.toLowerCase().includes('overview')
+      ),
+      practical: topics.filter(t => 
+        t.toLowerCase().includes('method') || 
+        t.toLowerCase().includes('technique') || 
+        t.toLowerCase().includes('process') ||
+        t.toLowerCase().includes('application')
+      ),
+      theoretical: topics.filter(t => 
+        t.toLowerCase().includes('theory') || 
+        t.toLowerCase().includes('concept') || 
+        t.toLowerCase().includes('principle') ||
+        t.toLowerCase().includes('model')
+      ),
+      advanced: topics.filter(t => 
+        t.toLowerCase().includes('advanced') || 
+        t.toLowerCase().includes('complex') || 
+        t.toLowerCase().includes('detailed') ||
+        t.toLowerCase().includes('analysis')
+      )
+    };
+
+    const selected = [];
+    const categoryKeys = Object.keys(categories);
+    let categoryIndex = 0;
+
+    while (selected.length < count && categoryKeys.length > 0) {
+      const category = categoryKeys[categoryIndex % categoryKeys.length];
+      const availableInCategory = categories[category].filter(t => !selected.includes(t));
+      
+      if (availableInCategory.length > 0) {
+        selected.push(availableInCategory[0]);
+      }
+      
+      categoryIndex++;
+      
+      // If we've gone through all categories and still need more, take from any category
+      if (categoryIndex >= categoryKeys.length && selected.length < count) {
+        const remainingTopics = topics.filter(t => !selected.includes(t));
+        if (remainingTopics.length > 0) {
+          selected.push(remainingTopics[0]);
+        }
+      }
+    }
+
+    return selected;
+  };
+
+  // Generate question type suggestions based on topics
+  const generateQuestionTypeSuggestions = (allTopics, selectedTopics) => {
+    const suggestions = {
+      config: {
+        mcq: { enabled: true, count: 5 },
+        shortAnswer: { enabled: true, count: 3 },
+        discuss: { enabled: false, count: 2 },
+        describe: { enabled: false, count: 2 },
+        fillBlanks: { enabled: false, count: 2 }
+      },
+      reason: ''
+    };
+
+    // Analyze topic characteristics to determine suitable question types
+    const topicAnalysis = analyzeTopics(selectedTopics);
+    
+    if (topicAnalysis.hasTheoreticalContent) {
+      // Theoretical topics benefit from discussion and description questions
+      suggestions.config.discuss = { enabled: true, count: 3 };
+      suggestions.config.describe = { enabled: true, count: 2 };
+      suggestions.config.mcq = { enabled: true, count: 4 };
+      suggestions.config.shortAnswer = { enabled: true, count: 3 };
+      suggestions.reason = 'Theoretical topics detected - enabling discussion and description questions for deeper understanding';
+    } else if (topicAnalysis.hasPracticalContent) {
+      // Practical topics benefit from short answer and fill-in-the-blanks
+      suggestions.config.shortAnswer = { enabled: true, count: 4 };
+      suggestions.config.fillBlanks = { enabled: true, count: 3 };
+      suggestions.config.mcq = { enabled: true, count: 4 };
+      suggestions.reason = 'Practical topics detected - focusing on application questions and fill-in-the-blanks';
+    } else if (topicAnalysis.hasComplexContent) {
+      // Complex topics need a mix of question types
+      suggestions.config.mcq = { enabled: true, count: 3 };
+      suggestions.config.shortAnswer = { enabled: true, count: 3 };
+      suggestions.config.discuss = { enabled: true, count: 2 };
+      suggestions.config.describe = { enabled: true, count: 2 };
+      suggestions.reason = 'Complex topics detected - using balanced mix of question types for comprehensive assessment';
+    } else {
+      // Default balanced approach
+      suggestions.config.mcq = { enabled: true, count: 5 };
+      suggestions.config.shortAnswer = { enabled: true, count: 3 };
+      suggestions.reason = 'Standard balanced approach - MCQ and short answer for general assessment';
+    }
+
+    return suggestions;
+  };
+
+  // Analyze topics to determine their characteristics
+  const analyzeTopics = (topics) => {
+    const analysis = {
+      hasTheoreticalContent: false,
+      hasPracticalContent: false,
+      hasComplexContent: false
+    };
+
+    const theoreticalKeywords = ['theory', 'concept', 'principle', 'model', 'framework', 'paradigm', 'philosophy'];
+    const practicalKeywords = ['method', 'technique', 'process', 'procedure', 'application', 'implementation', 'practice'];
+    const complexKeywords = ['advanced', 'complex', 'detailed', 'analysis', 'synthesis', 'evaluation', 'critical'];
+
+    topics.forEach(topic => {
+      const topicLower = topic.toLowerCase();
+      
+      if (theoreticalKeywords.some(keyword => topicLower.includes(keyword))) {
+        analysis.hasTheoreticalContent = true;
+      }
+      
+      if (practicalKeywords.some(keyword => topicLower.includes(keyword))) {
+        analysis.hasPracticalContent = true;
+      }
+      
+      if (complexKeywords.some(keyword => topicLower.includes(keyword))) {
+        analysis.hasComplexContent = true;
+      }
+    });
+
+    return analysis;
+  };
+
   // Extract topics using Gemini when component mounts or when text/apiKey changes
   useEffect(() => {
     let cancelled = false;
@@ -124,8 +315,24 @@ export default function ExamGenerator({ onGenerate, extractedText, apiKey, perfo
       if (!extractedText || !apiKey || hasExtractedTopics.current || extractionInProgress.current) return;
       extractionInProgress.current = true;
       setIsExtractingTopics(true);
+      
       try {
-        console.log('Starting topic extraction with Gemini...');
+        // First, try to get topics from cache
+        console.log('Checking for cached topics...');
+        const cachedTopics = getTopicsFromCache(extractedText, 'exam');
+        
+        if (cachedTopics && cachedTopics.length > 0) {
+          console.log('Using cached topics:', cachedTopics);
+          if (!cancelled) {
+            setTopics(cachedTopics);
+            hasExtractedTopics.current = true;
+            setCacheStatus('cached');
+          }
+          return;
+        }
+        
+        // If no cached topics, extract with Gemini
+        console.log('No cached topics found, starting topic extraction with Gemini...');
         const res = await fetch('/api/gemini-generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -154,6 +361,9 @@ export default function ExamGenerator({ onGenerate, extractedText, apiKey, perfo
           if (!cancelled) {
             setTopics(extractedTopics);
             hasExtractedTopics.current = true;
+            // Save to cache
+            saveTopicsToCache(extractedText, extractedTopics, 'exam');
+            setCacheStatus('generated');
           }
         } else {
           throw new Error('No result in API response');
@@ -166,6 +376,9 @@ export default function ExamGenerator({ onGenerate, extractedText, apiKey, perfo
         if (!cancelled) {
           setTopics(fallbackTopics);
           hasExtractedTopics.current = true;
+          // Save fallback topics to cache as well
+          saveTopicsToCache(extractedText, fallbackTopics, 'exam');
+          setCacheStatus('fallback');
         }
       } finally {
         if (!cancelled) setIsExtractingTopics(false);
@@ -184,6 +397,11 @@ export default function ExamGenerator({ onGenerate, extractedText, apiKey, perfo
       extractionInProgress.current = false;
     };
   }, [extractedText, apiKey]);
+
+  // Reset cache status when text changes
+  useEffect(() => {
+    setCacheStatus('');
+  }, [extractedText]);
 
   // Enhanced fallback topic extraction
   const extractTopicsSimple = (text) => {
@@ -335,6 +553,17 @@ WEAK AREAS (${weakQuestions.length} questions):
     return summaryText;
   };
 
+  // Cache management function
+  const handleClearCache = () => {
+    clearTopicCache();
+    setCacheStatus('');
+    setTopics([]);
+    setSelectedTopics([]);
+    hasExtractedTopics.current = false;
+    extractionInProgress.current = false;
+    alert('Topic cache cleared. Topics will be regenerated next time.');
+  };
+
   const questionTypeConfigs = [
     { key: 'mcq', label: 'Multiple Choice', icon: '❓', description: 'Choose the best answer from options' },
     { key: 'shortAnswer', label: 'Short Answer', icon: '✏️', description: 'Brief written responses' },
@@ -420,6 +649,16 @@ WEAK AREAS (${weakQuestions.length} questions):
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-lg text-gray-800">📚 Select Topics</h3>
           {selectedTopics.length > 0 && (
+            <>
+            <button
+              onClick={() => {
+                setSelectedTopics(topics);
+                setAutoSelectionReason('');
+              }}
+              className="text-sm text-blue-600 hover:text-blue-700 px-2 py-1 rounded border border-blue-200 hover:bg-blue-50"
+            >
+              Select All
+            </button>
             <button
               onClick={() => {
                 setSelectedTopics([]);
@@ -429,6 +668,7 @@ WEAK AREAS (${weakQuestions.length} questions):
             >
               Reset Selection
             </button>
+            </>
           )}
         </div>
         
@@ -439,6 +679,43 @@ WEAK AREAS (${weakQuestions.length} questions):
               <p className="text-sm text-blue-800">
                 <strong>Auto-selected:</strong> {autoSelectionReason}
               </p>
+            </div>
+          </div>
+        )}
+        
+        {cacheStatus && (
+          <div className={`border rounded-lg p-3 ${
+            cacheStatus === 'cached' 
+              ? 'bg-green-50 border-green-200' 
+              : cacheStatus === 'generated' 
+                ? 'bg-blue-50 border-blue-200'
+                : 'bg-yellow-50 border-yellow-200'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className={cacheStatus === 'cached' ? 'text-green-600' : cacheStatus === 'generated' ? 'text-blue-600' : 'text-yellow-600'}>
+                  {cacheStatus === 'cached' ? '💾' : cacheStatus === 'generated' ? '⚡' : '⚠️'}
+                </span>
+                <p className={`text-sm ${
+                  cacheStatus === 'cached' ? 'text-green-800' : cacheStatus === 'generated' ? 'text-blue-800' : 'text-yellow-800'
+                }`}>
+                  <strong>
+                    {cacheStatus === 'cached' ? 'Using cached topics' : 
+                     cacheStatus === 'generated' ? 'Generated new topics' : 
+                     'Using fallback topics'}
+                  </strong>
+                  {cacheStatus === 'cached' && ' (faster loading)'}
+                </p>
+              </div>
+              {cacheStatus === 'cached' && (
+                <button
+                  onClick={handleClearCache}
+                  className="text-xs text-red-600 hover:text-red-700 px-2 py-1 rounded border border-red-200 hover:bg-red-50"
+                  title="Clear topic cache"
+                >
+                  Clear Cache
+                </button>
+              )}
             </div>
           </div>
         )}

@@ -21,6 +21,33 @@ import { parseFlashcards, parseQuiz, parseExam } from '../utils/parseGeminiRespo
 import NotificationProvider, { useNotification } from '../components/NotificationProvider';
 import Notification from '../components/Notification';
 
+// Define notification interface
+interface NotificationItem {
+  id: number;
+  type: 'success' | 'error' | 'info';
+  icon?: string;
+  title: string;
+  message: string;
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
+  autoDismiss?: boolean;
+}
+
+// Define notification input interface (without id)
+interface NotificationInput {
+  type: 'success' | 'error' | 'info';
+  icon?: string;
+  title: string;
+  message: string;
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
+  autoDismiss?: boolean;
+}
+
 export default function Home() {
   const [documents, setDocuments] = useState([]);
   const [activeDocument, setActiveDocument] = useState(null);
@@ -43,16 +70,40 @@ export default function Home() {
   const [showFeatureSelector, setShowFeatureSelector] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(0);
-  const [notifications, setNotifications] = useState([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Helper to add a notification
-  const addNotification = (notification) => {
-    setNotifications((prev) => [...prev, { id: Date.now(), ...notification }]);
+  const addNotification = (notification: NotificationInput) => {
+    const newNotification: NotificationItem = { 
+      id: Date.now(), 
+      ...notification,
+      autoDismiss: notification.autoDismiss !== false // Default to true unless explicitly set to false
+    };
+    setNotifications((prev) => [...prev, newNotification]);
   };
-  const removeNotification = (id) => {
+  const removeNotification = (id: number) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
+
+  // Auto-dismiss notifications after 5 seconds
+  useEffect(() => {
+    const timeouts: NodeJS.Timeout[] = [];
+    
+    notifications.forEach((notification) => {
+      if (notification.autoDismiss) {
+        const timeout = setTimeout(() => {
+          removeNotification(notification.id);
+        }, 5000); // 5 seconds
+        timeouts.push(timeout);
+      }
+    });
+
+    // Cleanup timeouts when component unmounts or notifications change
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
+  }, [notifications]);
 
   // Memoize parsed flashcards to prevent unnecessary re-parsing
   const parsedFlashcards = useMemo(() => {
@@ -499,13 +550,16 @@ export default function Home() {
                 📊 History ({history.length})
               </button>
               <button
-                onClick={() => {
-                  // Scroll to feature selector
-                  const featureSection = document.querySelector('[data-feature-selector]');
-                  if (featureSection) {
-                    featureSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  }
-                }}
+              onClick={
+                () => setShowFeatureSelector(!showFeatureSelector)
+              }
+                // onClick={() => {
+                //   // Scroll to feature selector
+                //   const featureSection = document.querySelector('[data-feature-selector]');
+                //   if (featureSection) {
+                //     featureSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                //   }
+                // }}
                 className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:from-green-700 hover:to-emerald-700 flex items-center space-x-2"
               >
                 <span>✨</span>
@@ -644,9 +698,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Focus Mode Stats */}
-              {!sidebarCollapsed && <FocusModeStats onEnterFocusMode={() => setFocusMode(true)} />}
-
               {/* Helpful Resources Sidebar */}
               {!sidebarCollapsed && (
                 <HelpfulResourcesSidebar 
@@ -681,6 +732,10 @@ export default function Home() {
                 </div>
               )}
 
+              {/* Focus Mode Stats */}
+              {!sidebarCollapsed && <FocusModeStats onEnterFocusMode={() => setFocusMode(true)} />}
+
+
               {/* Collapsed Sidebar - Show only icons */}
               {sidebarCollapsed && (
                 <div className="space-y-4">
@@ -704,7 +759,7 @@ export default function Home() {
               sidebarCollapsed ? 'lg:col-span-3' : 'lg:col-span-2'
             }`}>
               {/* Feature Selection - Moved to main content area */}
-              {step >= 2 && !showQuizGenerator && !showExamGenerator && !result && (
+              {step >= 2 && ((!showQuizGenerator || !showExamGenerator || !result) || showFeatureSelector) && (
                 <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 p-6" data-feature-selector>
                   <div className="text-center mb-6">
                     <h2 className="text-2xl font-bold text-gray-800 mb-2">✨ Choose Your Study Tool</h2>

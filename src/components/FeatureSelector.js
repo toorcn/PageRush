@@ -56,11 +56,12 @@ export default function FeatureSelector({ selected, onSelect }) {
               group relative p-4 rounded-lg border-2 transition-all duration-300 text-left
               ${selected === f.key 
                 ? 'border-gray-300 bg-white shadow-lg shadow-gray-200/50 scale-105' 
-                : 'border-gray-200 bg-gray-50 hover:bg-white hover:shadow-md hover:scale-102'
+                : 'border-gray-200 bg-gray-50 hover:bg-white hover:shadow-md hover:scale-102 disabled:opacity-50 disabled:cursor-not-allowed'
               }
               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
             `}
             aria-pressed={selected === f.key}
+            disabled={selected === f.key}
           >
             <div className="flex items-start space-x-3">
               <div className={`
