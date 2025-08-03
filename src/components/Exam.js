@@ -3,6 +3,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import LottieLoader from './LottieLoader';
 
 export default function Exam({ questions, onSubmit, feedback, currentQuestionIndex, setCurrentQuestionIndex, setTotalQuestions }) {
+  // Ensure feedback is always an array to prevent React errors
+  if (feedback && !Array.isArray(feedback)) {
+    console.error('Exam: feedback prop is not an array', feedback);
+    feedback = [];
+  }
   const [answers, setAnswers] = useState(Array(questions.length).fill(''));
   const [submitted, setSubmitted] = useState(false);
   const [isAssessing, setIsAssessing] = useState(false);
@@ -247,7 +252,6 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
         topicPerformance[topic].questions.push({
           question: q.question,
           userAnswer: answers[idx],
-          feedback: feedback[idx],
           points: q.points || 1
         });
       });
@@ -517,7 +521,9 @@ INSTRUCTION FOR GEMINI:
                   </div>
                   
                   <div className="text-sm lg:text-base mb-3 lg:mb-4 leading-relaxed">
-                    {questionFeedback.feedback}
+                    {typeof questionFeedback.feedback === 'string'
+                      ? questionFeedback.feedback
+                      : JSON.stringify(questionFeedback.feedback)}
                   </div>
 
                   {/* Personalized Suggestions */}

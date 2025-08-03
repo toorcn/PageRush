@@ -81,9 +81,15 @@ export default function Insights({ score, total, details }) {
           <h3 className="font-semibold text-lg text-gray-800">📋 Detailed Breakdown</h3>
           <div className="space-y-3">
             {details.map((detail, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <span className="text-gray-700">{detail}</span>
-                <span className="text-green-600">✅</span>
+              <div key={index} className="flex flex-col p-3 bg-gray-50 rounded-lg mb-2">
+                <span className="text-gray-800 font-medium mb-1">{detail.question}</span>
+                <span className="text-gray-700 mb-1">{detail.feedback}</span>
+                <span className="text-xs text-gray-500">
+                  Your answer: {detail.userAnswer} | Correct: {detail.correctAnswer}
+                </span>
+                <span className={`text-sm font-semibold ${detail.isCorrect ? 'text-green-600' : 'text-red-600'}`}> 
+                  {detail.isCorrect ? '✅ Correct' : '❌ Incorrect'} ({detail.points}/{detail.maxPoints} pts)
+                </span>
               </div>
             ))}
           </div>
