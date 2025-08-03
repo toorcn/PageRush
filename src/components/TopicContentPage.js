@@ -1,9 +1,10 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { topicContentManager } from '../utils/topicContentManager';
+import LottieLoader from './LottieLoader';
 import { useLoading } from './LoadingProvider';
 
-export default function TopicContentPage({ topic, onBack, content, apiKey, onStartPractice }) {
+export default function TopicContentPage({ topic, onBack, content, apiKey, onStartPractice, practiceLoading }) {
   const { startLoading, stopLoading } = useLoading();
   const [topicContent, setTopicContent] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -802,9 +803,24 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
           </button>
           <button
             onClick={() => onStartPractice && onStartPractice(topic.id)}
-            className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-medium shadow-md hover:shadow-lg"
+            disabled={practiceLoading}
+            className={`flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg transition-all duration-200 font-medium shadow-md hover:shadow-lg ${
+              practiceLoading 
+                ? 'opacity-50 cursor-not-allowed' 
+                : 'hover:from-blue-700 hover:to-indigo-700'
+            }`}
           >
-            🎯 Start Practice Session
+            {/* lottie loader */}
+            {practiceLoading ? (
+              <div className="flex items-center space-x-2">
+                <LottieLoader 
+                  text="Starting Practice..." 
+                  size="small"
+                />
+              </div>
+            ) : (
+              <span>🎯 Start Practice Session</span>
+            )}
           </button>
         </div>
         

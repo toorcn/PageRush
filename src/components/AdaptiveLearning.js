@@ -797,10 +797,10 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
           <p className="text-gray-600 text-sm lg:text-base">Practice until you master each concept</p>
         </div>
         <button
-          onClick={handleBackToOverview}
+          onClick={() => setCurrentMode('select')}
           className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium text-sm lg:text-base self-start sm:self-auto"
         >
-          ← Back to Overview
+          ← Back to Topics
         </button>
       </div>
 

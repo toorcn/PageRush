@@ -35,6 +35,7 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
     practiceSessions: []
   });
   const [loading, setLoading] = useState(false);
+  const [practiceLoading, setPracticeLoading] = useState(false);
   const [lastCallTime, setLastCallTime] = useState(0); // Track last API call time
   const [stats, setStats] = useState({
     totalTopics: 0,
@@ -282,28 +283,35 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
   };
 
   const startAdaptiveLearning = async (topicId) => {
-    if (topicId) {
-      // If a specific topic is provided, set it as current focus and ensure question bank is loaded
-      setLearningProgress(prev => ({ ...prev, currentFocus: topicId }));
-      
-      // Import question bank manager to ensure question bank is available
-      const { questionBankManager } = await import('../utils/questionBankManager');
-      
-      // Find the topic
-      const topic = topicBreakdown?.topics.find(t => t.id === topicId);
-      if (topic && !questionBankManager.questionBanks.has(topicId)) {
-        // Preload question bank if not already loaded
-        try {
-          await questionBankManager.getQuestionBank(topic, content, apiKey);
-        } catch (error) {
-          console.error('Error preloading question bank:', error);
+    setPracticeLoading(true);
+    try {
+      if (topicId) {
+        // If a specific topic is provided, set it as current focus and ensure question bank is loaded
+        setLearningProgress(prev => ({ ...prev, currentFocus: topicId }));
+        
+        // Import question bank manager to ensure question bank is available
+        const { questionBankManager } = await import('../utils/questionBankManager');
+        
+        // Find the topic
+        const topic = topicBreakdown?.topics.find(t => t.id === topicId);
+        if (topic && !questionBankManager.questionBanks.has(topicId)) {
+          // Preload question bank if not already loaded
+          try {
+            await questionBankManager.getQuestionBank(topic, content, apiKey);
+          } catch (error) {
+            console.error('Error preloading question bank:', error);
+          }
         }
+      } else {
+        // If no topic provided (from overview), clear current focus to show topic selection
+        setLearningProgress(prev => ({ ...prev, currentFocus: null }));
       }
-    } else {
-      // If no topic provided (from overview), clear current focus to show topic selection
-      setLearningProgress(prev => ({ ...prev, currentFocus: null }));
+      setCurrentView('learning');
+    } catch (error) {
+      console.error('Error starting practice session:', error);
+    } finally {
+      setPracticeLoading(false);
     }
-    setCurrentView('learning');
   };
 
   const viewTopicContent = (topic) => {
@@ -534,6 +542,7 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
             content={content}
             apiKey={apiKey}
             onStartPractice={startAdaptiveLearning}
+            practiceLoading={practiceLoading}
           />
         );
       default:
