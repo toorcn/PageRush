@@ -6,6 +6,8 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
   const [submitted, setSubmitted] = useState(false);
   const [feedback, setFeedback] = useState(Array(questions.length).fill(null));
   const [explainedQuestions, setExplainedQuestions] = useState(new Set());
+  const [structuredUnderstanding, setStructuredUnderstanding] = useState({});
+  const [isRequestingUnderstanding, setIsRequestingUnderstanding] = useState({});
   const questionRefs = useRef([]);
 
   // Set total questions when component mounts
@@ -80,6 +82,63 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
     onSubmit(submissionData);
   };
 
+  const handleStructuredUnderstanding = async (qIdx) => {
+    const question = questions[qIdx];
+    if (!question) return;
+
+    setIsRequestingUnderstanding(prev => ({ ...prev, [qIdx]: true }));
+
+    try {
+      const userAnswer = answers[qIdx];
+      const correctAnswer = question.answer;
+
+      const text = [
+        `Question: ${question.question}`,
+        correctAnswer ? `Correct answer: ${correctAnswer}` : '',
+        userAnswer ? `Learner's current answer: ${userAnswer}` : ''
+      ]
+        .filter(Boolean)
+        .join('\n');
+
+      const response = await fetch('/api/gemini-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          promptType: 'structuredUnderstanding',
+          geminiApiKey: window.geminiApiKey || localStorage.getItem('geminiApiKey')
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('Failed to get structured understanding:', await response.text());
+        alert('Unable to load AI learning guide for this question. Please try again.');
+        return;
+      }
+
+      const data = await response.json();
+      const aiText =
+        data.result?.candidates?.[0]?.content?.parts?.[0]?.text ||
+        data.result?.candidates?.[0]?.output_text ||
+        '';
+
+      if (!aiText) {
+        alert('AI did not return an explanation. Please try again.');
+        return;
+      }
+
+      setStructuredUnderstanding(prev => ({
+        ...prev,
+        [qIdx]: aiText
+      }));
+    } catch (error) {
+      console.error('Error requesting structured understanding:', error);
+      alert('Failed to contact AI. Please check your API key and try again.');
+    } finally {
+      setIsRequestingUnderstanding(prev => ({ ...prev, [qIdx]: false }));
+    }
+  };
+
   const toggleExplanation = (questionIndex) => {
     const newExplained = new Set(explainedQuestions);
     if (newExplained.has(questionIndex)) {
@@ -92,6 +151,67 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
 
   const navigateToQuestion = (index) => {
     setCurrentQuestionIndex(index);
+  };
+
+  // Render markdown-formatted text
+  const renderMarkdown = (text) => {
+    if (!text || !text.trim()) return null;
+    
+    return text
+      .split('\n')
+      .map((line, index) => {
+        const trimmedLine = line.trim();
+        
+        // Handle headers
+        if (trimmedLine.startsWith('##')) {
+          const content = trimmedLine.replace(/^##+\s*/, '');
+          return (
+            <h3 key={index} className="text-lg font-semibold text-indigo-900 mt-4 mb-2 first:mt-0">
+              {content}
+            </h3>
+          );
+        }
+        
+        // Handle bullet points
+        if (trimmedLine.match(/^[-*]\s/)) {
+          const content = trimmedLine.replace(/^[-*]\s/, '');
+          // Handle bold text in bullets
+          const parts = content.split(/(\*\*.*?\*\*)/);
+          return (
+            <li key={index} className="ml-6 mb-1.5 text-indigo-800 leading-relaxed list-disc">
+              {parts.map((part, partIndex) => {
+                if (part.startsWith('**') && part.endsWith('**')) {
+                  return <strong key={partIndex} className="font-semibold">{part.slice(2, -2)}</strong>;
+                }
+                return <span key={partIndex}>{part}</span>;
+              })}
+            </li>
+          );
+        }
+        
+        // Handle bold text in regular paragraphs
+        if (trimmedLine.includes('**')) {
+          const parts = trimmedLine.split(/(\*\*.*?\*\*)/);
+          return (
+            <p key={index} className="mb-2 text-indigo-800 leading-relaxed">
+              {parts.map((part, partIndex) => {
+                if (part.startsWith('**') && part.endsWith('**')) {
+                  return <strong key={partIndex} className="font-semibold">{part.slice(2, -2)}</strong>;
+                }
+                return <span key={partIndex}>{part}</span>;
+              })}
+            </p>
+          );
+        }
+        
+        // Regular text (skip empty lines)
+        if (trimmedLine) {
+          return <p key={index} className="mb-2 text-indigo-800 leading-relaxed">{trimmedLine}</p>;
+        }
+        
+        return null;
+      })
+      .filter(Boolean);
   };
 
   // Calculate summary after submission
@@ -148,6 +268,7 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
           const isWrong = submitted && isSelected && q.answer !== answers[idx];
           const hasValidOptions = q.options && q.options.length >= 2;
           const isCurrentQuestion = currentQuestionIndex === idx;
+          const currentUnderstanding = structuredUnderstanding[idx];
 
           return (
             <div 
@@ -160,6 +281,19 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
               {/* Question */}
               <div className="font-semibold text-base lg:text-lg text-gray-800 leading-relaxed">
                 {idx + 1}. {q.question}
+              </div>
+
+              {/* AI Learning Guide Button - Separate Section */}
+              <div className="flex justify-start border-t border-gray-200 pt-4">
+                <button
+                  type="button"
+                  onClick={() => handleStructuredUnderstanding(idx)}
+                  disabled={isRequestingUnderstanding[idx]}
+                  className="px-4 py-2 lg:px-5 lg:py-2.5 bg-indigo-600 text-white rounded-lg text-sm lg:text-base font-medium hover:bg-indigo-700 disabled:opacity-70 disabled:cursor-not-allowed transition-colors shadow-sm hover:shadow-md flex items-center gap-2"
+                >
+                  <span>🤖</span>
+                  <span>{isRequestingUnderstanding[idx] ? 'Asking AI…' : 'Get AI Learning Guide'}</span>
+                </button>
               </div>
 
               {/* Answer Options */}
@@ -247,6 +381,20 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
                       )}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* AI Structured Understanding */}
+              {/* AI Structured Understanding Display */}
+              {currentUnderstanding && (
+                <div className="mt-4 lg:mt-5 p-4 lg:p-5 rounded-lg bg-indigo-50 border border-indigo-200">
+                  <div className="font-semibold text-base lg:text-lg text-indigo-900 mb-3 lg:mb-4 flex items-center gap-2">
+                    <span>🤖</span>
+                    <span>AI Learning Guide</span>
+                  </div>
+                  <div className="text-sm lg:text-base">
+                    {renderMarkdown(currentUnderstanding)}
+                  </div>
                 </div>
               )}
             </div>

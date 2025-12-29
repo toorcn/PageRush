@@ -214,7 +214,34 @@ Example format:
   }
 ]
 
-Text to base questions on:\n\n${text}`;
+        Text to base questions on:\n\n${text}`;
+      break;
+    case 'structuredUnderstanding':
+      prompt = `You are an expert tutor. A learner has this question (and possibly their own answer and the correct answer).
+
+Your goal is to give them a **structured understanding** of the concept, not just the correct answer.
+
+Create a concise, learner-friendly explanation using markdown formatting. Keep it under 300 words total.
+
+STRUCTURE (use markdown formatting):
+1. Start with ## Core Concept - a 1–2 sentence plain-language summary
+2. Add ## Key Points - use bullet points (-) for 3–5 essential pieces of knowledge
+3. Add ## Common Mistakes - use bullet points for 2–3 misconceptions to avoid
+4. End with ## Practice Ideas - use bullet points for 2–3 short practice prompts
+
+FORMATTING REQUIREMENTS:
+- Use ## for main section headings (Core Concept, Key Points, Common Mistakes, Practice Ideas)
+- Use - for bullet points (not * or numbers)
+- Use **bold** for important terms
+- Keep each bullet point to 1 sentence
+- Keep sections concise - maximum 3–5 bullets per section
+- Do NOT use code blocks, JSON, or other complex formatting
+- Return ONLY markdown-formatted text, no additional explanation
+
+QUESTION:
+${text}
+
+Now provide the structured explanation in markdown format.`;
       break;
     default:
       return res.status(400).json({ error: 'Invalid prompt type' });
