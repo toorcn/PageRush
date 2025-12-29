@@ -23,6 +23,8 @@ import NotificationProvider, { useNotification } from '../components/Notificatio
 import Notification from '../components/Notification';
 import { LoadingProvider, useLoading } from '../components/LoadingProvider';
 import LottieLoader from '../components/LottieLoader';
+import Onboarding, { useOnboarding } from '../components/Onboarding';
+import ProgressIndicator from '../components/ProgressIndicator';
 
 // Define notification interface
 interface NotificationItem {
@@ -96,6 +98,7 @@ interface ExamResult {
 
 function HomeContent() {
   const { startLoading, stopLoading } = useLoading();
+  const { showOnboarding, completeOnboarding } = useOnboarding();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [activeDocuments, setActiveDocuments] = useState<Document[]>([]);
   const [apiKey, setApiKey] = useState('');
@@ -610,7 +613,10 @@ function HomeContent() {
     }
   };
 
-  // Step logic
+  // Step logic for onboarding
+  const onboardingStep = !activeDocuments.length ? 0 : !apiKey ? 1 : !feature ? 2 : 3;
+  
+  // Step logic for UI
   const step = !activeDocuments.length ? 0 : !apiKey ? 1 : !result ? 2 : 3;
 
   // Auto-expand sections when they become relevant
@@ -647,6 +653,29 @@ function HomeContent() {
   return (
     <NotificationProvider notifications={notifications} removeNotification={removeNotification}>
       <div className="font-sans min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        {/* Onboarding Modal */}
+        {showOnboarding && (
+          <Onboarding
+            currentStep={onboardingStep}
+            onComplete={() => {
+              completeOnboarding();
+              addNotification({
+                type: 'success',
+                icon: '🎉',
+                title: 'Welcome!',
+                message: 'You\'re all set! Start uploading documents to begin.',
+                autoDismiss: true
+              });
+            }}
+            onSkip={() => {
+              completeOnboarding();
+            }}
+            documentsCount={documents.length}
+            hasApiKey={!!apiKey}
+            hasSelectedFeature={!!feature}
+          />
+        )}
+        
         {/* Notification System */}
         <Notification />
         
@@ -812,36 +841,54 @@ function HomeContent() {
           {/* Welcome Section - Show when no documents are loaded */}
           {step === 0 && (
             <div className="text-center py-12 lg:py-16">
-              <div className="max-w-2xl mx-auto">
-                <div className="flex justify-center mb-8">
+              <div className="max-w-3xl mx-auto">
+                <div className="flex justify-center mb-8 animate-fadeIn">
                   <img 
                     src="/pagerushai-logo.png" 
                     alt="PageRush AI" 
                     className="h-24 w-auto"
                   />
                 </div>
-                <h2 className="text-3xl lg:text-4xl font-bold text-gray-800 mb-4">
+                <h2 className="text-3xl lg:text-4xl font-bold text-gray-800 mb-4 animate-slideUp">
                   Welcome to PageRush AI
                 </h2>
-                <p className="text-lg text-gray-600 mb-8 max-w-xl mx-auto">
+                <p className="text-lg text-gray-600 mb-8 max-w-xl mx-auto animate-slideUp">
                   Transform your study materials into interactive learning tools with AI-powered flashcards, quizzes, study guides, and more.
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                  <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 shadow-sm border border-gray-200">
-                    <div className="text-2xl mb-2">📚</div>
+                
+                {/* Progress Indicator */}
+                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 mb-8 shadow-lg border border-gray-200 animate-slideUp">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-6">Getting Started</h3>
+                  <ProgressIndicator 
+                    currentStep={onboardingStep}
+                    totalSteps={4}
+                    labels={['Upload Documents', 'Add API Key', 'Choose Tool', 'Start Learning']}
+                  />
+                </div>
+
+                {/* Feature Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 animate-slideUp">
+                  <div className="bg-white/80 backdrop-blur-sm rounded-lg p-5 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                    <div className="text-3xl mb-3">📚</div>
                     <h3 className="font-semibold text-gray-800 mb-2">Upload Documents</h3>
                     <p className="text-sm text-gray-600">Upload your PDFs and let AI extract the content</p>
                   </div>
-                  <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 shadow-sm border border-gray-200">
-                    <div className="text-2xl mb-2">✨</div>
+                  <div className="bg-white/80 backdrop-blur-sm rounded-lg p-5 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                    <div className="text-3xl mb-3">✨</div>
                     <h3 className="font-semibold text-gray-800 mb-2">Choose Tools</h3>
                     <p className="text-sm text-gray-600">Select from flashcards, quizzes, study guides, and more</p>
                   </div>
-                  <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 shadow-sm border border-gray-200">
-                    <div className="text-2xl mb-2">🎯</div>
+                  <div className="bg-white/80 backdrop-blur-sm rounded-lg p-5 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                    <div className="text-3xl mb-3">🎯</div>
                     <h3 className="font-semibold text-gray-800 mb-2">Study Smart</h3>
                     <p className="text-sm text-gray-600">Learn efficiently with AI-powered adaptive learning</p>
                   </div>
+                </div>
+
+                {/* Quick Start CTA */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200 animate-slideUp">
+                  <p className="text-gray-700 font-medium mb-2">Ready to get started?</p>
+                  <p className="text-sm text-gray-600">Upload your first document below to begin!</p>
                 </div>
               </div>
             </div>
@@ -884,22 +931,53 @@ function HomeContent() {
               {/* Collapsible Setup Section */}
               {step >= 1 && !sidebarCollapsed && (
                 <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                  {/* Progress Indicator for Setup Steps */}
+                  {step < 3 && (
+                    <div className="px-4 lg:px-6 pt-4 pb-2">
+                      <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                        <span>Setup Progress</span>
+                        <span>{step === 1 ? 'Step 1 of 2' : 'Step 2 of 2'}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-1.5">
+                        <div 
+                          className="bg-gradient-to-r from-blue-500 to-indigo-600 h-1.5 rounded-full transition-all duration-500"
+                          style={{ width: `${(step / 2) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* API Key Section */}
                   <div className="border-b border-gray-200">
                     <button
                       onClick={() => setShowApiKeyInput(!showApiKeyInput)}
-                      className="w-full px-4 lg:px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
+                      className={`w-full px-4 lg:px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 transition-colors ${
+                        step === 1 && !apiKey ? 'bg-blue-50/50 border-l-4 border-l-blue-500' : ''
+                      }`}
                     >
                       <div className="flex items-center space-x-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          apiKey ? 'bg-green-500' : 'bg-gray-300'
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
+                          apiKey 
+                            ? 'bg-gradient-to-r from-green-500 to-emerald-600 shadow-lg scale-110' 
+                            : step === 1 
+                            ? 'bg-gradient-to-r from-blue-500 to-indigo-600 animate-pulse-slow shadow-lg'
+                            : 'bg-gray-300'
                         }`}>
-                          <span className="text-white text-sm">🔑</span>
+                          <span className="text-white text-base">
+                            {apiKey ? '✓' : '🔑'}
+                          </span>
                         </div>
                         <div>
-                          <h3 className="font-semibold text-gray-800">API Key</h3>
+                          <h3 className="font-semibold text-gray-800 flex items-center">
+                            API Key
+                            {step === 1 && !apiKey && (
+                              <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium animate-pulse-slow">
+                                Required
+                              </span>
+                            )}
+                          </h3>
                           <p className="text-sm text-gray-500">
-                            {apiKey ? 'Configured' : 'Required for AI features'}
+                            {apiKey ? 'Configured and ready' : 'Required for AI features'}
                           </p>
                         </div>
                       </div>
@@ -917,7 +995,7 @@ function HomeContent() {
                       </div>
                     </button>
                     {showApiKeyInput && (
-                      <div className="px-4 lg:px-6 pb-4">
+                      <div className="px-4 lg:px-6 pb-4 animate-slideUp">
                         <ApiKeyInput onChange={setApiKey} />
                       </div>
                     )}
@@ -984,7 +1062,12 @@ function HomeContent() {
             }`}>
               {/* Feature Selection - Moved to main content area */}
               {step >= 2 && ((!showQuizGenerator || !showExamGenerator || !result) || showFeatureSelector) && (
-                <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 p-4 lg:p-6" data-feature-selector>
+                <div 
+                  className={`bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 p-4 lg:p-6 transition-all duration-300 ${
+                    step === 2 && !feature ? 'ring-2 ring-blue-500 ring-offset-2' : ''
+                  }`} 
+                  data-feature-selector
+                >
                   <div className="text-center mb-4 lg:mb-6">
                     <div className="flex justify-center mb-4">
                       <img 
@@ -993,9 +1076,33 @@ function HomeContent() {
                         className="h-12 w-auto"
                       />
                     </div>
-                    <h2 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2">✨ Choose Your Study Tool</h2>
-                    <p className="text-gray-600 text-sm lg:text-base">Select how you'd like to study your materials</p>
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <h2 className="text-xl lg:text-2xl font-bold text-gray-800">✨ Choose Your Study Tool</h2>
+                      {step === 2 && !feature && (
+                        <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium animate-pulse-slow">
+                          Step 2
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-gray-600 text-sm lg:text-base">
+                      {step === 2 && !feature 
+                        ? 'Select a study tool to get started with your documents'
+                        : 'Select how you\'d like to study your materials'}
+                    </p>
                   </div>
+                  
+                  {/* Helpful hint for first-time users */}
+                  {step === 2 && !feature && showOnboarding && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 animate-slideUp">
+                      <p className="text-sm text-blue-800 flex items-start">
+                        <span className="mr-2">💡</span>
+                        <span>
+                          <strong>Tip:</strong> Start with <strong>Exam Cram</strong> for smart topic breakdown, or choose <strong>Study Guide</strong> for organized notes. Each tool offers unique learning experiences!
+                        </span>
+                      </p>
+                    </div>
+                  )}
+                  
                   <FeatureSelector selected={feature} onSelect={handleFeature} />
                 </div>
               )}
