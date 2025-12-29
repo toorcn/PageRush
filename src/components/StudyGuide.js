@@ -3,7 +3,9 @@ import React, { useState } from 'react';
 
 export default function StudyGuide({ content, onRegenerate }) {
   const [expandedSections, setExpandedSections] = useState(new Set());
-  const [displayFormat, setDisplayFormat] = useState('sections'); // 'sections', 'table', 'cards'
+  const [displayFormat, setDisplayFormat] = useState('sections'); // 'sections', 'table', 'cards', 'checklist'
+  const [checklistItems, setChecklistItems] = useState({});
+  const [showChecklist, setShowChecklist] = useState(false);
 
   // Enhanced section detection with better regex patterns
   const sections = content
@@ -21,6 +23,65 @@ export default function StudyGuide({ content, onRegenerate }) {
       newExpanded.add(index);
     }
     setExpandedSections(newExpanded);
+  };
+
+  // Generate checklist items from content
+  const generateChecklistItems = () => {
+    const items = {};
+    sections.forEach((section, index) => {
+      const title = extractSectionTitle(section);
+      if (title) {
+        items[index] = {
+          title: title,
+          completed: false,
+          confidence: 0, // 0-5 scale
+          notes: ''
+        };
+      }
+    });
+    setChecklistItems(items);
+  };
+
+  const toggleChecklistItem = (index) => {
+    setChecklistItems(prev => ({
+      ...prev,
+      [index]: {
+        ...prev[index],
+        completed: !prev[index]?.completed
+      }
+    }));
+  };
+
+  const updateConfidence = (index, confidence) => {
+    setChecklistItems(prev => ({
+      ...prev,
+      [index]: {
+        ...prev[index],
+        confidence: confidence
+      }
+    }));
+  };
+
+  const updateNotes = (index, notes) => {
+    setChecklistItems(prev => ({
+      ...prev,
+      [index]: {
+        ...prev[index],
+        notes: notes
+      }
+    }));
+  };
+
+  const getConfidenceColor = (confidence) => {
+    if (confidence >= 4) return 'text-green-600';
+    if (confidence >= 2) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getConfidenceLabel = (confidence) => {
+    if (confidence >= 4) return 'Very Confident';
+    if (confidence >= 2) return 'Somewhat Confident';
+    return 'Not Confident';
   };
 
   // Enhanced function to render markdown-like formatting with better styling
@@ -262,6 +323,92 @@ export default function StudyGuide({ content, onRegenerate }) {
     );
   };
 
+  const renderAsChecklist = () => {
+    const completedCount = Object.values(checklistItems).filter(item => item.completed).length;
+    const totalCount = Object.keys(checklistItems).length;
+    const averageConfidence = Object.values(checklistItems).reduce((sum, item) => sum + item.confidence, 0) / totalCount || 0;
+
+    return (
+      <div className="space-y-6">
+        {/* Progress Summary */}
+        <div className="bg-gradient-to-r from-blue-50 to-green-50 p-4 rounded-lg border border-blue-200">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+            <div>
+              <div className="text-2xl font-bold text-blue-600">{completedCount}/{totalCount}</div>
+              <div className="text-sm text-gray-600">Topics Completed</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-green-600">{Math.round((completedCount/totalCount)*100)}%</div>
+              <div className="text-sm text-gray-600">Progress</div>
+            </div>
+            <div>
+              <div className={`text-2xl font-bold ${getConfidenceColor(averageConfidence)}`}>
+                {averageConfidence.toFixed(1)}/5
+              </div>
+              <div className="text-sm text-gray-600">Avg Confidence</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Checklist Items */}
+        <div className="space-y-4">
+          {Object.entries(checklistItems).map(([index, item]) => (
+            <div key={index} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+              <div className="flex items-start space-x-3">
+                <input
+                  type="checkbox"
+                  checked={item.completed}
+                  onChange={() => toggleChecklistItem(parseInt(index))}
+                  className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <div className="flex-1">
+                  <h3 className={`font-medium text-lg ${item.completed ? 'line-through text-gray-500' : 'text-gray-800'}`}>
+                    {item.title}
+                  </h3>
+                  
+                  {/* Confidence Rating */}
+                  <div className="mt-2">
+                    <label className="text-sm font-medium text-gray-700">Confidence Level:</label>
+                    <div className="flex items-center space-x-2 mt-1">
+                      {[1, 2, 3, 4, 5].map(level => (
+                        <button
+                          key={level}
+                          onClick={() => updateConfidence(parseInt(index), level)}
+                          className={`px-2 py-1 rounded text-xs font-medium ${
+                            item.confidence >= level 
+                              ? 'bg-blue-100 text-blue-700' 
+                              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                          }`}
+                        >
+                          {level}
+                        </button>
+                      ))}
+                      <span className={`text-sm font-medium ${getConfidenceColor(item.confidence)}`}>
+                        {getConfidenceLabel(item.confidence)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  <div className="mt-3">
+                    <label className="text-sm font-medium text-gray-700">Notes:</label>
+                    <textarea
+                      value={item.notes}
+                      onChange={(e) => updateNotes(parseInt(index), e.target.value)}
+                      placeholder="Add your notes about this topic..."
+                      className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      rows="2"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   // Check if content is empty or invalid
   if (!content || !content.trim()) {
     return (
@@ -343,6 +490,21 @@ export default function StudyGuide({ content, onRegenerate }) {
                 >
                   Cards
                 </button>
+                <button
+                  onClick={() => {
+                    setDisplayFormat('checklist');
+                    if (Object.keys(checklistItems).length === 0) {
+                      generateChecklistItems();
+                    }
+                  }}
+                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                    displayFormat === 'checklist' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Checklist
+                </button>
               </div>
             </div>
           </div>
@@ -352,6 +514,7 @@ export default function StudyGuide({ content, onRegenerate }) {
           {sections.length > 1 ? (
             displayFormat === 'table' ? renderAsTable() :
             displayFormat === 'cards' ? renderAsCards() :
+            displayFormat === 'checklist' ? renderAsChecklist() :
             sections.map((section, index) => {
               const isExpanded = expandedSections.has(index);
               const sectionIsMain = isMainSection(section);

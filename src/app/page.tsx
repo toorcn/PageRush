@@ -71,6 +71,29 @@ interface HistoryItem {
   questionTypes?: any;
 }
 
+interface ExamResult {
+  id: number;
+  timestamp: string;
+  questions: Array<{
+    question: string;
+    answer: string;
+    type: string;
+    options?: string[];
+    maxPoints?: number;
+    userAnswer: string;
+    feedback: any;
+    isCorrect: boolean;
+    earnedPoints: number;
+    explanation: string;
+  }>;
+  overallFeedback: any[];
+  individualFeedback: any;
+  performanceSummary: any;
+  examMode: string;
+  totalQuestions: number;
+  answeredQuestions: number;
+}
+
 function HomeContent() {
   const { startLoading, stopLoading } = useLoading();
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -1034,6 +1057,15 @@ function HomeContent() {
                     currentQuestionIndex={currentQuestionIndex}
                     setCurrentQuestionIndex={setCurrentQuestionIndex}
                     setTotalQuestions={setTotalQuestions}
+                    onSaveResults={(examResults: ExamResult) => {
+                      setPerformanceSummaries(prev => [examResults, ...prev]);
+                      addNotification({
+                        type: 'success',
+                        icon: '💾',
+                        title: 'Exam Results Saved',
+                        message: 'Your exam results have been saved to your history for future review.',
+                      });
+                    }}
                   />
                   {quizScore && <Insights score={quizScore.score} total={quizScore.total} details={quizScore.details || []} />}
                 </>

@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 
 export default function HistoryPanel({ history, performanceSummaries, onLoadFromHistory, onClearHistory, onClose }) {
   const [activeTab, setActiveTab] = useState('history');
+  const [expandedExam, setExpandedExam] = useState(null);
 
   const formatDate = (timestamp) => {
     return new Date(timestamp).toLocaleDateString() + ' ' + new Date(timestamp).toLocaleTimeString();
@@ -130,17 +131,17 @@ export default function HistoryPanel({ history, performanceSummaries, onLoadFrom
                 performanceSummaries.map((summary) => (
                   <div key={summary.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
                     <div className="flex items-center justify-between mb-3">
-                      <div>
+                      <div className="flex-1">
                         <h3 className="font-semibold text-gray-800">
-                          Exam Performance - {formatDate(summary.timestamp)}
+                          {summary.examMode === 'practice' ? '🎯 Practice Exam' : '📝 Standard Exam'} - {formatDate(summary.timestamp)}
                         </h3>
                         <p className="text-sm text-gray-500">
-                          {summary.details?.length || 0} questions completed
+                          {summary.totalQuestions || summary.details?.length || 0} questions • {summary.answeredQuestions || 0} answered
                         </p>
                       </div>
-                      <div className="text-right">
-                        <div className={`text-2xl font-bold ${getPerformanceColor(summary.percentage)}`}>
-                          {summary.percentage}%
+                      <div className="text-right ml-4">
+                        <div className={`text-2xl font-bold ${getPerformanceColor(summary.percentage || (summary.score/summary.total)*100)}`}>
+                          {summary.percentage || Math.round((summary.score/summary.total)*100)}%
                         </div>
                         <div className="text-sm text-gray-500">
                           {summary.score}/{summary.total} points
@@ -148,31 +149,80 @@ export default function HistoryPanel({ history, performanceSummaries, onLoadFrom
                       </div>
                     </div>
                     
-                    {/* Performance Details */}
-                    <div className="space-y-2">
-                      {summary.details && summary.details.length > 0 && (
-                        <div className="text-sm">
-                          <div className="font-medium mb-1">Question Performance:</div>
-                          <div className="grid grid-cols-2 gap-2">
-                            {summary.details.slice(0, 4).map((detail, idx) => (
-                              <div key={idx} className="flex items-center justify-between">
-                                <span className="truncate">Q{idx + 1}</span>
-                                <span className={`font-medium ${
-                                  detail.isCorrect ? 'text-green-600' : 'text-red-600'
-                                }`}>
-                                  {detail.points}/{detail.maxPoints}
-                                </span>
+                    {/* Expand/Collapse Button */}
+                    <div className="flex justify-between items-center">
+                      <button
+                        onClick={() => setExpandedExam(expandedExam === summary.id ? null : summary.id)}
+                        className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center"
+                      >
+                        {expandedExam === summary.id ? '▼ Hide Details' : '▶ Show Details'}
+                      </button>
+                      <div className="text-xs text-gray-500">
+                        {summary.examMode === 'practice' ? 'Practice Mode' : 'Standard Mode'}
+                      </div>
+                    </div>
+
+                    {/* Expanded Exam Details */}
+                    {expandedExam === summary.id && summary.questions && (
+                      <div className="mt-4 space-y-4 border-t pt-4">
+                        <h4 className="font-semibold text-gray-800">Question Details:</h4>
+                        {summary.questions.map((question, idx) => (
+                          <div key={idx} className="bg-gray-50 rounded-lg p-3 space-y-2">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="font-medium text-sm text-gray-800 mb-1">
+                                  Q{idx + 1}: {question.question}
+                                </div>
+                                <div className="text-xs text-gray-600 mb-2">
+                                  Type: {question.type} • Points: {question.earnedPoints || question.points || 0}/{question.maxPoints || 1}
+                                </div>
                               </div>
-                            ))}
-                            {summary.details.length > 4 && (
-                              <div className="col-span-2 text-center text-gray-500">
-                                +{summary.details.length - 4} more questions
+                              <div className={`ml-2 px-2 py-1 rounded text-xs font-medium ${
+                                question.isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                              }`}>
+                                {question.isCorrect ? '✓ Correct' : '✗ Incorrect'}
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                              <div>
+                                <div className="font-medium text-gray-700 mb-1">Your Answer:</div>
+                                <div className="bg-white p-2 rounded border">
+                                  {question.userAnswer || 'No answer provided'}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="font-medium text-gray-700 mb-1">Expected Answer:</div>
+                                <div className="bg-white p-2 rounded border">
+                                  {question.answer}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {question.explanation && (
+                              <div>
+                                <div className="font-medium text-gray-700 mb-1">Feedback:</div>
+                                <div className="bg-blue-50 p-2 rounded border-l-4 border-blue-300 text-xs">
+                                  {question.explanation}
+                                </div>
                               </div>
                             )}
                           </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Performance Summary */}
+                    {summary.performanceSummary && (
+                      <div className="mt-3 pt-3 border-t">
+                        <div className="text-sm">
+                          <div className="font-medium mb-1">Performance Summary:</div>
+                          <div className="bg-gray-50 p-2 rounded text-xs">
+                            {summary.performanceSummary}
+                          </div>
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 ))
               )}

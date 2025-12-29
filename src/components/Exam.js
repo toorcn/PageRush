@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import LottieLoader from './LottieLoader';
 
-export default function Exam({ questions, onSubmit, feedback, currentQuestionIndex, setCurrentQuestionIndex, setTotalQuestions }) {
+export default function Exam({ questions, onSubmit, feedback, currentQuestionIndex, setCurrentQuestionIndex, setTotalQuestions, onSaveResults, examMode = 'standard' }) {
   // Ensure feedback is always an array to prevent React errors
   if (feedback && !Array.isArray(feedback)) {
     console.error('Exam: feedback prop is not an array', feedback);
@@ -13,6 +13,10 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
   const [isAssessing, setIsAssessing] = useState(false);
   const [showPerformanceSummary, setShowPerformanceSummary] = useState(false);
   const [aiTopicExtraction, setAiTopicExtraction] = useState({});
+  const [individualFeedback, setIndividualFeedback] = useState({});
+  const [isCheckingAnswer, setIsCheckingAnswer] = useState({});
+  const [currentExamMode, setCurrentExamMode] = useState(examMode); // 'standard' or 'practice'
+  const [showImmediateFeedback, setShowImmediateFeedback] = useState(false);
   const questionRefs = useRef([]);
 
   // Set total questions when component mounts
@@ -44,6 +48,40 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
     setAnswers(newAnswers);
   };
 
+  const handleCheckAnswer = async (qIdx) => {
+    if (!answers[qIdx] || answers[qIdx].trim() === '') {
+      alert('Please provide an answer before checking.');
+      return;
+    }
+
+    setIsCheckingAnswer(prev => ({ ...prev, [qIdx]: true }));
+    
+    try {
+      const response = await fetch('/api/grade-quiz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userAnswers: [answers[qIdx]],
+          quiz: [questions[qIdx]],
+          geminiApiKey: window.geminiApiKey || localStorage.getItem('geminiApiKey')
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setIndividualFeedback(prev => ({
+          ...prev,
+          [qIdx]: data.details?.[0] || data
+        }));
+      }
+    } catch (error) {
+      console.error('Error checking answer:', error);
+      alert('Failed to check answer. Please try again.');
+    } finally {
+      setIsCheckingAnswer(prev => ({ ...prev, [qIdx]: false }));
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitted(true);
@@ -56,6 +94,30 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
     await onSubmit(answers);
     setIsAssessing(false);
     setShowPerformanceSummary(true);
+  };
+
+  const handleSaveResults = () => {
+    if (onSaveResults && feedback) {
+      const examResults = {
+        id: Date.now(),
+        timestamp: new Date().toISOString(),
+        questions: questions.map((q, idx) => ({
+          ...q,
+          userAnswer: answers[idx],
+          feedback: feedback[idx] || individualFeedback[idx],
+          isCorrect: feedback[idx]?.isCorrect || individualFeedback[idx]?.isCorrect || false,
+          points: feedback[idx]?.points || individualFeedback[idx]?.points || 0,
+          explanation: feedback[idx]?.explanation || individualFeedback[idx]?.explanation || ''
+        })),
+        overallFeedback: feedback,
+        individualFeedback: individualFeedback,
+        performanceSummary: generatePerformanceSummary(),
+        examMode: currentExamMode,
+        totalQuestions: questions.length,
+        answeredQuestions: answers.filter(a => a && a.trim() !== '').length
+      };
+      onSaveResults(examResults);
+    }
   };
 
   const extractTopicsWithAI = async () => {
@@ -388,6 +450,50 @@ INSTRUCTION FOR GEMINI:
         <p className="text-gray-600 text-sm lg:text-base">Complete exam with mixed question types</p>
       </div>
 
+      {/* Exam Mode Selector */}
+      {!submitted && (
+        <div className="bg-white rounded-xl shadow p-4 lg:p-6">
+          <div className="flex flex-col lg:flex-row items-center justify-between space-y-4 lg:space-y-0">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Exam Mode</h3>
+              <p className="text-sm text-gray-600">Choose how you want to take this exam</p>
+            </div>
+            <div className="flex space-x-2">
+                              <button
+                  type="button"
+                  onClick={() => setCurrentExamMode('standard')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    currentExamMode === 'standard'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  📝 Standard Mode
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentExamMode('practice')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    currentExamMode === 'practice'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  🎯 Practice Mode
+                </button>
+              </div>
+            </div>
+            {currentExamMode === 'practice' && (
+            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-sm text-green-700">
+                💡 <strong>Practice Mode:</strong> Get immediate feedback on each question as you answer them. 
+                Perfect for learning and understanding your mistakes in real-time.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Question Navigation */}
       <div className="bg-white rounded-xl shadow p-4 lg:p-6">
         <div className="flex flex-wrap gap-2 lg:gap-3 justify-center">
@@ -420,6 +526,7 @@ INSTRUCTION FOR GEMINI:
           const questionFeedback = feedback && feedback[idx];
           const isCorrect = submitted && questionFeedback?.isCorrect;
           const isWrong = submitted && isSelected && questionFeedback && !questionFeedback.isCorrect;
+          const currentIndividualFeedback = individualFeedback[idx];
 
           return (
             <div 
@@ -506,34 +613,80 @@ INSTRUCTION FOR GEMINI:
                 </div>
               )}
 
-              {/* Feedback */}
-              {submitted && questionFeedback && (
+              {/* Check Answer Button */}
+              {!submitted && currentExamMode === 'practice' && (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => handleCheckAnswer(idx)}
+                    disabled={isCheckingAnswer[idx] || !answers[idx] || answers[idx].trim() === ''}
+                    className="px-4 py-2 lg:px-6 lg:py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors text-sm lg:text-base"
+                  >
+                    {isCheckingAnswer[idx] ? 'Checking...' : 'Check Answer'}
+                  </button>
+                </div>
+              )}
+
+              {/* Immediate Feedback for Practice Mode */}
+              {!submitted && currentExamMode === 'practice' && currentIndividualFeedback && (
                 <div className={`mt-3 p-4 lg:p-5 rounded-lg ${
-                  questionFeedback.isCorrect ? 'bg-green-50 text-green-700' : 
-                  (questionFeedback.points > 0) ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-700'
+                  currentIndividualFeedback.isCorrect ? 'bg-green-50 text-green-700' : 
+                  (currentIndividualFeedback.points > 0) ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-700'
                 }`}>
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 lg:mb-3 space-y-2 sm:space-y-0">
                     <div className="flex items-center font-medium text-sm lg:text-base">
-                      <span className="mr-2">{questionFeedback.isCorrect ? '✅' : (questionFeedback.points > 0) ? '👍' : '❌'}</span>
-                      {questionFeedback.isCorrect ? 'Great work!' : (questionFeedback.points > 0) ? 'Partial credit!' : 'Room for improvement'}
+                      <span className="mr-2">{currentIndividualFeedback.isCorrect ? '✅' : (currentIndividualFeedback.points > 0) ? '👍' : '❌'}</span>
+                      {currentIndividualFeedback.isCorrect ? 'Correct!' : (currentIndividualFeedback.points > 0) ? 'Partial credit!' : 'Incorrect'}
                     </div>
                     <div className="text-sm lg:text-base font-semibold">
-                      {questionFeedback.points}/{questionFeedback.maxPoints} points
+                      {currentIndividualFeedback.points}/{currentIndividualFeedback.maxPoints || 1} points
                     </div>
                   </div>
                   
                   <div className="text-sm lg:text-base mb-3 lg:mb-4 leading-relaxed">
-                    {typeof questionFeedback.feedback === 'string'
-                      ? questionFeedback.feedback
-                      : JSON.stringify(questionFeedback.feedback)}
+                    {typeof currentIndividualFeedback.feedback === 'string'
+                      ? currentIndividualFeedback.feedback
+                      : currentIndividualFeedback.explanation || 'Feedback available'}
+                  </div>
+
+                  {/* Expected Answer (for reference) */}
+                  {!currentIndividualFeedback.isCorrect && (
+                    <div className="mt-3 lg:mt-4 pt-3 lg:pt-4 border-t border-current border-opacity-20">
+                      <div className="font-semibold mb-1 text-sm lg:text-base">📋 Expected answer:</div>
+                      <div className="text-sm lg:text-base opacity-80 leading-relaxed">{q.answer}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Feedback */}
+              {submitted && (
+                <div className={`mt-3 p-4 lg:p-5 rounded-lg ${
+                  questionFeedback?.isCorrect ? 'bg-green-50 text-green-700' : 
+                  (questionFeedback?.points > 0) ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-700'
+                }`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 lg:mb-3 space-y-2 sm:space-y-0">
+                    <div className="flex items-center font-medium text-sm lg:text-base">
+                      <span className="mr-2">{questionFeedback?.isCorrect ? '✅' : (questionFeedback?.points > 0) ? '👍' : '❌'}</span>
+                      {questionFeedback?.isCorrect ? 'Great work!' : (questionFeedback?.points > 0) ? 'Partial credit!' : 'Room for improvement'}
+                    </div>
+                    <div className="text-sm lg:text-base font-semibold">
+                      {questionFeedback?.points}/{questionFeedback?.maxPoints} points
+                    </div>
+                  </div>
+                  
+                  <div className="text-sm lg:text-base mb-3 lg:mb-4 leading-relaxed">
+                    {typeof questionFeedback?.feedback === 'string'
+                      ? questionFeedback?.feedback
+                      : JSON.stringify(questionFeedback?.feedback)}
                   </div>
 
                   {/* Personalized Suggestions */}
-                  {questionFeedback.suggestions && questionFeedback.suggestions.length > 0 && (
+                  {questionFeedback?.suggestions && questionFeedback?.suggestions.length > 0 && (
                     <div className="mt-3 lg:mt-4 pt-3 lg:pt-4 border-t border-current border-opacity-20">
                       <div className="font-semibold mb-2 text-sm lg:text-base">💡 Suggestions for improvement:</div>
                       <ul className="text-sm lg:text-base space-y-1 lg:space-y-2">
-                        {questionFeedback.suggestions.map((suggestion, suggestionIdx) => (
+                        {questionFeedback?.suggestions.map((suggestion, suggestionIdx) => (
                           <li key={suggestionIdx} className="flex items-start">
                             <span className="mr-2 mt-0.5">•</span>
                             <span>{suggestion}</span>
@@ -544,7 +697,7 @@ INSTRUCTION FOR GEMINI:
                   )}
 
                   {/* Expected Answer (for reference) */}
-                  {!questionFeedback.isCorrect && (
+                  {!questionFeedback?.isCorrect && (
                     <div className="mt-3 lg:mt-4 pt-3 lg:pt-4 border-t border-current border-opacity-20">
                       <div className="font-semibold mb-1 text-sm lg:text-base">📋 Expected answer:</div>
                       <div className="text-sm lg:text-base opacity-80 leading-relaxed">{q.answer}</div>
