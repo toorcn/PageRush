@@ -15,13 +15,24 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
     questionsAnswered: 0,
     correctAnswers: 0,
     averageTime: 0,
-    startTime: null
+    startTime: null,
+    confidenceSum: 0,
+    streakCount: 0,
+    maxStreak: 0
   });
   const [loading, setLoading] = useState(false);
   const [currentMode, setCurrentMode] = useState('select'); // select, review, practice, quiz
   const [lastCallTime, setLastCallTime] = useState(0); // Track last API call time
   const [questionBankStatus, setQuestionBankStatus] = useState({}); // Track question bank loading status
   const [shouldAutoReview, setShouldAutoReview] = useState(false); // Track if we should auto-enter review mode
+  
+  // Enhanced learning features
+  const [userConfidence, setUserConfidence] = useState(null); // 1-5 scale
+  const [showMetacognitivePrompt, setShowMetacognitivePrompt] = useState(false);
+  const [learningMode, setLearningMode] = useState('adaptive'); // adaptive, spaced, interleaved
+  const [sessionStartTime, setSessionStartTime] = useState(null);
+  const [breakReminder, setBreakReminder] = useState(false);
+  const [activeTab, setActiveTab] = useState('comparison'); // comparison, explanation, learning
 
   useEffect(() => {
     if (learningProgress.currentFocus && shouldAutoReview && !skipReview) {
@@ -212,14 +223,19 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
       
       setQuestionHistory(prev => [...prev, newQuestionHistory]);
       setShowExplanation(true);
+      setActiveTab('comparison'); // Reset to comparison tab
       
       // Update session stats
       setSessionStats(prev => ({
         questionsAnswered: prev.questionsAnswered + 1,
         correctAnswers: prev.correctAnswers + (isCorrect ? 1 : 0),
         averageTime: (prev.averageTime + responseTime) / 2,
-        startTime: null
+        startTime: null,
+        confidenceSum: prev.confidenceSum + (userConfidence || 3)
       }));
+
+      // Update streak
+      updateStreak(isCorrect);
 
     } catch (error) {
       console.error('Error grading answer:', error);
@@ -233,6 +249,12 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
     setUserAnswer('');
     setShowExplanation(false);
     setCurrentQuestion(null);
+    setUserConfidence(null);
+    setActiveTab('comparison'); // Reset tab for next question
+    setShowMetacognitivePrompt(Math.random() < 0.3); // 30% chance to show metacognitive prompt
+    
+    // Check for break reminder
+    checkBreakReminder();
     
     // Use question bank manager to determine next difficulty
     const nextDifficulty = questionBankManager.getNextDifficulty(currentTopic.id);
@@ -303,7 +325,10 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
       questionsAnswered: 0,
       correctAnswers: 0,
       averageTime: 0,
-      startTime: null
+      startTime: null,
+      confidenceSum: 0,
+      streakCount: 0,
+      maxStreak: 0
     });
     setQuestionHistory([]);
     setCurrentMode('select');
@@ -315,6 +340,10 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
     setCurrentTopic(topic);
     setCurrentMode('practice');
     setCurrentQuestion(null); // Reset any previous question
+    setSessionStartTime(Date.now());
+    setUserConfidence(null);
+    setShowMetacognitivePrompt(Math.random() < 0.3); // 30% chance to show metacognitive prompt
+    setBreakReminder(false);
     generatePracticeQuestion(topic, 'medium');
   };
 
@@ -373,6 +402,40 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
     console.log(`Reset completion status for topic ${topicId}`);
   };
 
+  // Enhanced learning helper functions
+  const getMetacognitivePrompt = () => {
+    const prompts = [
+      "Before answering, think: What do I already know about this concept?",
+      "Consider: How confident am I in my knowledge of this topic?",
+      "Reflect: Have I seen similar questions before?",
+      "Ask yourself: What strategies can I use to approach this question?",
+      "Think: What would be the most logical answer based on the context?"
+    ];
+    return prompts[Math.floor(Math.random() * prompts.length)];
+  };
+
+  const checkBreakReminder = () => {
+    if (sessionStartTime) {
+      const sessionDuration = (Date.now() - sessionStartTime) / (1000 * 60); // minutes
+      if (sessionDuration > 25 && !breakReminder) {
+        setBreakReminder(true);
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const updateStreak = (isCorrect) => {
+    setSessionStats(prev => {
+      const newStreak = isCorrect ? prev.streakCount + 1 : 0;
+      return {
+        ...prev,
+        streakCount: newStreak,
+        maxStreak: Math.max(prev.maxStreak, newStreak)
+      };
+    });
+  };
+
   // Reset component state when navigating back
   const handleBackToOverview = () => {
     // Reset all component state
@@ -386,9 +449,16 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
       questionsAnswered: 0,
       correctAnswers: 0,
       averageTime: 0,
-      startTime: null
+      startTime: null,
+      confidenceSum: 0,
+      streakCount: 0,
+      maxStreak: 0
     });
     setShouldAutoReview(false);
+    setUserConfidence(null);
+    setShowMetacognitivePrompt(false);
+    setSessionStartTime(null);
+    setBreakReminder(false);
     
     // Call the original onBack function
     onBack();
@@ -629,11 +699,21 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex-1">
             <h2 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2">🎯 Practice: {currentTopic?.title}</h2>
-            {/* Stats - Responsive grid */}
+            {/* Enhanced Stats - Responsive grid */}
             <div className="grid grid-cols-2 lg:flex lg:items-center lg:space-x-4 gap-2 lg:gap-4 text-sm lg:text-base text-gray-600">
               <span className="bg-gray-100 px-2 py-1 rounded text-xs lg:text-sm">Questions: {sessionStats.questionsAnswered}</span>
               <span className="bg-gray-100 px-2 py-1 rounded text-xs lg:text-sm">Correct: {sessionStats.correctAnswers}</span>
               <span className="bg-gray-100 px-2 py-1 rounded text-xs lg:text-sm">Avg Time: {sessionStats.averageTime.toFixed(1)}s</span>
+              {sessionStats.streakCount > 0 && (
+                <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs lg:text-sm">
+                  🔥 Streak: {sessionStats.streakCount}
+                </span>
+              )}
+              {sessionStats.questionsAnswered > 0 && (
+                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs lg:text-sm">
+                  Confidence: {Math.round(sessionStats.confidenceSum / sessionStats.questionsAnswered * 20)}%
+                </span>
+              )}
             </div>
           </div>
           <button
@@ -643,6 +723,44 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
             End Session
           </button>
         </div>
+        
+        {/* Break Reminder */}
+        {breakReminder && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-center space-x-3">
+              <span className="text-yellow-600 text-xl">⏰</span>
+              <div>
+                <h4 className="font-medium text-yellow-800">Time for a Break!</h4>
+                <p className="text-sm text-yellow-700">You've been studying for over 25 minutes. Consider taking a 5-minute break to maintain focus.</p>
+              </div>
+              <button
+                onClick={() => setBreakReminder(false)}
+                className="text-yellow-600 hover:text-yellow-800"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Metacognitive Prompt */}
+        {showMetacognitivePrompt && currentQuestion && (
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+            <div className="flex items-start space-x-3">
+              <span className="text-purple-600 text-lg">💭</span>
+              <div>
+                <h4 className="font-medium text-purple-800 mb-1">Learning Strategy</h4>
+                <p className="text-sm text-purple-700">{getMetacognitivePrompt()}</p>
+              </div>
+              <button
+                onClick={() => setShowMetacognitivePrompt(false)}
+                className="text-purple-600 hover:text-purple-800"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
         
         {/* Question badges - Responsive */}
         {currentQuestion && (
@@ -718,61 +836,191 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
             )}
 
             {!showExplanation && (
-              <button
-                onClick={handleAnswerSubmit}
-                disabled={!userAnswer.trim() || loading}
-                className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-              >
-                {loading ? 'Checking...' : 'Submit Answer'}
-              </button>
-            )}
-
-            {showExplanation && (
               <div className="space-y-4">
-                <div className={`p-4 lg:p-6 rounded-lg border-l-4 ${
-                  questionHistory[questionHistory.length - 1]?.isCorrect 
-                    ? 'bg-green-50 border-green-400' 
-                    : 'bg-red-50 border-red-400'
-                }`}>
-                  <div className="flex items-center space-x-3 mb-4">
-                    <span className="text-xl lg:text-2xl">
-                      {questionHistory[questionHistory.length - 1]?.isCorrect ? '✅' : '❌'}
-                    </span>
-                    <span className="font-semibold text-base lg:text-lg">
-                      {questionHistory[questionHistory.length - 1]?.isCorrect ? 'Correct!' : 'Incorrect'}
-                    </span>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <div>
-                      <strong className="text-gray-800 text-sm lg:text-base">Your answer:</strong>
-                      <div className="text-gray-700 mt-1 p-2 bg-gray-100 rounded text-sm lg:text-base overflow-hidden">
-                        {renderFormattedText(questionHistory[questionHistory.length - 1]?.userAnswer || '')}
-                      </div>
+                {/* Confidence Rating */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-800 mb-3 text-sm lg:text-base">How confident are you in your answer?</h4>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-600">Not sure</span>
+                    <div className="flex space-x-2">
+                      {[1, 2, 3, 4, 5].map((rating) => (
+                        <button
+                          key={rating}
+                          onClick={() => setUserConfidence(rating)}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-colors ${
+                            userConfidence === rating
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          {rating}
+                        </button>
+                      ))}
                     </div>
-                    
-                    <div>
-                      <strong className="text-gray-800 text-sm lg:text-base">Correct answer:</strong>
-                      <div className="text-gray-700 mt-1 p-2 bg-green-100 rounded text-sm lg:text-base overflow-hidden">
-                        {renderFormattedText(questionHistory[questionHistory.length - 1]?.correctAnswer || '')}
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <strong className="text-gray-800 text-sm lg:text-base">Explanation:</strong>
-                      <div className="text-gray-700 mt-1 leading-relaxed text-sm lg:text-base overflow-hidden">
-                        {renderFormattedText(questionHistory[questionHistory.length - 1]?.explanation || '')}
-                      </div>
-                    </div>
+                    <span className="text-xs text-gray-600">Very sure</span>
                   </div>
                 </div>
                 
                 <button
-                  onClick={handleNextQuestion}
-                  className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                  onClick={handleAnswerSubmit}
+                  disabled={!userAnswer.trim() || loading || userConfidence === null}
+                  className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
-                  Next Question
+                  {loading ? 'Checking...' : 'Submit Answer'}
                 </button>
+              </div>
+            )}
+
+            {showExplanation && (
+              <div className="space-y-4">
+                {/* Quick Result Summary */}
+                <div className={`p-4 rounded-lg border-l-4 ${
+                  questionHistory[questionHistory.length - 1]?.isCorrect 
+                    ? 'bg-green-50 border-green-400' 
+                    : 'bg-red-50 border-red-400'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-2xl">
+                        {questionHistory[questionHistory.length - 1]?.isCorrect ? '✅' : '❌'}
+                      </span>
+                      <div>
+                        <span className="font-semibold text-lg">
+                          {questionHistory[questionHistory.length - 1]?.isCorrect ? 'Correct!' : 'Incorrect'}
+                        </span>
+                        {userConfidence && (
+                          <div className="flex items-center space-x-2 mt-1">
+                            <span className="text-sm text-gray-600">Confidence: {userConfidence}/5</span>
+                            <span className="text-xs px-2 py-1 rounded-full ${
+                              questionHistory[questionHistory.length - 1]?.isCorrect 
+                                ? userConfidence >= 4 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                                : userConfidence >= 4 ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                            }">
+                              {questionHistory[questionHistory.length - 1]?.isCorrect 
+                                ? userConfidence >= 4 ? 'Great!' : 'Review needed'
+                                : userConfidence >= 4 ? 'Learning moment' : 'Study time'
+                              }
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleNextQuestion}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                    >
+                      Next Question
+                    </button>
+                  </div>
+                </div>
+
+                {/* Detailed Feedback Tabs */}
+                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                  {/* Tab Headers */}
+                  <div className="flex border-b border-gray-200">
+                    <button
+                      className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 bg-gray-50 border-r border-gray-200 hover:bg-gray-100 transition-colors"
+                      onClick={() => setActiveTab('comparison')}
+                    >
+                      📊 Comparison
+                    </button>
+                    <button
+                      className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 bg-gray-50 border-r border-gray-200 hover:bg-gray-100 transition-colors"
+                      onClick={() => setActiveTab('explanation')}
+                    >
+                      💡 Explanation
+                    </button>
+                    <button
+                      className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 transition-colors"
+                      onClick={() => setActiveTab('learning')}
+                    >
+                      🎯 Learning Tips
+                    </button>
+                  </div>
+
+                  {/* Tab Content */}
+                  <div className="p-4">
+                    {/* Comparison Tab */}
+                    {activeTab === 'comparison' && (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="bg-gray-50 rounded-lg p-3">
+                            <h4 className="font-medium text-gray-800 mb-2 flex items-center">
+                              <span className="text-blue-600 mr-2">Your Answer</span>
+                            </h4>
+                            <div className="text-gray-700 text-sm bg-white rounded p-2 border">
+                              {renderFormattedText(questionHistory[questionHistory.length - 1]?.userAnswer || '')}
+                            </div>
+                          </div>
+                          <div className="bg-green-50 rounded-lg p-3">
+                            <h4 className="font-medium text-gray-800 mb-2 flex items-center">
+                              <span className="text-green-600 mr-2">Correct Answer</span>
+                            </h4>
+                            <div className="text-gray-700 text-sm bg-white rounded p-2 border">
+                              {renderFormattedText(questionHistory[questionHistory.length - 1]?.correctAnswer || '')}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Explanation Tab */}
+                    {activeTab === 'explanation' && (
+                      <div className="space-y-4">
+                        <div className="bg-blue-50 rounded-lg p-4">
+                          <h4 className="font-medium text-gray-800 mb-3 flex items-center">
+                            <span className="text-blue-600 mr-2">Why this matters</span>
+                          </h4>
+                          <div className="text-gray-700 text-sm leading-relaxed">
+                            {renderFormattedText(questionHistory[questionHistory.length - 1]?.explanation || '')}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Learning Tips Tab */}
+                    {activeTab === 'learning' && (
+                      <div className="space-y-4">
+                        <div className="bg-purple-50 rounded-lg p-4">
+                          <h4 className="font-medium text-gray-800 mb-3 flex items-center">
+                            <span className="text-purple-600 mr-2">Learning Strategy</span>
+                          </h4>
+                          <div className="space-y-3">
+                            {questionHistory[questionHistory.length - 1]?.isCorrect ? (
+                              userConfidence >= 4 ? (
+                                <div className="flex items-start space-x-2">
+                                  <span className="text-green-600">✅</span>
+                                  <span className="text-sm text-gray-700">Great job! You have a solid understanding of this concept.</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-start space-x-2">
+                                  <span className="text-yellow-600">⚠️</span>
+                                  <span className="text-sm text-gray-700">You got it right, but with low confidence. Review this concept to build stronger understanding.</span>
+                                </div>
+                              )
+                            ) : (
+                              userConfidence >= 4 ? (
+                                <div className="flex items-start space-x-2">
+                                  <span className="text-red-600">❌</span>
+                                  <span className="text-sm text-gray-700">You were confident but incorrect. This is a valuable learning moment - review the concept carefully.</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-start space-x-2">
+                                  <span className="text-blue-600">💡</span>
+                                  <span className="text-sm text-gray-700">You were unsure and incorrect. Focus on understanding the fundamentals of this topic.</span>
+                                </div>
+                              )
+                            )}
+                            <div className="flex items-start space-x-2">
+                              <span className="text-purple-600">🎯</span>
+                              <span className="text-sm text-gray-700">Try to explain this concept in your own words to reinforce your understanding.</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>

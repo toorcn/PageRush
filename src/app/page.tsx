@@ -195,7 +195,23 @@ function HomeContent() {
     if (savedDocuments) {
       const parsedDocs = JSON.parse(savedDocuments);
       setDocuments(parsedDocs);
-      if (parsedDocs.length > 0) {
+      
+      // Load active documents from localStorage
+      const savedActiveDocuments = localStorage.getItem('activeDocuments');
+      if (savedActiveDocuments && parsedDocs.length > 0) {
+        const parsedActiveDocs = JSON.parse(savedActiveDocuments);
+        // Filter to only include documents that still exist
+        const validActiveDocs = parsedActiveDocs.filter((activeDoc: Document) => 
+          parsedDocs.some((doc: Document) => doc.id === activeDoc.id)
+        );
+        if (validActiveDocs.length > 0) {
+          setActiveDocuments(validActiveDocs);
+        } else if (parsedDocs.length > 0) {
+          // Fallback to first document if no valid active documents
+          setActiveDocuments([parsedDocs[0]]);
+        }
+      } else if (parsedDocs.length > 0) {
+        // Fallback to first document if no saved active documents
         setActiveDocuments([parsedDocs[0]]);
       }
     }
@@ -234,6 +250,15 @@ function HomeContent() {
   useEffect(() => {
     localStorage.setItem('performanceSummaries', JSON.stringify(performanceSummaries));
   }, [performanceSummaries]);
+
+  // Save active documents when they change
+  useEffect(() => {
+    if (activeDocuments.length > 0) {
+      localStorage.setItem('activeDocuments', JSON.stringify(activeDocuments));
+    } else {
+      localStorage.removeItem('activeDocuments');
+    }
+  }, [activeDocuments]);
 
   const handleExtracted = (text: string, fileName?: string) => {
     const newDocument = {
@@ -681,13 +706,13 @@ function HomeContent() {
                 <span>✨</span>
                 <span>Study Tools</span>
               </button>
-              <button
+              {/* <button
                 className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:from-purple-700 hover:to-indigo-700 flex items-center space-x-2"
                 onClick={() => setFocusMode(true)}
               >
                 <span>🎯</span>
                 <span>Focus Mode</span>
-              </button>
+              </button> */}
             </div>
           </div>
 

@@ -491,6 +491,7 @@ INSTRUCTION FOR GEMINI:
                     rows={q.type === 'discuss' || q.type === 'describe' ? 4 : 2}
                     className={`w-full px-4 py-3 lg:py-4 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition resize-none text-sm lg:text-base ${
                       submitted && isCorrect ? 'border-green-500 bg-green-50' : 
+                      submitted && questionFeedback && questionFeedback.points > 0 ? 'border-blue-500 bg-blue-50' :
                       submitted && isWrong ? 'border-red-500 bg-red-50' : 
                       'border-gray-300'
                     }`}
@@ -508,12 +509,13 @@ INSTRUCTION FOR GEMINI:
               {/* Feedback */}
               {submitted && questionFeedback && (
                 <div className={`mt-3 p-4 lg:p-5 rounded-lg ${
-                  questionFeedback.isCorrect ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                  questionFeedback.isCorrect ? 'bg-green-50 text-green-700' : 
+                  (questionFeedback.points > 0) ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-700'
                 }`}>
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 lg:mb-3 space-y-2 sm:space-y-0">
                     <div className="flex items-center font-medium text-sm lg:text-base">
-                      <span className="mr-2">{questionFeedback.isCorrect ? '✅' : '❌'}</span>
-                      {questionFeedback.isCorrect ? 'Great work!' : 'Room for improvement'}
+                      <span className="mr-2">{questionFeedback.isCorrect ? '✅' : (questionFeedback.points > 0) ? '👍' : '❌'}</span>
+                      {questionFeedback.isCorrect ? 'Great work!' : (questionFeedback.points > 0) ? 'Partial credit!' : 'Room for improvement'}
                     </div>
                     <div className="text-sm lg:text-base font-semibold">
                       {questionFeedback.points}/{questionFeedback.maxPoints} points
