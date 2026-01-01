@@ -2,9 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  experimental: {
-    serverComponentsExternalPackages: ['formidable', 'pdf-parse'],
-  },
+  serverExternalPackages: ['formidable', 'pdf-parse'],
   async headers() {
     return [
       {
