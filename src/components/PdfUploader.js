@@ -5,8 +5,11 @@ import LottieLoader from './LottieLoader';
 // Dynamic import for PDF.js to avoid SSR issues
 const loadPdfJs = async () => {
   const pdfjs = await import('pdfjs-dist');
-  // Set worker source - use CDN for reliability
-  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+  // Use unpkg CDN which always has the latest versions
+  // Or use legacy build for better compatibility
+  const version = pdfjs.version;
+  // Try unpkg first, which typically has newer versions faster
+  pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
   return pdfjs;
 };
 

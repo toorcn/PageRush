@@ -15,10 +15,14 @@ export default function Onboarding({
   onSkip,
   documentsCount,
   hasApiKey,
-  hasSelectedFeature 
+  hasSelectedFeature,
+  onFocusUpload,
+  onFocusApiKey,
+  onFocusFeatureSelector
 }) {
   const [isVisible, setIsVisible] = useState(true);
   const [dismissed, setDismissed] = useState(false);
+  const [internalStep, setInternalStep] = useState(0); // Internal navigation step
 
   // Check if user has completed onboarding before
   useEffect(() => {
@@ -28,6 +32,15 @@ export default function Onboarding({
       setDismissed(true);
     }
   }, []);
+
+  // Sync internal step with actual progress
+  useEffect(() => {
+    // If user has completed a step, advance internal step to match
+    // currentStep represents actual progress: 1=UPLOAD, 2=API_KEY, 3=FEATURE_SELECT, 4=COMPLETE
+    if (currentStep > 0 && currentStep > internalStep) {
+      setInternalStep(currentStep);
+    }
+  }, [currentStep, internalStep]);
 
   const handleSkip = () => {
     localStorage.setItem('hasCompletedOnboarding', 'true');
@@ -42,15 +55,67 @@ export default function Onboarding({
     if (onComplete) onComplete();
   };
 
+  const handleNext = () => {
+    // Check if current step is actually completed before allowing next
+    const canProceed = 
+      (internalStep === ONBOARDING_STEPS.WELCOME) ||
+      (internalStep === ONBOARDING_STEPS.UPLOAD && documentsCount > 0) ||
+      (internalStep === ONBOARDING_STEPS.API_KEY && hasApiKey) ||
+      (internalStep === ONBOARDING_STEPS.FEATURE_SELECT && hasSelectedFeature);
+
+    if (canProceed && internalStep < ONBOARDING_STEPS.FEATURE_SELECT) {
+      const nextStep = internalStep + 1;
+      setInternalStep(nextStep);
+      // Focus on the relevant section after advancing
+      if (nextStep === ONBOARDING_STEPS.UPLOAD && onFocusUpload) {
+        setTimeout(() => onFocusUpload(), 100);
+      } else if (nextStep === ONBOARDING_STEPS.API_KEY && onFocusApiKey) {
+        setTimeout(() => onFocusApiKey(), 100);
+      } else if (nextStep === ONBOARDING_STEPS.FEATURE_SELECT && onFocusFeatureSelector) {
+        setTimeout(() => onFocusFeatureSelector(), 100);
+      }
+    } else if (internalStep === ONBOARDING_STEPS.FEATURE_SELECT && hasSelectedFeature) {
+      handleComplete();
+    }
+  };
+
+  const handleBack = () => {
+    if (internalStep > ONBOARDING_STEPS.WELCOME) {
+      const prevStep = internalStep - 1;
+      setInternalStep(prevStep);
+      // Note: The focus handlers will show the relevant UI section
+      // even if the user has already completed that step
+      if (prevStep === ONBOARDING_STEPS.UPLOAD && onFocusUpload) {
+        setTimeout(() => onFocusUpload(), 100);
+      } else if (prevStep === ONBOARDING_STEPS.API_KEY && onFocusApiKey) {
+        setTimeout(() => onFocusApiKey(), 100);
+      } else if (prevStep === ONBOARDING_STEPS.FEATURE_SELECT && onFocusFeatureSelector) {
+        setTimeout(() => onFocusFeatureSelector(), 100);
+      }
+    }
+  };
+
+  const handleStepAction = () => {
+    // Guide user to complete the current step
+    if (internalStep === ONBOARDING_STEPS.UPLOAD && onFocusUpload) {
+      onFocusUpload();
+    } else if (internalStep === ONBOARDING_STEPS.API_KEY && onFocusApiKey) {
+      onFocusApiKey();
+    } else if (internalStep === ONBOARDING_STEPS.FEATURE_SELECT && onFocusFeatureSelector) {
+      onFocusFeatureSelector();
+    }
+  };
+
   // Don't show if dismissed or if onboarding is complete
   if (dismissed || !isVisible) return null;
 
-  // Determine which step we're on based on currentStep prop
-  const step = currentStep || 0;
+  // Use internal step for navigation, but show current step info
+  const step = internalStep;
 
   const getStepProgress = () => {
     if (step >= ONBOARDING_STEPS.COMPLETE) return 100;
-    return ((step + 1) / ONBOARDING_STEPS.COMPLETE) * 100;
+    // Progress: WELCOME=0%, UPLOAD=25%, API_KEY=50%, FEATURE_SELECT=75%, COMPLETE=100%
+    return (step / ONBOARDING_STEPS.COMPLETE) * 100;
   };
 
   const getStepInfo = () => {
@@ -65,7 +130,10 @@ export default function Onboarding({
             'Add your Gemini API key',
             'Choose your study tool',
             'Start learning!'
-          ]
+          ],
+          actionLabel: 'Get Started',
+          canProceed: true,
+          isCompleted: false
         };
       case ONBOARDING_STEPS.UPLOAD:
         return {
@@ -77,7 +145,10 @@ export default function Onboarding({
             'You can upload multiple files',
             'Maximum file size: 50MB per file',
             'Text will be extracted automatically'
-          ]
+          ],
+          actionLabel: documentsCount > 0 ? 'Document Uploaded ✓' : 'Show Upload Area',
+          canProceed: documentsCount > 0,
+          isCompleted: documentsCount > 0
         };
       case ONBOARDING_STEPS.API_KEY:
         return {
@@ -89,7 +160,10 @@ export default function Onboarding({
             'Your key is stored locally and never shared',
             'Click the link below for step-by-step instructions',
             'This is a one-time setup'
-          ]
+          ],
+          actionLabel: hasApiKey ? 'API Key Added ✓' : 'Show API Key Input',
+          canProceed: hasApiKey,
+          isCompleted: hasApiKey
         };
       case ONBOARDING_STEPS.FEATURE_SELECT:
         return {
@@ -102,7 +176,10 @@ export default function Onboarding({
             'Flashcards: Interactive study cards',
             'Quiz: Test your knowledge with MCQs',
             'Exam: Full practice exam with mixed questions'
-          ]
+          ],
+          actionLabel: hasSelectedFeature ? 'Tool Selected ✓' : 'Show Study Tools',
+          canProceed: hasSelectedFeature,
+          isCompleted: hasSelectedFeature
         };
       default:
         return null;
@@ -187,29 +264,64 @@ export default function Onboarding({
             </div>
           )}
 
+          {/* Completion Status */}
+          {stepInfo.isCompleted && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4 animate-slideUp">
+              <div className="flex items-center">
+                <span className="text-xl mr-3">✓</span>
+                <p className="text-green-800 font-medium">
+                  {step === ONBOARDING_STEPS.UPLOAD && 'Document uploaded successfully!'}
+                  {step === ONBOARDING_STEPS.API_KEY && 'API key configured successfully!'}
+                  {step === ONBOARDING_STEPS.FEATURE_SELECT && 'Study tool selected successfully!'}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="flex items-center justify-between pt-4 border-t border-gray-200">
             <button
               onClick={handleSkip}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors font-medium"
+              className="px-4 py-2 text-gray-500 hover:text-gray-700 transition-colors text-sm font-medium"
             >
               Skip Tutorial
             </button>
             <div className="flex space-x-3">
-              {step < ONBOARDING_STEPS.FEATURE_SELECT && (
+              {/* Back Button */}
+              {step > ONBOARDING_STEPS.WELCOME && (
                 <button
-                  onClick={handleSkip}
-                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                  onClick={handleBack}
+                  className="px-5 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
                 >
-                  I'll do this later
+                  ← Back
                 </button>
               )}
-              {step === ONBOARDING_STEPS.FEATURE_SELECT && (
+              
+              {/* Step Action Button - Shows the relevant UI section */}
+              {step > ONBOARDING_STEPS.WELCOME && !stepInfo.isCompleted && (
                 <button
-                  onClick={handleComplete}
+                  onClick={handleStepAction}
+                  className="px-6 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors font-medium border border-blue-300"
+                >
+                  {stepInfo.actionLabel}
+                </button>
+              )}
+              
+              {/* Next/Complete Button */}
+              {stepInfo.canProceed ? (
+                <button
+                  onClick={handleNext}
                   className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-colors font-medium shadow-lg"
                 >
-                  Got it! Let's start
+                  {step === ONBOARDING_STEPS.FEATURE_SELECT ? "Complete Setup ✓" : "Next →"}
+                </button>
+              ) : (
+                <button
+                  onClick={handleStepAction}
+                  className="px-6 py-2 bg-gray-200 text-gray-500 rounded-lg cursor-not-allowed font-medium"
+                  disabled
+                >
+                  Next →
                 </button>
               )}
             </div>
@@ -252,4 +364,6 @@ export function useOnboarding() {
     setShowOnboarding
   };
 }
+
+
 

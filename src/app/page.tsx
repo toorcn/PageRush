@@ -23,8 +23,10 @@ import NotificationProvider, { useNotification } from '../components/Notificatio
 import Notification from '../components/Notification';
 import { LoadingProvider, useLoading } from '../components/LoadingProvider';
 import LottieLoader from '../components/LottieLoader';
-import Onboarding, { useOnboarding } from '../components/Onboarding';
+import OnboardingGuide, { useOnboardingGuide } from '../components/OnboardingGuide';
+import StepHighlight from '../components/StepHighlight';
 import ProgressIndicator from '../components/ProgressIndicator';
+import PdfUploaderModal from '../components/PdfUploaderModal';
 
 // Define notification interface
 interface NotificationItem {
@@ -98,12 +100,20 @@ interface ExamResult {
 
 function HomeContent() {
   const { startLoading, stopLoading } = useLoading();
-  const { showOnboarding, completeOnboarding } = useOnboarding();
+  const { showGuide, completeOnboarding, resetOnboarding } = useOnboardingGuide();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [activeDocuments, setActiveDocuments] = useState<Document[]>([]);
   const [apiKey, setApiKey] = useState('');
   const [feature, setFeature] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // Highlight states for onboarding focus
+  const [highlightUpload, setHighlightUpload] = useState(false);
+  const [highlightApiKey, setHighlightApiKey] = useState(false);
+  const [highlightFeatures, setHighlightFeatures] = useState(false);
+  
+  // Upload modal state - can be triggered from anywhere
+  const [showUploadModal, setShowUploadModal] = useState(false);
   
   // Helper functions
   const getFeatureLabel = (feature: string) => {
@@ -613,11 +623,59 @@ function HomeContent() {
     }
   };
 
-  // Step logic for onboarding
-  const onboardingStep = !activeDocuments.length ? 0 : !apiKey ? 1 : !feature ? 2 : 3;
+  // Onboarding step calculation (0-3)
+  // 0 = Upload, 1 = API Key, 2 = Select Tool, 3 = Complete
+  const getOnboardingStep = () => {
+    if (!documents.length) return 0;
+    if (!apiKey) return 1;
+    if (!feature) return 2;
+    return 3;
+  };
+  const onboardingStep = getOnboardingStep();
   
-  // Step logic for UI
+  // Progress indicator uses same step (0-3)
+  const progressStep = onboardingStep;
+  
+  // Step logic for UI layout
   const step = !activeDocuments.length ? 0 : !apiKey ? 1 : !result ? 2 : 3;
+
+  // Handle focus from onboarding guide
+  const handleFocusStep = (stepId: string) => {
+    switch (stepId) {
+      case 'upload':
+        // First try to scroll to upload area if visible
+        const uploadEl = document.querySelector('[data-upload-area]');
+        if (uploadEl) {
+          setHighlightUpload(true);
+          uploadEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setTimeout(() => setHighlightUpload(false), 2500);
+        } else {
+          // If upload area not visible, open the modal
+          setShowUploadModal(true);
+        }
+        break;
+      case 'apiKey':
+        setHighlightApiKey(true);
+        setShowApiKeyInput(true);
+        setTimeout(() => {
+          setHighlightApiKey(false);
+          const apiKeyEl = document.querySelector('[data-api-key-section]');
+          apiKeyEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+        break;
+      case 'selectTool':
+        setHighlightFeatures(true);
+        setTimeout(() => setHighlightFeatures(false), 2500);
+        const featureEl = document.querySelector('[data-feature-selector]');
+        featureEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        break;
+    }
+  };
+  
+  // Open upload modal directly (for onboarding guide button)
+  const handleOpenUploadModal = () => {
+    setShowUploadModal(true);
+  };
 
   // Auto-expand sections when they become relevant
   useEffect(() => {
@@ -653,9 +711,9 @@ function HomeContent() {
   return (
     <NotificationProvider notifications={notifications} removeNotification={removeNotification}>
       <div className="font-sans min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        {/* Onboarding Modal */}
-        {showOnboarding && (
-          <Onboarding
+        {/* Onboarding Guide - Non-blocking floating panel */}
+        {showGuide && (
+          <OnboardingGuide
             currentStep={onboardingStep}
             onComplete={() => {
               completeOnboarding();
@@ -663,18 +721,22 @@ function HomeContent() {
                 type: 'success',
                 icon: '🎉',
                 title: 'Welcome!',
-                message: 'You\'re all set! Start uploading documents to begin.',
+                message: 'You\'re all set! Enjoy your study session.',
                 autoDismiss: true
               });
             }}
-            onSkip={() => {
-              completeOnboarding();
-            }}
-            documentsCount={documents.length}
-            hasApiKey={!!apiKey}
-            hasSelectedFeature={!!feature}
+            onSkip={completeOnboarding}
+            onFocusStep={handleFocusStep}
+            onOpenUploadModal={handleOpenUploadModal}
           />
         )}
+        
+        {/* PDF Upload Modal - Can be triggered from anywhere */}
+        <PdfUploaderModal
+          isOpen={showUploadModal}
+          onClose={() => setShowUploadModal(false)}
+          onExtracted={handleExtracted}
+        />
         
         {/* Notification System */}
         <Notification />
@@ -690,6 +752,13 @@ function HomeContent() {
               />
             </div>
             <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="p-2 bg-blue-100 rounded-lg text-blue-700 hover:bg-blue-200 transition-colors"
+                title="Upload PDF"
+              >
+                📄
+              </button>
               <button
                 onClick={() => setShowDocumentManager(!showDocumentManager)}
                 className="p-2 bg-gray-100 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors"
@@ -737,6 +806,13 @@ function HomeContent() {
             </div>
             
             <div className="flex items-center space-x-3">
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="px-4 py-2 bg-white/80 backdrop-blur-sm text-gray-700 rounded-lg hover:bg-white transition-all duration-200 shadow-sm border border-gray-200 hover:border-blue-300"
+                title="Upload new document"
+              >
+                📄 Upload
+              </button>
               <button
                 onClick={() => setShowDocumentManager(!showDocumentManager)}
                 className="px-4 py-2 bg-white/80 backdrop-blur-sm text-gray-700 rounded-lg hover:bg-white transition-all duration-200 shadow-sm border border-gray-200"
@@ -813,8 +889,7 @@ function HomeContent() {
               onClose={() => setShowDocumentManager(false)}
               onAddMoreDocuments={() => {
                 setShowDocumentManager(false);
-                // Clear active document to show the PdfUploader (step 0)
-                setActiveDocuments([]);
+                setShowUploadModal(true);
               }}
             />
           )}
@@ -828,11 +903,6 @@ function HomeContent() {
               onClearHistory={clearHistory}
               onClose={() => setShowHistory(false)}
             />
-          )}
-
-          {/* Mobile Floating Action Button */}
-          {step >= 2 && !showQuizGenerator && !showExamGenerator && !result && (
-            <></>
           )}
 
           {/* Mobile Bottom Spacer */}
@@ -860,7 +930,7 @@ function HomeContent() {
                 <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 mb-8 shadow-lg border border-gray-200 animate-slideUp">
                   <h3 className="text-lg font-semibold text-gray-800 mb-6">Getting Started</h3>
                   <ProgressIndicator 
-                    currentStep={onboardingStep}
+                    currentStep={progressStep}
                     totalSteps={4}
                     labels={['Upload Documents', 'Add API Key', 'Choose Tool', 'Start Learning']}
                   />
@@ -888,7 +958,13 @@ function HomeContent() {
                 {/* Quick Start CTA */}
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200 animate-slideUp">
                   <p className="text-gray-700 font-medium mb-2">Ready to get started?</p>
-                  <p className="text-sm text-gray-600">Upload your first document below to begin!</p>
+                  <p className="text-sm text-gray-600 mb-4">Upload your first document below to begin!</p>
+                  <button
+                    onClick={() => setShowUploadModal(true)}
+                    className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:from-blue-700 hover:to-indigo-700"
+                  >
+                    📄 Upload PDF
+                  </button>
                 </div>
               </div>
             </div>
@@ -917,20 +993,25 @@ function HomeContent() {
               
               {/* Mobile Setup Section */}
               {step === 0 && (
-                <div className="lg:hidden">
-                  <PdfUploader onExtracted={handleExtracted} />
-                </div>
+                <StepHighlight isActive={highlightUpload} className="lg:hidden">
+                  <div data-upload-area>
+                    <PdfUploader onExtracted={handleExtracted} />
+                  </div>
+                </StepHighlight>
               )}
               
               {step === 0 && !sidebarCollapsed && (
-                <div className="hidden lg:block">
-                  <PdfUploader onExtracted={handleExtracted} />
-                </div>
+                <StepHighlight isActive={highlightUpload} className="hidden lg:block">
+                  <div data-upload-area>
+                    <PdfUploader onExtracted={handleExtracted} />
+                  </div>
+                </StepHighlight>
               )}
               
               {/* Collapsible Setup Section */}
               {step >= 1 && !sidebarCollapsed && (
-                <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                <StepHighlight isActive={highlightApiKey}>
+                  <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 overflow-hidden" data-api-key-section>
                   {/* Progress Indicator for Setup Steps */}
                   {step < 3 && (
                     <div className="px-4 lg:px-6 pt-4 pb-2">
@@ -1001,6 +1082,7 @@ function HomeContent() {
                     )}
                   </div>
                 </div>
+                </StepHighlight>
               )}
 
               {/* Helpful Resources Sidebar */}
@@ -1062,12 +1144,13 @@ function HomeContent() {
             }`}>
               {/* Feature Selection - Moved to main content area */}
               {step >= 2 && ((!showQuizGenerator || !showExamGenerator || !result) || showFeatureSelector) && (
-                <div 
-                  className={`bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 p-4 lg:p-6 transition-all duration-300 ${
-                    step === 2 && !feature ? 'ring-2 ring-blue-500 ring-offset-2' : ''
-                  }`} 
-                  data-feature-selector
-                >
+                <StepHighlight isActive={highlightFeatures}>
+                  <div 
+                    className={`bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 p-4 lg:p-6 transition-all duration-300 ${
+                      step === 2 && !feature ? 'ring-2 ring-blue-500 ring-offset-2' : ''
+                    }`} 
+                    data-feature-selector
+                  >
                   <div className="text-center mb-4 lg:mb-6">
                     <div className="flex justify-center mb-4">
                       <img 
@@ -1092,7 +1175,7 @@ function HomeContent() {
                   </div>
                   
                   {/* Helpful hint for first-time users */}
-                  {step === 2 && !feature && showOnboarding && (
+                  {step === 2 && !feature && showGuide && (
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 animate-slideUp">
                       <p className="text-sm text-blue-800 flex items-start">
                         <span className="mr-2">💡</span>
@@ -1104,7 +1187,8 @@ function HomeContent() {
                   )}
                   
                   <FeatureSelector selected={feature} onSelect={handleFeature} />
-                </div>
+                  </div>
+                </StepHighlight>
               )}
 
               {showQuizGenerator && (
