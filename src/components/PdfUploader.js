@@ -1,12 +1,45 @@
 'use client';
-import React, { useRef, useState } from 'react';
+import { useRef, useState, useCallback } from 'react';
 import LottieLoader from './LottieLoader';
+
+// Dynamic import for PDF.js to avoid SSR issues
+const loadPdfJs = async () => {
+  const pdfjs = await import('pdfjs-dist');
+  // Set worker source - use CDN for reliability
+  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+  return pdfjs;
+};
 
 export default function PdfUploader({ onExtracted }) {
   const fileInput = useRef();
   const [files, setFiles] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState('');
+  const [progress, setProgress] = useState({ current: 0, total: 0, pages: 0, totalPages: 0 });
+
+  // Extract text from a single PDF file using PDF.js (client-side)
+  const extractTextFromPdf = useCallback(async (file, pdfjs) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+    const numPages = pdf.numPages;
+    let fullText = '';
+
+    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+      setProgress(prev => ({ ...prev, pages: pageNum, totalPages: numPages }));
+      setProcessingStatus(`Extracting page ${pageNum} of ${numPages}...`);
+      
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items
+        .map(item => item.str)
+        .join(' ');
+      
+      fullText += pageText + '\n\n';
+    }
+
+    return fullText.trim();
+  }, []);
 
   const handleFiles = (fileList) => {
     const pdfFiles = Array.from(fileList).filter(file => file.type === 'application/pdf');
@@ -42,65 +75,61 @@ export default function PdfUploader({ onExtracted }) {
     if (!files.length) return;
     
     setIsProcessing(true);
+    setProgress({ current: 0, total: files.length, pages: 0, totalPages: 0 });
     
     try {
-      // Process each file individually
-      for (const file of files) {
-        // Check file size before upload (50MB limit)
-        if (file.size > 50 * 1024 * 1024) {
-          alert(`File "${file.name}" is too large. Maximum size is 50MB.`);
-          continue;
-        }
-
-        const formData = new FormData();
-        formData.append('pdfs', file);
+      // Load PDF.js dynamically
+      setProcessingStatus('Loading PDF processor...');
+      const pdfjs = await loadPdfJs();
+      
+      // Process each file individually using client-side extraction
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setProgress(prev => ({ ...prev, current: i + 1 }));
+        setProcessingStatus(`Processing "${file.name}"...`);
         
-        const res = await fetch('/api/extract-text', {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!res.ok) {
-          if (res.status === 413) {
-            throw new Error(`File "${file.name}" is too large for upload. Please try a smaller file.`);
+        try {
+          const text = await extractTextFromPdf(file, pdfjs);
+          
+          if (text && text.length > 0) {
+            onExtracted(text, file.name);
           } else {
-            const errorData = await res.json().catch(() => ({ error: 'Unknown error occurred' }));
-            throw new Error(errorData.error || `Upload failed with status ${res.status}`);
+            throw new Error(`No text could be extracted from "${file.name}". The PDF might be image-based or protected.`);
           }
-        }
-
-        const data = await res.json();
-        if (data.text) {
-          onExtracted(data.text, file.name);
-        } else {
-          throw new Error(`No text could be extracted from "${file.name}"`);
+        } catch (fileError) {
+          console.error(`Error processing ${file.name}:`, fileError);
+          alert(`Failed to process "${file.name}": ${fileError.message}`);
         }
       }
+      
+      setProcessingStatus('Complete!');
     } catch (error) {
-      console.error('Upload error:', error);
-      alert(`Upload failed: ${error.message}`);
+      console.error('Processing error:', error);
+      alert(`Processing failed: ${error.message}`);
     } finally {
       setIsProcessing(false);
+      setProcessingStatus('');
+      setProgress({ current: 0, total: 0, pages: 0, totalPages: 0 });
       setFiles([]); // Clear files after processing
     }
   };
 
   return (
-    <div className="space-y-4 lg:space-y-6">
+    <div className="space-y-4 lg:space-y-6" data-upload-area>
       <div className="text-center">
         <h2 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2">📄 Upload Your Study Materials</h2>
         <p className="text-gray-600 text-sm lg:text-base">Upload one or more PDF files to get started</p>
+        <p className="text-green-600 text-xs mt-1">✓ PDFs are processed locally in your browser - no file size limits!</p>
       </div>
 
       {/* Drag & Drop Area */}
       <div
-        className={`border-2 border-dashed rounded-xl p-6 lg:p-8 text-center transition-colors min-h-[200px] lg:min-h-[250px] flex flex-col items-center justify-center ${
-          isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50'
+        className={`border-2 border-dashed rounded-xl p-6 lg:p-8 text-center transition-colors min-h-[200px] lg:min-h-[250px] flex flex-col items-center justify-center cursor-pointer ${
+          isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50/50'
         }`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onClick={() => fileInput.current?.click()}
       >
         <div className="text-4xl lg:text-5xl mb-4">📁</div>
         <p className="text-base lg:text-lg font-medium text-gray-700 mb-2">
@@ -110,10 +139,7 @@ export default function PdfUploader({ onExtracted }) {
         <button
           type="button"
           className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors text-sm lg:text-base"
-          onClick={(e) => {
-            e.stopPropagation();
-            fileInput.current?.click();
-          }}
+          onClick={() => fileInput.current?.click()}
         >
           Choose Files
         </button>
@@ -132,8 +158,8 @@ export default function PdfUploader({ onExtracted }) {
         <div className="bg-white rounded-xl shadow p-4 lg:p-6">
           <h3 className="font-semibold text-base lg:text-lg mb-4">Selected Files ({files.length})</h3>
           <div className="space-y-3">
-            {files.map((file, index) => (
-              <div key={index} className="flex items-center justify-between p-3 lg:p-4 bg-gray-50 rounded-lg">
+            {files.map((file) => (
+              <div key={file.name + file.size} className="flex items-center justify-between p-3 lg:p-4 bg-gray-50 rounded-lg">
                 <div className="flex items-center space-x-3 min-w-0 flex-1">
                   <span className="text-2xl lg:text-3xl flex-shrink-0">📄</span>
                   <div className="min-w-0 flex-1">
@@ -143,15 +169,41 @@ export default function PdfUploader({ onExtracted }) {
                 </div>
                 <button
                   type="button"
-                  onClick={() => removeFile(index)}
+                  onClick={() => removeFile(files.indexOf(file))}
                   className="text-red-500 hover:text-red-700 p-2 lg:p-3 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0"
-                  aria-label="Remove file"
+                  aria-label={`Remove ${file.name}`}
                 >
                   <span className="text-lg lg:text-xl">✕</span>
                 </button>
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Processing Progress */}
+      {isProcessing && (
+        <div className="bg-blue-50 rounded-xl p-4 lg:p-6 border border-blue-200">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-blue-800">{processingStatus}</span>
+            {progress.total > 1 && (
+              <span className="text-sm text-blue-600">File {progress.current} of {progress.total}</span>
+            )}
+          </div>
+          {progress.totalPages > 0 && (
+            <div className="mt-2">
+              <div className="flex items-center justify-between text-xs text-blue-600 mb-1">
+                <span>Page progress</span>
+                <span>{progress.pages} / {progress.totalPages}</span>
+              </div>
+              <div className="w-full bg-blue-200 rounded-full h-2">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${(progress.pages / progress.totalPages) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -174,4 +226,4 @@ export default function PdfUploader({ onExtracted }) {
       )}
     </div>
   );
-} 
+}
