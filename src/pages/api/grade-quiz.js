@@ -70,7 +70,7 @@ Example:
   ]
 }`;
 
-        const assessmentResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+        const assessmentResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

@@ -249,7 +249,7 @@ Now provide the structured explanation in markdown format.`;
 
   try {
     console.log('Making Gemini API request with prompt type:', promptType);
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

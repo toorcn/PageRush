@@ -2,10 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { questionBankManager } from '../utils/questionBankManager';
 import LottieLoader from './LottieLoader';
-import { useLoading } from './LoadingProvider';
 
 export default function AdaptiveLearning({ topicBreakdown, learningProgress, onBack, onProgressUpdate, apiKey, content, skipReview = false }) {
-  const { startLoading, stopLoading } = useLoading();
   const [currentTopic, setCurrentTopic] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [userAnswer, setUserAnswer] = useState('');
@@ -108,7 +106,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
   const generateReviewContent = async (topic) => {
     return debounceCall(async () => {
       setLoading(true);
-      startLoading('global', 'Generating review content...');
+      
       try {
         const response = await fetch('/api/exam-cram', {
           method: 'POST',
@@ -126,7 +124,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
         console.error('Error generating review content:', error);
       } finally {
         setLoading(false);
-        stopLoading('global');
+        
       }
     });
   };
@@ -136,7 +134,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
     
     try {
       setLoading(true);
-      startLoading('global', 'Loading practice question...');
+      
       
       // Ensure we have a question bank for this topic
       if (!questionBankManager.questionBanks.has(topic.id)) {
@@ -174,7 +172,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
       });
     } finally {
       setLoading(false);
-      stopLoading('global');
+      
     }
   };
 
@@ -185,7 +183,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
     const responseTime = (endTime - sessionStats.startTime) / 1000;
 
     setLoading(true);
-    startLoading('global', 'Checking your answer...');
+    
     try {
       let result;
       
@@ -241,7 +239,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
       console.error('Error grading answer:', error);
     } finally {
       setLoading(false);
-      stopLoading('global');
+      
     }
   };
 
@@ -350,14 +348,14 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
   const preloadQuestionBank = async (topic) => {
     try {
       setQuestionBankStatus(prev => ({ ...prev, [topic.id]: 'loading' }));
-      startLoading('global', `Loading question bank for ${topic.title}...`);
+      
       await questionBankManager.getQuestionBank(topic, content, apiKey);
       setQuestionBankStatus(prev => ({ ...prev, [topic.id]: 'loaded' }));
-      stopLoading('global');
+      
     } catch (error) {
       console.error('Error preloading question bank:', error);
       setQuestionBankStatus(prev => ({ ...prev, [topic.id]: 'error' }));
-      stopLoading('global');
+      
     }
   };
 
@@ -366,7 +364,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
       !questionBankManager.questionBanks.has(topic.id)
     );
     
-    startLoading('global', 'Preloading all question banks...');
+    
     
     for (const topic of topicsToLoad) {
       try {
@@ -379,7 +377,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
       }
     }
     
-    stopLoading('global');
+    
   };
 
   // Helper function to check if a topic is truly completed
@@ -510,9 +508,17 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
 
   const renderTopicSelection = () => (
     <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">🎯 Choose a Topic to Practice</h2>
-        <p className="text-gray-600">Select a topic to start adaptive learning</p>
+      <div className="flex items-center justify-between">
+        <div className="text-center flex-1">
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">🎯 Choose a Topic to Practice</h2>
+          <p className="text-gray-600">Select a topic to start adaptive learning</p>
+        </div>
+        <button
+          onClick={handleBackToOverview}
+          className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium"
+        >
+          ← Back to Overview
+        </button>
       </div>
 
       {/* Question Bank Status */}
@@ -651,7 +657,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
         </div>
         <div className="flex space-x-3">
           <button
-            onClick={() => setCurrentMode('select')}
+            onClick={handleBackToOverview}
             className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
           >
             ← Back to Topics
@@ -1045,10 +1051,10 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
           <p className="text-gray-600 text-sm lg:text-base">Practice until you master each concept</p>
         </div>
         <button
-          onClick={() => setCurrentMode('select')}
+          onClick={handleBackToOverview}
           className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium text-sm lg:text-base self-start sm:self-auto"
         >
-          ← Back to Topics
+          ← Back to Overview
         </button>
       </div>
 

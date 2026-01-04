@@ -301,7 +301,7 @@ User Answer: ${userAnswer}`;
     console.log(`[${requestId}] Making Gemini API request for Exam Cram:`, action);
     const startTime = Date.now();
     
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -329,18 +329,57 @@ User Answer: ${userAnswer}`;
     // Try to parse JSON response
     let parsedResponse;
     try {
-      // Extract JSON from the response (in case there's extra text)
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsedResponse = JSON.parse(jsonMatch[0]);
+      // Clean up the response - remove markdown code blocks
+      let cleanedText = responseText
+        .replace(/```json\s*/gi, '')
+        .replace(/```\s*/gi, '')
+        .trim();
+      
+      // Try to extract JSON object or array
+      const jsonObjectMatch = cleanedText.match(/\{[\s\S]*\}/);
+      const jsonArrayMatch = cleanedText.match(/\[[\s\S]*\]/);
+      
+      if (jsonObjectMatch) {
+        parsedResponse = JSON.parse(jsonObjectMatch[0]);
+      } else if (jsonArrayMatch) {
+        parsedResponse = JSON.parse(jsonArrayMatch[0]);
       } else {
-        parsedResponse = JSON.parse(responseText);
+        // Try parsing the cleaned text directly
+        parsedResponse = JSON.parse(cleanedText);
       }
       console.log(`[${requestId}] Successfully parsed JSON response`);
     } catch (parseError) {
-      console.error(`[${requestId}] Failed to parse JSON response:`, parseError);
-      console.error(`[${requestId}] Raw response:`, responseText);
-      return res.status(500).json({ error: 'Invalid JSON response from AI' });
+      console.error(`[${requestId}] Failed to parse JSON response:`, parseError.message);
+      console.error(`[${requestId}] Raw response (first 500 chars):`, responseText.substring(0, 500));
+      
+      // Return a fallback response based on action type
+      const fallbackResponses = {
+        generateTopicBreakdown: { breakdown: { topics: [] } },
+        generateReadinessAssessment: { assessment: { overallScore: 0, overallAssessment: 'Unable to generate assessment', topicAnalysis: [] } },
+        generateReviewContent: { reviewContent: { title: 'Review Content', content: [{ heading: 'Error', text: 'Unable to generate review content. Please try again.' }] } },
+        generatePracticeQuestion: { question: { question: 'Unable to generate question', type: 'text', correctAnswer: '', explanation: 'Please try again' } },
+        generateTopicContent: { 
+          topicContent: { 
+            detailedDescription: 'Unable to generate detailed content. Please try again.',
+            keyPoints: ['Content generation failed'],
+            examples: [],
+            commonMisconceptions: [],
+            studyTips: ['Try regenerating the content'],
+            examTips: ['Try regenerating the content'],
+            relatedConcepts: [],
+            practiceQuestions: []
+          } 
+        },
+        gradeAnswer: { isCorrect: false, correctAnswer: '', explanation: 'Unable to grade answer', feedback: 'Please try again', score: 0 }
+      };
+      
+      const fallback = fallbackResponses[action];
+      if (fallback) {
+        console.log(`[${requestId}] Returning fallback response for ${action}`);
+        return res.status(200).json(fallback);
+      }
+      
+      return res.status(500).json({ error: 'Invalid JSON response from AI', details: parseError.message });
     }
 
     // Return the appropriate data based on action

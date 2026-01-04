@@ -37,6 +37,24 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
     }
   }, [breakdown, content, apiKey]);
 
+  // Helper function to render formatted text with markdown-like syntax
+  const renderFormattedText = (text) => {
+    if (!text) return null;
+    
+    // Handle bold text
+    if (text.includes('**')) {
+      const parts = text.split(/(\*\*.*?\*\*)/);
+      return parts.map((part, index) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+          return <strong key={index}>{part.slice(2, -2)}</strong>;
+        }
+        return <span key={index}>{part}</span>;
+      });
+    }
+    
+    return text;
+  };
+
   if (!breakdown) {
     return (
       <div className="text-center py-8">

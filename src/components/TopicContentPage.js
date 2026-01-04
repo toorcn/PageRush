@@ -2,10 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { topicContentManager } from '../utils/topicContentManager';
 import LottieLoader from './LottieLoader';
-import { useLoading } from './LoadingProvider';
 
 export default function TopicContentPage({ topic, onBack, content, apiKey, onStartPractice, practiceLoading }) {
-  const { startLoading, stopLoading } = useLoading();
   const [topicContent, setTopicContent] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -23,19 +21,34 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
     if (!topic || !content || !apiKey) return;
 
     setLoading(true);
-    startLoading('global', 'Loading detailed topic content...');
     setError(null);
 
     try {
       const topicContentData = await topicContentManager.getTopicContent(topic, content, apiKey);
-      setTopicContent(topicContentData);
+      // Check if we got valid content
+      if (topicContentData && (topicContentData.detailedDescription || topicContentData.keyPoints?.length > 0)) {
+        setTopicContent(topicContentData);
+      } else {
+        setError('Content generation returned empty results. Please try again.');
+      }
     } catch (error) {
       console.error('Error loading topic content:', error);
-      setError('Failed to load topic content. Please try again.');
+      setError(`Failed to load topic content: ${error.message || 'Unknown error'}. Please try again.`);
     } finally {
       setLoading(false);
-      stopLoading('global');
     }
+  };
+
+  const retryLoadContent = () => {
+    // Clear cached content for this topic to force regeneration
+    if (topic?.id) {
+      try {
+        localStorage.removeItem(`topicContent_${topic.id}`);
+      } catch (e) {
+        console.error('Error clearing cache:', e);
+      }
+    }
+    loadTopicContent();
   };
 
   const toggleSection = (sectionId) => {
@@ -447,12 +460,20 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
         
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
           <div className="text-red-600 text-lg mb-2">❌ {error}</div>
-          <button
-            onClick={loadTopicContent}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-          >
-            Try Again
-          </button>
+          <div className="flex justify-center gap-3">
+            <button
+              onClick={retryLoadContent}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              🔄 Retry (Clear Cache)
+            </button>
+            <button
+              onClick={loadTopicContent}
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       </div>
     );

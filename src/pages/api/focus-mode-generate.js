@@ -94,7 +94,7 @@ Please provide:
 Make it engaging, clear, and easy to follow.`;
     }
 
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
