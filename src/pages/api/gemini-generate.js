@@ -42,69 +42,102 @@ Each topic should be 2-8 words, descriptive, and clearly identifiable for educat
 Text to analyze:\n\n${text}`;
       break;
     case 'studyGuide':
-      prompt = `Create a comprehensive study guide from the following text. Organize the content into clear sections with proper headings and structure.
+      prompt = `Create a comprehensive, well-structured study guide from the following text. Every section MUST contain meaningful content - no empty sections allowed.
 
-INSTRUCTIONS:
-1. Use markdown headers (# ## ###) to organize content hierarchically
-2. Include main topics as level 1 headers (# Main Topic)
-3. Use level 2 headers (##) for subtopics
-4. Use level 3 headers (###) for specific concepts
-5. Include key definitions, concepts, and important points
-6. Use **bold text** to highlight important terms and concepts
-7. Create bullet points for lists of related information
-8. Include numbered lists for processes, steps, or sequences
-9. Add brief explanations and context for each concept
-10. Focus on information that would be useful for studying and review
+CRITICAL RULES:
+1. EVERY section (## or ###) MUST have at least 2-3 bullet points or a paragraph of content
+2. NEVER create a header without content beneath it
+3. Include visual diagrams using Mermaid syntax where helpful
+4. Use **Term**: Definition format for key concepts
 
-STRUCTURED CONTENT REQUIREMENTS:
-- Create content that can be displayed in multiple formats (sections, tables, cards)
-- Each section should have a clear, descriptive title
-- Include concise summaries that work well in table previews
-- Structure information for easy scanning and comparison
-- Use consistent formatting patterns throughout
+STRUCTURE REQUIREMENTS:
+- Use # for the main title
+- Use ## for major sections (4-8 sections)
+- Use ### for subsections within major sections
+- Each section MUST have substantive content (definitions, explanations, lists)
 
-FORMAT REQUIREMENTS:
-- Start with a main title using # 
-- Use ## for major sections (aim for 4-8 main sections)
-- Use ### for subsections (2-4 per main section)
-- Use **bold** for key terms and important concepts
-- Use bullet points (- or *) for lists of related information
-- Use numbered lists (1. 2. 3.) for processes, steps, or sequences
-- Include brief explanations for each concept
-- Make content scannable and well-organized
+CONTENT FOR EACH SECTION MUST INCLUDE:
+- Clear explanations of concepts (2-4 sentences minimum)
+- Key terms with definitions using **Term**: Definition format
+- Bullet points listing important details
+- Examples or applications where relevant
 
-CONTENT ORGANIZATION:
-- Group related concepts together
-- Use clear, descriptive section titles
-- Include both theoretical and practical information
-- Balance depth with accessibility
-- Ensure each section has meaningful content
+DIAGRAM REQUIREMENTS (include 1-2 per study guide where appropriate):
+Use Mermaid syntax in code blocks for:
+- Flowcharts for processes/procedures
+- Mind maps for concept relationships
+- Sequence diagrams for step-by-step processes
 
-Example structure:
-# [Main Topic Title]
-## [Key Concept 1]
-**Important Term**: Clear definition and explanation
-- Supporting point 1
-- Supporting point 2
-- Additional context
+Example Mermaid flowchart:
+\`\`\`mermaid
+flowchart TD
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Action 1]
+    B -->|No| D[Action 2]
+    C --> E[End]
+    D --> E
+\`\`\`
 
-## [Key Concept 2]
-### [Subconcept A]
-**Term**: Definition
-1. First step in process
-2. Second step in process
-3. Final step
+Example Mermaid mind map:
+\`\`\`mermaid
+mindmap
+  root((Main Concept))
+    Branch 1
+      Detail A
+      Detail B
+    Branch 2
+      Detail C
+      Detail D
+\`\`\`
 
-### [Subconcept B]
-**Another Term**: Definition
-- Related information
-- Additional details
+FORMAT EXAMPLE:
+# Study Guide: [Topic Name]
 
-## [Key Concept 3]
-**Core Concept**: Explanation
-- Key point 1
-- Key point 2
-- Key point 3
+## Overview
+[2-3 sentences introducing the topic and its importance]
+
+**Key Concept**: Clear definition here
+- Important point 1
+- Important point 2
+- Important point 3
+
+## [Major Topic 1]
+[Introductory paragraph explaining this topic]
+
+**Term 1**: Definition and explanation
+**Term 2**: Definition and explanation
+
+### [Subtopic 1.1]
+[Detailed explanation of this subtopic]
+- Detail point 1
+- Detail point 2
+- Detail point 3
+
+### [Subtopic 1.2]
+[Content explaining this subtopic]
+1. Step one of process
+2. Step two of process
+3. Step three of process
+
+## [Major Topic 2]
+[Introduction to this section]
+
+\`\`\`mermaid
+flowchart LR
+    A[Concept A] --> B[Concept B]
+    B --> C[Concept C]
+\`\`\`
+
+**Important Term**: Detailed definition
+- Supporting detail 1
+- Supporting detail 2
+
+## Key Takeaways
+- Summary point 1
+- Summary point 2
+- Summary point 3
+
+REMEMBER: Every single section header MUST be followed by actual content. No empty sections!
 
 Text to create study guide from:\n\n${text}`;
       break;
