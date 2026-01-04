@@ -256,7 +256,7 @@ export default function DocumentManager({
                         )}
                         {!isDocumentActive(doc.id) && (
                           <button
-                            onClick={() => onSelectDocument(doc)}
+                            onClick={() => onSelectDocument([doc])}
                             className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
                           >
                             Select
