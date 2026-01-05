@@ -5,7 +5,7 @@ import AIHelpChat, { ChatFloatingButton } from './AIHelpChat';
 import { 
   HelpCircle, Pencil, MessageSquare, FileText, Square, Check, X, 
   ThumbsUp, Target, Lightbulb, ClipboardList, BarChart3, AlertTriangle, 
-  BookOpen, Bot, ChevronDown, ChevronRight
+  BookOpen, Bot, ChevronDown, ChevronRight, ChevronUp
 } from 'lucide-react';
 
 export default function Exam({ questions, onSubmit, feedback, currentQuestionIndex, setCurrentQuestionIndex, setTotalQuestions, onSaveResults, examMode = 'standard' }) {
@@ -28,7 +28,9 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
   const [currentExamMode, setCurrentExamMode] = useState(examMode);
   const [isLargeScreen, setIsLargeScreen] = useState(false);
   const [expandedHints, setExpandedHints] = useState(new Set());
+  const [navCollapsed, setNavCollapsed] = useState(false);
   const questionRefs = useRef([]);
+  const navRef = useRef(null);
   const observerRef = useRef(null);
   const isScrollingRef = useRef(false);
 
@@ -45,11 +47,12 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
     const rect = element.getBoundingClientRect();
     const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
     
-    // Calculate target position (center the element with some offset for header)
-    const headerOffset = 100; // Account for any fixed headers
-    const elementCenter = rect.height / 2;
-    const viewportCenter = window.innerHeight / 2;
-    const targetPosition = scrollTop + rect.top - viewportCenter + elementCenter + headerOffset;
+    // Calculate header offset dynamically based on sticky nav height
+    const navHeight = navRef.current?.getBoundingClientRect().height || 60;
+    const extraPadding = 16; // Some breathing room
+    const headerOffset = navHeight + extraPadding;
+    
+    const targetPosition = scrollTop + rect.top - headerOffset;
 
     // Use smooth scroll with fallback
     try {
@@ -62,10 +65,10 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
       window.scrollTo(0, Math.max(0, targetPosition));
     }
 
-    // Reset scrolling flag after animation
+    // Reset scrolling flag after animation completes
     setTimeout(() => {
       isScrollingRef.current = false;
-    }, 500);
+    }, 600);
   }, []);
 
   // Handle question navigation click
@@ -94,11 +97,18 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
         questions.map(async (q, idx) => {
           if (q.aiSuggestions) return q;
           try {
+            // Build context with options if MCQ
+            let questionContext = `Question: ${q.question}`;
+            if (q.options && q.options.length > 0) {
+              questionContext += `\nAnswer Choices:\n${q.options.map((opt, i) => `${String.fromCharCode(65 + i)}) ${opt}`).join('\n')}`;
+            }
+            questionContext += `\nCorrect answer: ${q.answer}`;
+            
             const response = await fetch('/api/gemini-generate', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                text: `${q.question}\nCorrect answer: ${q.answer}`,
+                text: questionContext,
                 promptType: 'generateQuestionSuggestions',
                 geminiApiKey: window.geminiApiKey || localStorage.getItem('geminiApiKey')
               }),
@@ -110,13 +120,13 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
                 const suggestions = JSON.parse(aiText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim());
                 return { ...q, aiSuggestions: suggestions };
               } catch {
-                return { ...q, aiSuggestions: ['Explain this concept', 'Why is this important?', 'Help me understand'] };
+                return { ...q, aiSuggestions: ['What is this asking?', 'Explain key terms', 'Why is this important?'] };
               }
             }
           } catch (error) {
             console.log('Failed to generate suggestions', idx, error);
           }
-          return { ...q, aiSuggestions: ['Explain this concept', 'Why is this important?', 'Help me understand'] };
+          return { ...q, aiSuggestions: ['What is this asking?', 'Explain key terms', 'Why is this important?'] };
         })
       );
       setQuestionsWithSuggestions(updatedQuestions);
@@ -192,22 +202,29 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
     }
   };
 
-  // Intersection Observer to track which question is in view
+  // Intersection Observer to track which question is in view - always active
   useEffect(() => {
-    if (!chatOpen) return;
-
     observerRef.current = new IntersectionObserver(
       (entries) => {
+        // Find the most visible entry
+        let mostVisibleEntry = null;
+        let maxRatio = 0;
+        
         entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const idx = parseInt(entry.target.dataset.questionIndex, 10);
-            if (!isNaN(idx)) {
-              setActiveQuestionIndex(idx);
-            }
+          if (entry.isIntersecting && entry.intersectionRatio > maxRatio) {
+            maxRatio = entry.intersectionRatio;
+            mostVisibleEntry = entry;
           }
         });
+        
+        if (mostVisibleEntry) {
+          const idx = parseInt(mostVisibleEntry.target.dataset.questionIndex, 10);
+          if (!isNaN(idx) && idx !== activeQuestionIndex) {
+            setActiveQuestionIndex(idx);
+          }
+        }
       },
-      { threshold: 0.5, rootMargin: '-100px 0px -100px 0px' }
+      { threshold: [0.3, 0.5, 0.7], rootMargin: '-80px 0px -80px 0px' }
     );
 
     questionRefs.current.forEach((ref) => {
@@ -219,12 +236,22 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
         observerRef.current.disconnect();
       }
     };
-  }, [chatOpen, questionsWithSuggestions]);
+  }, [questionsWithSuggestions, activeQuestionIndex]);
 
   const handleSuggestionClick = (questionIdx, suggestion) => {
     setActiveQuestionIndex(questionIdx);
     setInitialChatMessage(suggestion);
     setChatOpen(true);
+    // Close the hints dropdown for this question
+    setExpandedHints(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(questionIdx);
+      return newSet;
+    });
+    // Scroll to the question after a brief delay to ensure chat is open
+    setTimeout(() => {
+      scrollToQuestion(questionIdx);
+    }, 100);
   };
 
   const closeChat = () => {
@@ -386,8 +413,17 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
   const activeQuestion = questionsWithSuggestions[activeQuestionIndex];
 
   return (
-    <div className="relative">
-      <div className={`transition-all duration-300`} style={chatOpen && isLargeScreen ? { paddingRight: `${chatWidth + 16}px` } : {}}>
+    <div 
+      className={`relative transition-all duration-300`}
+      style={chatOpen && isLargeScreen ? {
+        // Break out of centered container on right side only
+        // This extends content from its current right edge to near the viewport edge
+        marginRight: 'calc(-50vw + 50%)',
+        paddingRight: `${chatWidth + 64}px` // Space for panel + gap (16px gap)
+      } : {}}
+    >
+      {/* Questions container */}
+      <div className={`transition-all duration-300`}>
         {/* Exam Content */}
         <div className="space-y-6 lg:space-y-8 transition-all duration-300">
           <div className="text-center">
@@ -396,6 +432,22 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
             </h2>
             <p className="text-gray-600 text-sm lg:text-base">Complete exam with mixed question types</p>
           </div>
+
+      {/* Re-test Questions Summary */}
+      {!submitted && questions.some(q => q.isRetestQuestion) && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 lg:p-5">
+          <div className="flex items-start gap-3">
+            <Target className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-amber-800 mb-1">Personalized Review Exam</h3>
+              <p className="text-sm text-amber-700">
+                This exam includes <strong>{questions.filter(q => q.isRetestQuestion).length} re-test questions</strong> based on concepts you previously struggled with, 
+                plus <strong>{questions.filter(q => !q.isRetestQuestion).length} new questions</strong> to expand your understanding.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Exam Mode Selector */}
       {!submitted && (
@@ -425,17 +477,105 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
       )}
 
       {/* Question Navigation */}
-      <div className="bg-white rounded-xl shadow p-4 lg:p-6 sticky top-0 z-10">
-        <div className="flex flex-wrap gap-2 lg:gap-3 justify-center">
-          {questions.map((q, idx) => (
-            <button key={idx} onClick={() => handleQuestionNavClick(idx)}
-              className={`w-10 h-10 lg:w-12 lg:h-12 rounded-lg text-sm lg:text-base font-medium transition-all duration-200 flex items-center justify-center
-                ${currentQuestionIndex === idx ? 'bg-blue-500 text-white shadow-lg' : answers[idx] ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}
-                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 active:scale-95`}
-              title={`${idx + 1}. ${getQuestionTypeLabel(q.type)}`}>
-              {getQuestionTypeIcon(q.type)}
-            </button>
-          ))}
+      <div ref={navRef} className="bg-white rounded-xl shadow sticky top-0 z-10 overflow-hidden">
+        {/* Collapse Header */}
+        <button
+          type="button"
+          onClick={() => setNavCollapsed(!navCollapsed)}
+          className="w-full px-4 lg:px-6 py-3 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white hover:from-gray-100 hover:to-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">Question Navigator</span>
+            {!submitted && (
+              <span className="text-xs text-gray-500">
+                ({answers.filter(a => a && a.trim()).length}/{questions.length} answered)
+              </span>
+            )}
+          </div>
+          {navCollapsed ? (
+            <ChevronDown className="w-5 h-5 text-gray-500" />
+          ) : (
+            <ChevronUp className="w-5 h-5 text-gray-500" />
+          )}
+        </button>
+        
+        {/* Collapsible Content */}
+        <div className={`transition-all duration-300 ease-in-out ${navCollapsed ? 'max-h-0 opacity-0' : 'max-h-[500px] opacity-100'}`}>
+          <div className="px-4 lg:px-6 pb-4 lg:pb-6">
+            {/* Question Type Summary */}
+            <div className="flex gap-2 text-xs mb-3 justify-center flex-wrap">
+              {(() => {
+                const mcqCount = questions.filter(q => q.type === 'mcq' || q.type === 'multiple-choice').length;
+                const shortCount = questions.filter(q => q.type === 'shortAnswer' || q.type === 'short-answer').length;
+                const essayCount = questions.filter(q => q.type === 'discuss' || q.type === 'essay').length;
+                const describeCount = questions.filter(q => q.type === 'describe').length;
+                const fillCount = questions.filter(q => q.type === 'fillBlanks').length;
+                return (
+                  <>
+                    {mcqCount > 0 && <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full font-medium">{mcqCount} MCQ</span>}
+                    {shortCount > 0 && <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-medium">{shortCount} Short</span>}
+                    {essayCount > 0 && <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full font-medium">{essayCount} Essay</span>}
+                    {describeCount > 0 && <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full font-medium">{describeCount} Describe</span>}
+                    {fillCount > 0 && <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full font-medium">{fillCount} Fill-in</span>}
+                  </>
+                );
+              })()}
+            </div>
+            
+            {/* Question Type Legend */}
+            <div className="flex gap-3 text-xs text-gray-500 mb-3 justify-center flex-wrap">
+              <span className="flex items-center gap-1"><HelpCircle className="w-3 h-3 text-purple-500" /> MCQ</span>
+              <span className="flex items-center gap-1"><Pencil className="w-3 h-3 text-blue-500" /> Short</span>
+              <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3 text-green-500" /> Essay</span>
+              <span className="flex items-center gap-1"><FileText className="w-3 h-3 text-orange-500" /> Describe</span>
+              <span className="flex items-center gap-1"><Square className="w-3 h-3 text-yellow-600" /> Fill-in</span>
+            </div>
+            
+            <div className="flex flex-wrap gap-2 lg:gap-3 justify-center">
+              {questions.map((q, idx) => {
+                const questionFeedback = feedback && feedback[idx];
+                const isSubmittedCorrect = submitted && questionFeedback?.isCorrect;
+                const isSubmittedPartial = submitted && !questionFeedback?.isCorrect && questionFeedback?.points > 0;
+                const isSubmittedWrong = submitted && questionFeedback && !questionFeedback.isCorrect && questionFeedback.points === 0;
+                
+                // Get border color based on question type
+                const typeBorderColor = {
+                  'mcq': 'border-l-purple-500',
+                  'multiple-choice': 'border-l-purple-500',
+                  'shortAnswer': 'border-l-blue-500',
+                  'short-answer': 'border-l-blue-500',
+                  'discuss': 'border-l-green-500',
+                  'essay': 'border-l-green-500',
+                  'describe': 'border-l-orange-500',
+                  'fillBlanks': 'border-l-yellow-500'
+                }[q.type] || 'border-l-gray-400';
+                
+                let navButtonClass = 'bg-gray-100 text-gray-600 hover:bg-gray-200'; // default unanswered
+                if (currentQuestionIndex === idx && !submitted) {
+                  navButtonClass = 'bg-blue-500 text-white shadow-lg';
+                } else if (isSubmittedCorrect) {
+                  navButtonClass = 'bg-green-500 text-white';
+                } else if (isSubmittedPartial) {
+                  navButtonClass = 'bg-yellow-400 text-yellow-900';
+                } else if (isSubmittedWrong) {
+                  navButtonClass = 'bg-red-400 text-white';
+                } else if (answers[idx]) {
+                  navButtonClass = 'bg-green-100 text-green-700 border border-green-300';
+                }
+                
+                return (
+                  <button key={idx} onClick={() => handleQuestionNavClick(idx)}
+                    className={`w-10 h-10 lg:w-12 lg:h-12 rounded-lg text-sm lg:text-base font-medium transition-colors duration-200 flex items-center justify-center border-l-4 touch-manipulation ${typeBorderColor}
+                      ${navButtonClass}
+                      ${currentQuestionIndex === idx && submitted ? 'ring-2 ring-blue-500 ring-offset-2' : ''}
+                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                    title={`${idx + 1}. ${getQuestionTypeLabel(q.type)}`}>
+                    {idx + 1}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -454,18 +594,37 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
                 ${isCurrentQuestion ? 'ring-2 ring-blue-500' : ''} 
                 ${isActiveInChat ? 'ring-2 ring-indigo-500 bg-indigo-50/30' : ''}`}>
               
-              {/* Question Header */}
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-3 lg:space-y-0">
-                <div className="font-semibold text-base lg:text-lg text-gray-800 leading-relaxed flex-1 min-w-0">
-                  {idx + 1}. {q.question}
+              {/* Re-test Question Indicator */}
+              {q.isRetestQuestion && (
+                <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-xs lg:text-sm text-amber-700 flex items-center gap-2">
+                    <Target className="w-4 h-4 flex-shrink-0" />
+                    <span><strong>Re-test Question:</strong> This tests a concept you previously struggled with</span>
+                  </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 lg:gap-3 flex-shrink-0">
-                  <span className={`px-2 lg:px-3 py-1 lg:py-2 rounded-full text-xs lg:text-sm font-medium ${getQuestionTypeColor(q.type)}`}>
+              )}
+              
+              {/* Question Header */}
+              <div className="space-y-2">
+                {/* Type and metadata row */}
+                <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+                  <span className={`px-2 py-1 rounded-full font-medium inline-flex items-center gap-1 ${getQuestionTypeColor(q.type)}`}>
                     {getQuestionTypeIcon(q.type)} {getQuestionTypeLabel(q.type)}
                   </span>
-                  <span className="px-2 lg:px-3 py-1 lg:py-2 bg-gray-100 text-gray-600 rounded text-xs lg:text-sm font-medium">
-                    {q.points || 1} pt{q.points !== 1 ? 's' : ''}
-                  </span>
+                  <span className="text-gray-300">•</span>
+                  <span className="font-medium">{q.points || 1} pt{q.points !== 1 ? 's' : ''}</span>
+                  {q.isRetestQuestion && (
+                    <>
+                      <span className="text-gray-300">•</span>
+                      <span className="px-2 py-1 rounded-full font-medium bg-amber-100 text-amber-700 inline-flex items-center gap-1">
+                        <Target className="w-3 h-3" /> Re-test
+                      </span>
+                    </>
+                  )}
+                </div>
+                {/* Question text */}
+                <div className="font-semibold text-base lg:text-lg text-gray-800 leading-relaxed">
+                  {idx + 1}. {q.question}
                 </div>
               </div>
 
@@ -488,18 +647,23 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
                     </span>
                   </button>
                   {expandedHints.has(idx) && (
-                    <div className="flex flex-wrap gap-2 pl-6 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="flex flex-wrap items-center gap-2 pl-6 animate-in fade-in slide-in-from-top-1 duration-200">
                       {q.aiSuggestions.map((suggestion, sIdx) => (
                         <button key={sIdx} type="button" onClick={() => handleSuggestionClick(idx, suggestion)}
-                          className={`px-3 py-1.5 rounded-full text-xs transition-colors flex items-center gap-1.5 ${
-                            isActiveInChat 
-                              ? 'bg-indigo-600 text-white border border-indigo-600' 
-                              : 'bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300'
-                          }`}>
+                          className="px-3 py-1.5 rounded-full text-xs transition-colors flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300">
                           <Bot className="w-3.5 h-3.5" />
                           <span>{suggestion}</span>
                         </button>
                       ))}
+                      <span className="text-gray-300 mx-1">|</span>
+                      <button
+                        type="button"
+                        onClick={() => { setActiveQuestionIndex(idx); setChatOpen(true); }}
+                        className="text-xs text-gray-500 hover:text-indigo-600 transition-colors flex items-center gap-1 hover:underline"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>Ask freely</span>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -533,11 +697,42 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
               {/* Text Input for other question types (or MCQ without options as fallback) */}
               {((q.type !== 'mcq' && q.type !== 'multiple-choice') || !q.options || q.options.length === 0) && (
                 <div className="space-y-2">
+                  {/* Response length hint */}
+                  {(q.type === 'discuss' || q.type === 'essay') && (
+                    <div className="text-xs text-gray-400 flex items-center gap-1">
+                      <MessageSquare className="w-3 h-3" />
+                      Extended response expected (2-3 paragraphs)
+                    </div>
+                  )}
+                  {(q.type === 'shortAnswer' || q.type === 'short-answer') && (
+                    <div className="text-xs text-gray-400 flex items-center gap-1">
+                      <Pencil className="w-3 h-3" />
+                      Brief answer (1-2 sentences)
+                    </div>
+                  )}
+                  {q.type === 'describe' && (
+                    <div className="text-xs text-gray-400 flex items-center gap-1">
+                      <FileText className="w-3 h-3" />
+                      Descriptive response (1-2 paragraphs)
+                    </div>
+                  )}
+                  {q.type === 'fillBlanks' && (
+                    <div className="text-xs text-gray-400 flex items-center gap-1">
+                      <Square className="w-3 h-3" />
+                      Fill in the missing word(s)
+                    </div>
+                  )}
                   <textarea value={answers[idx] || ''} onChange={(e) => handleTextChange(idx, e.target.value)} disabled={submitted}
-                    rows={q.type === 'discuss' || q.type === 'describe' ? 4 : 2}
+                    rows={q.type === 'discuss' || q.type === 'essay' ? 5 : q.type === 'describe' ? 4 : q.type === 'fillBlanks' ? 1 : 2}
                     className={`w-full px-4 py-3 lg:py-4 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition resize-none text-sm lg:text-base
                       ${submitted && isCorrect ? 'border-green-500 bg-green-50' : submitted && questionFeedback?.points > 0 ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}`}
-                    placeholder={q.type === 'shortAnswer' ? 'Type your brief answer here...' : q.type === 'discuss' ? 'Discuss the topic in detail...' : 'Type your answer here...'}
+                    placeholder={
+                      q.type === 'shortAnswer' || q.type === 'short-answer' ? 'Type your brief answer here...' : 
+                      q.type === 'discuss' || q.type === 'essay' ? 'Discuss the topic in detail...' : 
+                      q.type === 'describe' ? 'Describe in your own words...' :
+                      q.type === 'fillBlanks' ? 'Enter the missing word(s)...' :
+                      'Type your answer here...'
+                    }
                   />
                 </div>
               )}
@@ -598,6 +793,71 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
                     <div className="mt-3 lg:mt-4 pt-3 lg:pt-4 border-t border-current border-opacity-20">
                       <div className="font-semibold mb-1 text-sm lg:text-base flex items-center gap-1"><FileText className="w-4 h-4" /> Expected answer:</div>
                       <div className="text-sm lg:text-base opacity-80 leading-relaxed">{q.answer}</div>
+                    </div>
+                  )}
+                  
+                  {/* Keep in Mind - for correct answers */}
+                  {questionFeedback.isCorrect && questionFeedback.keepInMind && (
+                    <div className="mt-3 lg:mt-4 pt-3 lg:pt-4 border-t border-current border-opacity-20">
+                      <div className="font-semibold mb-2 text-sm lg:text-base flex items-center gap-1">
+                        <Lightbulb className="w-4 h-4" /> Keep in mind:
+                      </div>
+                      <div className="text-sm lg:text-base opacity-90 leading-relaxed">
+                        {typeof questionFeedback.keepInMind === 'string' 
+                          ? questionFeedback.keepInMind 
+                          : Array.isArray(questionFeedback.keepInMind) 
+                            ? (
+                              <ul className="space-y-1">
+                                {questionFeedback.keepInMind.map((tip, tIdx) => (
+                                  <li key={tIdx} className="flex items-start">
+                                    <span className="mr-2 mt-0.5">•</span>
+                                    <span>{tip}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )
+                            : null
+                        }
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Personalized Suggestions - for incorrect/partial answers */}
+                  {!questionFeedback.isCorrect && questionFeedback.suggestions && questionFeedback.suggestions.length > 0 && (
+                    <div className="mt-3 lg:mt-4 pt-3 lg:pt-4 border-t border-current border-opacity-20">
+                      <div className="font-semibold mb-2 text-sm lg:text-base flex items-center gap-1">
+                        <Lightbulb className="w-4 h-4" /> Suggestions to improve:
+                      </div>
+                      <ul className="text-sm lg:text-base opacity-90 space-y-1">
+                        {questionFeedback.suggestions.map((suggestion, sIdx) => (
+                          <li key={sIdx} className="flex items-start">
+                            <span className="mr-2 mt-0.5">•</span>
+                            <span>{suggestion}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {/* AI Help Button for deeper understanding */}
+                  {!questionFeedback.isCorrect && q.aiSuggestions && q.aiSuggestions.length > 0 && (
+                    <div className="mt-3 lg:mt-4 pt-3 lg:pt-4 border-t border-current border-opacity-20">
+                      <div className="font-semibold mb-2 text-sm lg:text-base flex items-center gap-1">
+                        <Bot className="w-4 h-4" /> Need more help?
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {q.aiSuggestions.slice(0, 3).map((suggestion, sIdx) => (
+                          <button
+                            key={sIdx}
+                            type="button"
+                            onClick={() => handleSuggestionClick(idx, suggestion)}
+                            className="px-3 py-1.5 rounded-full text-xs bg-white/50 border border-current border-opacity-30 hover:bg-white/80 transition-colors flex items-center gap-1.5"
+                          >
+                            <Bot className="w-3.5 h-3.5" />
+                            <span>{suggestion}</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -703,7 +963,7 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
       {/* AI Chat Panel - Desktop: Fixed Position on Right, Mobile: Handled by AIHelpChat */}
       {chatOpen && (
         <>
-          {/* Desktop */}
+          {/* Desktop - Fixed position but content area adjusts via margin */}
           <div 
             className="fixed top-4 right-4 bottom-4 z-40 hidden lg:block"
             style={{ width: `${chatWidth}px` }}
@@ -732,18 +992,14 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
               onClose={closeChat}
               initialMessage={initialChatMessage}
               onClearInitialMessage={() => setInitialChatMessage(null)}
+              onScrollToQuestion={scrollToQuestion}
             />
           </div>
         </>
       )}
 
       {/* Floating chat button for mobile when chat is closed but available */}
-      {!chatOpen && activeQuestion?.aiSuggestions && (
-        <ChatFloatingButton 
-          onClick={() => setChatOpen(true)} 
-          hasMessages={false}
-        />
-      )}
+      {/* Removed - chat is now opened from within the hints dropdown */}
     </div>
   );
 }

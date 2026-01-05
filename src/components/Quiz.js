@@ -84,11 +84,18 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
         questions.map(async (q, idx) => {
           if (q.aiSuggestions) return q;
           try {
+            // Build context with options if MCQ
+            let questionContext = `Question: ${q.question}`;
+            if (q.options && q.options.length > 0) {
+              questionContext += `\nAnswer Choices:\n${q.options.map((opt, i) => `${String.fromCharCode(65 + i)}) ${opt}`).join('\n')}`;
+            }
+            questionContext += `\nCorrect answer: ${q.answer}`;
+            
             const response = await fetch('/api/gemini-generate', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                text: `${q.question}\nCorrect answer: ${q.answer}`,
+                text: questionContext,
                 promptType: 'generateQuestionSuggestions',
                 geminiApiKey: window.geminiApiKey || localStorage.getItem('geminiApiKey')
               }),
@@ -100,13 +107,13 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
                 const suggestions = JSON.parse(aiText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim());
                 return { ...q, aiSuggestions: suggestions };
               } catch {
-                return { ...q, aiSuggestions: ['Explain this concept', 'Why is this important?', 'Give me an example'] };
+                return { ...q, aiSuggestions: ['What is this asking?', 'Explain key terms', 'Why is this important?'] };
               }
             }
           } catch (error) {
             console.log('Failed to generate suggestions for question', idx, error);
           }
-          return { ...q, aiSuggestions: ['Explain this concept', 'Why is this important?', 'Give me an example'] };
+          return { ...q, aiSuggestions: ['What is this asking?', 'Explain key terms', 'Why is this important?'] };
         })
       );
       setQuestionsWithSuggestions(updatedQuestions);
@@ -248,18 +255,39 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
           {/* Question Navigation */}
           <div className="bg-white rounded-xl shadow p-4 lg:p-6 sticky top-0 z-10">
             <div className="flex flex-wrap gap-2 lg:gap-3 justify-center">
-              {questions.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleQuestionNavClick(idx)}
-                  className={`w-10 h-10 lg:w-12 lg:h-12 rounded-lg text-sm lg:text-base font-medium transition-all duration-200
-                    ${currentQuestionIndex === idx ? 'bg-blue-500 text-white shadow-lg' : answers[idx] ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}
-                    ${chatOpen && activeQuestionIndex === idx ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}
-                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 active:scale-95`}
-                >
-                  {idx + 1}
-                </button>
-              ))}
+              {questions.map((q, idx) => {
+                const apiFeedback = gradingFeedback?.details?.find(d => d.questionIndex === idx);
+                const isSubmittedCorrect = submitted && (apiFeedback?.isCorrect || answers[idx] === q.answer);
+                const isSubmittedPartial = submitted && apiFeedback && !apiFeedback.isCorrect && apiFeedback.points > 0;
+                const isSubmittedWrong = submitted && !isSubmittedCorrect && !isSubmittedPartial;
+                
+                let navButtonClass = 'bg-gray-100 text-gray-600 hover:bg-gray-200'; // default unanswered
+                if (currentQuestionIndex === idx && !submitted) {
+                  navButtonClass = 'bg-blue-500 text-white shadow-lg';
+                } else if (isSubmittedCorrect) {
+                  navButtonClass = 'bg-green-500 text-white';
+                } else if (isSubmittedPartial) {
+                  navButtonClass = 'bg-yellow-400 text-yellow-900';
+                } else if (isSubmittedWrong) {
+                  navButtonClass = 'bg-red-400 text-white';
+                } else if (answers[idx]) {
+                  navButtonClass = 'bg-green-100 text-green-700 border border-green-300';
+                }
+                
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => handleQuestionNavClick(idx)}
+                    className={`w-10 h-10 lg:w-12 lg:h-12 rounded-lg text-sm lg:text-base font-medium transition-colors duration-200 touch-manipulation
+                      ${navButtonClass}
+                      ${currentQuestionIndex === idx && submitted ? 'ring-2 ring-blue-500 ring-offset-2' : ''}
+                      ${chatOpen && activeQuestionIndex === idx ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}
+                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                  >
+                    {idx + 1}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -303,7 +331,7 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
                         </span>
                       </button>
                       {expandedHints.has(idx) && (
-                        <div className="flex flex-wrap gap-2 pl-6 animate-in fade-in slide-in-from-top-1 duration-200">
+                        <div className="flex flex-wrap items-center gap-2 pl-6 animate-in fade-in slide-in-from-top-1 duration-200">
                           {q.aiSuggestions.map((suggestion, sIdx) => (
                             <button
                               key={sIdx}
@@ -319,6 +347,15 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
                               <span>{suggestion}</span>
                             </button>
                           ))}
+                          <span className="text-gray-300 mx-1">|</span>
+                          <button
+                            type="button"
+                            onClick={() => { setActiveQuestionIndex(idx); setChatOpen(true); }}
+                            className="text-xs text-gray-500 hover:text-indigo-600 transition-colors flex items-center gap-1 hover:underline"
+                          >
+                            <Bot className="w-3.5 h-3.5" />
+                            <span>Ask freely</span>
+                          </button>
                         </div>
                       )}
                     </div>
@@ -496,12 +533,7 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
       )}
 
       {/* Floating chat button for mobile when chat is closed but available */}
-      {!chatOpen && activeQuestion?.aiSuggestions && (
-        <ChatFloatingButton 
-          onClick={() => setChatOpen(true)} 
-          hasMessages={false}
-        />
-      )}
+      {/* Removed - chat is now opened from within the hints dropdown */}
     </div>
   );
 }

@@ -360,7 +360,24 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
           <Library className="w-5 h-5 text-blue-600" />
           Select Topics
         </h3>
-        <p className="text-sm text-gray-600">Choose which topics to include in your quiz:</p>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-gray-600">Choose which topics to include in your quiz:</p>
+          {topics.length > 0 && !isExtractingTopics && (
+            <button
+              onClick={() => {
+                if (selectedTopics.length === topics.length) {
+                  setSelectedTopics([]);
+                } else {
+                  setSelectedTopics([...topics]);
+                }
+              }}
+              className="text-sm px-3 py-1.5 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors flex items-center gap-1.5"
+            >
+              <Check className="w-4 h-4" />
+              {selectedTopics.length === topics.length ? 'Deselect All' : 'Select All'}
+            </button>
+          )}
+        </div>
         
         {cacheStatus && (
           <div className={`border rounded-lg p-3 ${

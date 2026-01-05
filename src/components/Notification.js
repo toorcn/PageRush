@@ -49,7 +49,7 @@ export default function Notification() {
         >
           <div className="flex-1 min-w-0">
             <div className="font-semibold mb-1 lg:mb-2 text-gray-800 flex items-center text-sm lg:text-base">
-              {n.icon && <span className="mr-2 text-lg lg:text-xl flex-shrink-0">{n.icon}</span>}
+              {n.icon && <span className="mr-2 flex-shrink-0">{n.icon}</span>}
               <span className="truncate">{n.title}</span>
             </div>
             <div className="text-gray-600 text-xs lg:text-sm mb-2 lg:mb-3 leading-relaxed">{n.message}</div>

@@ -36,6 +36,58 @@ type MetricsCallback = (metrics: {
   model: string;
 }) => void;
 
+// ============================================
+// CENTRALIZED MODEL CONFIGURATION
+// ============================================
+// Change models here to affect all API routes
+
+export type GeminiModel = 
+  | 'gemini-3-flash-preview'
+  | 'gemini-2.5-flash'
+  | 'gemini-2.5-flash-lite';
+
+// Pricing per 1M tokens (USD)
+export const MODEL_PRICING: Record<GeminiModel, { input: number; output: number }> = {
+  'gemini-3-flash-preview': { input: 0.5, output: 3 },
+  'gemini-2.5-flash': { input: 0.3, output: 2.5 },
+  'gemini-2.5-flash-lite': { input: 0.1, output: 0.4 }
+};
+
+// Default model used when no specific action model is configured
+export const DEFAULT_MODEL: GeminiModel = 'gemini-3-flash-preview';
+
+// Action-to-model mapping
+// Customize which model handles each action type
+export const ACTION_MODELS: Record<string, GeminiModel> = {
+  // Content generation
+  'gemini-generate': 'gemini-3-flash-preview',
+  'study-guide': 'gemini-3-flash-preview',
+  'flashcards': 'gemini-3-flash-preview',
+  'quiz': 'gemini-3-flash-preview',
+  'lesson': 'gemini-3-flash-preview',
+  
+  // Quiz grading
+  'grade-quiz': 'gemini-3-flash-preview',
+  
+  // Exam cram features
+  'exam-cram': 'gemini-3-flash-preview',
+  'generate-topic-content': 'gemini-3-flash-preview',
+  
+  // Focus mode
+  'focus-mode-generate': 'gemini-3-flash-preview',
+  
+  // Question bank
+  'generate-question-bank': 'gemini-3-flash-preview',
+};
+
+// Helper to get model for an action
+export function getModelForAction(action: string): GeminiModel {
+  return ACTION_MODELS[action] || DEFAULT_MODEL;
+}
+
+// API endpoint base URL
+export const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+
 let metricsCallback: MetricsCallback | null = null;
 
 export function setMetricsCallback(callback: MetricsCallback | null) {
@@ -51,15 +103,10 @@ function trackMetrics(response: GeminiResponse & { responseTimeMs?: number; mode
   const promptTokens = usageMetadata.promptTokenCount || 0;
   const completionTokens = usageMetadata.candidatesTokenCount || 0;
   const totalTokens = usageMetadata.totalTokenCount || promptTokens + completionTokens;
-  const model = response.model || 'gemini-3-flash-preview';
+  const model = response.model || getModelForAction(endpoint);
   
   // Calculate cost based on Gemini pricing
-  const pricing = {
-    'gemini-3-flash-preview': { input: 0.5, output: 3.00 },
-    'gemini-2.5-flash': { input: 0.3, output: 2.5 },
-    'gemini-2.5-flash-lite': { input: 0.1, output: 0.4 }
-  };
-  const modelPricing = pricing[model as keyof typeof pricing] || pricing['gemini-3-flash-preview'];
+  const modelPricing = MODEL_PRICING[model as GeminiModel] || MODEL_PRICING[DEFAULT_MODEL];
   const estimatedCost = (promptTokens / 1_000_000) * modelPricing.input + (completionTokens / 1_000_000) * modelPricing.output;
 
   metricsCallback({

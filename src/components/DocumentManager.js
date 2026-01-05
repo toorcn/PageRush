@@ -1,6 +1,126 @@
 'use client';
-import { useState, useMemo } from 'react';
-import { Library, X, Search, FileText, Check, Trash2, Upload } from 'lucide-react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { Library, X, Search, FileText, Check, Trash2, Upload, CheckSquare, Square, Hash } from 'lucide-react';
+
+// Helper to estimate word count
+const getWordCount = (text) => {
+  const words = text.trim().split(/\s+/).length;
+  if (words < 1000) return `~${words} words`;
+  return `~${Math.round(words / 1000)}k words`;
+};
+
+// Document Item Component
+function DocumentItem({ doc, isActive, onToggle, onDelete, formatDate, getDocumentSize }) {
+  return (
+    <div
+      className={`group relative rounded-xl border-2 transition-all duration-200 ${
+        isActive
+          ? 'border-blue-500 bg-blue-50/50 shadow-md'
+          : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+      }`}
+    >
+      <div 
+        role="button"
+        tabIndex={0}
+        className="p-4 cursor-pointer"
+        onClick={onToggle}
+        onKeyDown={(e) => e.key === 'Enter' && onToggle()}
+      >
+        <div className="flex items-start space-x-3">
+          {/* Checkbox */}
+          <div 
+            className={`mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+              isActive 
+                ? 'bg-blue-600 border-blue-600' 
+                : 'border-gray-300 group-hover:border-blue-400'
+            }`}
+          >
+            {isActive && <Check className="w-3 h-3 text-white" />}
+          </div>
+
+          {/* Document Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center space-x-2 mb-1">
+              <h3 className="font-semibold text-gray-800 truncate">{doc.name}</h3>
+              {isActive && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 bg-blue-100 text-blue-700">
+                  Active
+                </span>
+              )}
+            </div>
+            <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+              <span>{formatDate(doc.timestamp)}</span>
+              <span className="hidden sm:inline">•</span>
+              <span>{getDocumentSize(doc.text)}</span>
+              <span className="hidden sm:inline">•</span>
+              <span className="hidden sm:inline">{getWordCount(doc.text)}</span>
+            </div>
+            <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+              {doc.text.substring(0, 200).replace(/\s+/g, ' ').trim()}...
+            </p>
+          </div>
+
+          {/* Delete Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(doc.id);
+            }}
+            className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+            aria-label={`Delete ${doc.name}`}
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Document List Component (no grouping)
+function DocumentList({ docs, isDocumentActive, handleToggleDocument, setShowDeleteConfirm, formatDate, getDocumentSize }) {
+  return (
+    <div className="space-y-3">
+      {docs.map((doc) => {
+        const isActive = isDocumentActive(doc.id);
+        return (
+          <DocumentItem
+            key={doc.id}
+            doc={doc}
+            isActive={isActive}
+            onToggle={() => handleToggleDocument(doc)}
+            onDelete={setShowDeleteConfirm}
+            formatDate={formatDate}
+            getDocumentSize={getDocumentSize}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+// Document Group Component (with header)
+function DocumentGroup({ title, docs, isDocumentActive, handleToggleDocument, setShowDeleteConfirm, formatDate, getDocumentSize }) {
+  if (docs.length === 0) return null;
+  
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 px-1 py-2">
+        <Hash className="w-3.5 h-3.5 text-gray-400" />
+        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{title}</h4>
+        <span className="text-xs text-gray-400">({docs.length})</span>
+      </div>
+      <DocumentList 
+        docs={docs}
+        isDocumentActive={isDocumentActive}
+        handleToggleDocument={handleToggleDocument}
+        setShowDeleteConfirm={setShowDeleteConfirm}
+        formatDate={formatDate}
+        getDocumentSize={getDocumentSize}
+      />
+    </div>
+  );
+}
 
 export default function DocumentManager({ 
   documents, 
@@ -12,6 +132,14 @@ export default function DocumentManager({
 }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Local state for pending selections - only saved when "Done" is clicked
+  const initialActiveDocuments = useMemo(() => {
+    if (Array.isArray(activeDocument)) return activeDocument;
+    return activeDocument ? [activeDocument] : [];
+  }, []);
+  
+  const [pendingSelections, setPendingSelections] = useState(initialActiveDocuments);
 
   const formatDate = (timestamp) => {
     const date = new Date(timestamp);
@@ -31,20 +159,20 @@ export default function DocumentManager({
     return `${(sizeInKB / 1024).toFixed(1)} MB`;
   };
 
-  // Get active documents as array
-  const activeDocuments = useMemo(() => {
-    if (Array.isArray(activeDocument)) return activeDocument;
-    return activeDocument ? [activeDocument] : [];
-  }, [activeDocument]);
+  // Use pending selections for display (not saved until Done is clicked)
+  const activeDocuments = pendingSelections;
 
   const isDocumentActive = (docId) => {
-    return activeDocuments.some(doc => doc.id === docId);
+    return pendingSelections.some(doc => doc.id === docId);
   };
 
-  // Filter and sort documents: active first, then by date
-  const sortedDocuments = useMemo(() => {
-    let filtered = documents;
+  // Group documents by time period
+  const groupedDocuments = useMemo(() => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
     
+    let filtered = documents;
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = documents.filter(doc => 
@@ -53,36 +181,96 @@ export default function DocumentManager({
       );
     }
 
-    return [...filtered].sort((a, b) => {
+    // Sort by timestamp only - no pinning of selected documents
+    const sorted = [...filtered].sort((a, b) => {
       const aActive = isDocumentActive(a.id);
       const bActive = isDocumentActive(b.id);
       if (aActive && !bActive) return -1;
       if (!aActive && bActive) return 1;
-      return b.timestamp - a.timestamp;
+      return new Date(b.timestamp) - new Date(a.timestamp);
     });
+
+    // Only group if we have more than 5 documents
+    if (sorted.length <= 5) {
+      return { all: sorted };
+    }
+
+    const groups = { today: [], thisWeek: [], older: [] };
+    sorted.forEach(doc => {
+      const docDate = new Date(doc.timestamp);
+      if (docDate >= today) {
+        groups.today.push(doc);
+      } else if (docDate >= weekAgo) {
+        groups.thisWeek.push(doc);
+      } else {
+        groups.older.push(doc);
+      }
+    });
+
+    return groups;
   }, [documents, searchQuery, activeDocuments]);
+
+  // For backward compatibility
+  const sortedDocuments = useMemo(() => {
+    if (groupedDocuments.all) return groupedDocuments.all;
+    return [...groupedDocuments.today, ...groupedDocuments.thisWeek, ...groupedDocuments.older];
+  }, [groupedDocuments]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Escape to close (saves changes) - only if something is selected
+      if (e.key === 'Escape' && pendingSelections.length > 0) {
+        onSelectDocument(pendingSelections);
+        onClose();
+      }
+      // Cmd/Ctrl + A to select all
+      if ((e.metaKey || e.ctrlKey) && e.key === 'a' && documents.length > 0) {
+        e.preventDefault();
+        setPendingSelections(documents);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [documents, pendingSelections, onSelectDocument, onClose]);
+
+  // Select all / Deselect all handlers
+  const handleSelectAll = useCallback(() => {
+    setPendingSelections(documents);
+  }, [documents]);
+
+  const handleSelectFirstOnly = useCallback(() => {
+    if (documents.length > 0) {
+      setPendingSelections([documents[0]]);
+    }
+  }, [documents]);
 
   const handleToggleDocument = (doc) => {
     const isActive = isDocumentActive(doc.id);
     
     if (isActive) {
-      // Prevent unselecting the last active document
-      if (activeDocuments?.length <= 1) {
-        return; // Don't allow deselecting the only active document
-      }
-      // Remove from active
-      const newActive = activeDocuments.filter(d => d.id !== doc.id);
-      onSelectDocument(newActive);
+      // Allow unselecting any document, including the last one
+      const newActive = pendingSelections.filter(d => d.id !== doc.id);
+      setPendingSelections(newActive);
     } else {
       // Add to active
-      onSelectDocument([...activeDocuments, doc]);
+      setPendingSelections([...pendingSelections, doc]);
     }
   };
 
   const handleRemoveDocument = (documentId) => {
+    // Also remove from pending selections if it was selected
+    setPendingSelections(prev => prev.filter(d => d.id !== documentId));
     onRemoveDocument(documentId);
     setShowDeleteConfirm(null);
   };
+
+  // Save selections and close
+  const handleDone = useCallback(() => {
+    onSelectDocument(pendingSelections);
+    onClose();
+  }, [pendingSelections, onSelectDocument, onClose]);
 
   const handleAddMoreDocuments = () => {
     if (onAddMoreDocuments) {
@@ -119,26 +307,52 @@ export default function DocumentManager({
           </div>
         </div>
 
-        {/* Search Bar */}
-        {documents.length > 3 && (
-          <div className="px-5 pt-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search documents..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-gray-100 border-0 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
+        {/* Search Bar & Bulk Actions */}
+        {documents.length > 1 && (
+          <div className="px-5 pt-4 space-y-3">
+            {/* Search */}
+            {documents.length > 3 && (
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search documents..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 bg-gray-100 border-0 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            )}
+            
+            {/* Bulk Actions */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSelectAll}
+                disabled={activeDocuments.length === documents.length}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <CheckSquare className="w-3.5 h-3.5" />
+                Select All
+              </button>
+              <button
+                onClick={handleSelectFirstOnly}
+                disabled={activeDocuments.length === 1}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Square className="w-3.5 h-3.5" />
+                Select First Only
+              </button>
+              <span className="text-xs text-gray-400 ml-auto hidden sm:inline">
+                ⌘A to select all · Esc to close
+              </span>
             </div>
           </div>
         )}
@@ -169,80 +383,57 @@ export default function DocumentManager({
               <p className="text-gray-500">No documents match "{searchQuery}"</p>
             </div>
           ) : (
-            sortedDocuments.map((doc) => {
-              const isActive = isDocumentActive(doc.id);
-              const isLastActive = isActive && activeDocuments?.length === 1;
-              return (
-                <div
-                  key={doc.id}
-                  className={`group relative rounded-xl border-2 transition-all duration-200 ${
-                    isActive
-                      ? 'border-blue-500 bg-blue-50/50 shadow-md'
-                      : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
-                  }`}
-                >
-                  <div 
-                    role="button"
-                    tabIndex={0}
-                    className={`p-4 ${isLastActive ? 'cursor-default' : 'cursor-pointer'}`}
-                    onClick={() => handleToggleDocument(doc)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleToggleDocument(doc)}
-                  >
-                    <div className="flex items-start space-x-3">
-                      {/* Checkbox */}
-                      <div 
-                        className={`mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
-                          isActive 
-                            ? isLastActive
-                              ? 'bg-blue-400 border-blue-400 cursor-not-allowed'
-                              : 'bg-blue-600 border-blue-600' 
-                            : 'border-gray-300 group-hover:border-blue-400'
-                        }`}
-                        title={isLastActive ? 'At least one document must be selected' : ''}
-                      >
-                        {isActive && <Check className="w-3 h-3 text-white" />}
-                      </div>
-
-                      {/* Document Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <h3 className="font-semibold text-gray-800 truncate">{doc.name}</h3>
-                          {isActive && (
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
-                              isLastActive 
-                                ? 'bg-amber-100 text-amber-700' 
-                                : 'bg-blue-100 text-blue-700'
-                            }`}>
-                              {isLastActive ? 'Required' : 'Active'}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center space-x-3 text-xs text-gray-500">
-                          <span>{formatDate(doc.timestamp)}</span>
-                          <span>•</span>
-                          <span>{getDocumentSize(doc.text)}</span>
-                        </div>
-                        <p className="text-sm text-gray-600 mt-2 line-clamp-2">
-                          {doc.text.substring(0, 150)}...
-                        </p>
-                      </div>
-
-                      {/* Delete Button - Always visible on mobile, hover on desktop */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowDeleteConfirm(doc.id);
-                        }}
-                        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                        aria-label={`Delete ${doc.name}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
+            <>
+              {/* Render grouped documents if we have groups */}
+              {groupedDocuments.all ? (
+                // Simple list for few documents
+                <DocumentList 
+                  docs={groupedDocuments.all}
+                  isDocumentActive={isDocumentActive}
+                  handleToggleDocument={handleToggleDocument}
+                  setShowDeleteConfirm={setShowDeleteConfirm}
+                  formatDate={formatDate}
+                  getDocumentSize={getDocumentSize}
+                />
+              ) : (
+                // Grouped list for many documents
+                <>
+                  {groupedDocuments.today.length > 0 && (
+                    <DocumentGroup 
+                      title="Today" 
+                      docs={groupedDocuments.today}
+                      isDocumentActive={isDocumentActive}
+                      handleToggleDocument={handleToggleDocument}
+                      setShowDeleteConfirm={setShowDeleteConfirm}
+                      formatDate={formatDate}
+                      getDocumentSize={getDocumentSize}
+                    />
+                  )}
+                  {groupedDocuments.thisWeek.length > 0 && (
+                    <DocumentGroup 
+                      title="This Week" 
+                      docs={groupedDocuments.thisWeek}
+                      isDocumentActive={isDocumentActive}
+                      handleToggleDocument={handleToggleDocument}
+                      setShowDeleteConfirm={setShowDeleteConfirm}
+                      formatDate={formatDate}
+                      getDocumentSize={getDocumentSize}
+                    />
+                  )}
+                  {groupedDocuments.older.length > 0 && (
+                    <DocumentGroup 
+                      title="Older" 
+                      docs={groupedDocuments.older}
+                      isDocumentActive={isDocumentActive}
+                      handleToggleDocument={handleToggleDocument}
+                      setShowDeleteConfirm={setShowDeleteConfirm}
+                      formatDate={formatDate}
+                      getDocumentSize={getDocumentSize}
+                    />
+                  )}
+                </>
+              )}
+            </>
           )}
         </div>
 
@@ -250,16 +441,21 @@ export default function DocumentManager({
         <div className="border-t border-gray-200 bg-gray-50 p-4 fixed-bottom-safe">
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500">
-              {activeDocuments?.length > 0 && (
+              {pendingSelections?.length > 0 ? (
                 <span className="text-blue-600 font-medium">
-                  {activeDocuments?.length} selected for study
+                  {pendingSelections?.length} selected for study
+                </span>
+              ) : (
+                <span className="text-amber-600 font-medium">
+                  Select at least one document
                 </span>
               )}
             </p>
             <div className="flex space-x-3">
               <button
-                onClick={onClose}
-                className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition-colors"
+                onClick={handleDone}
+                disabled={pendingSelections.length === 0}
+                className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Done
               </button>

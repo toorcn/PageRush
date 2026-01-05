@@ -82,6 +82,7 @@ export default function Home() {
   const performanceSummaries = useStudyStore((s) => s.performanceSummaries);
   const addHistoryItem = useStudyStore((s) => s.addHistoryItem);
   const addPerformanceSummary = useStudyStore((s) => s.addPerformanceSummary);
+  const deleteHistoryItem = useStudyStore((s) => s.deleteHistoryItem);
   const clearHistory = useStudyStore((s) => s.clearHistory);
   const currentQuestionIndex = useStudyStore((s) => s.currentQuestionIndex);
   const totalQuestions = useStudyStore((s) => s.totalQuestions);
@@ -532,22 +533,42 @@ export default function Home() {
           {/* Mobile Document Info */}
           {activeDocuments?.length > 0 && (
             <div className="lg:hidden space-y-2">
-              <div className="text-xs font-medium text-gray-600 px-1">
-                Active Documents ({activeDocuments?.length})
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-medium text-gray-600">
+                  Active Documents ({activeDocuments?.length})
+                </span>
+                {documents.length > activeDocuments.length && (
+                  <button
+                    onClick={() => setShowDocumentManager(true)}
+                    className="text-xs text-indigo-600 font-medium"
+                  >
+                    + Add more
+                  </button>
+                )}
               </div>
-              {activeDocuments.map((doc, index) => (
-                <Card key={doc.id} variant="glass" padding="sm">
-                  <div className="flex items-center space-x-2">
-                    <FileText className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm font-medium text-gray-700 truncate">{doc.name}</span>
-                    {index === 0 && (
-                      <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-medium flex-shrink-0">
-                        Primary
+              <div className="flex flex-wrap gap-2">
+                {activeDocuments.map((doc, index) => (
+                  <div
+                    key={doc.id}
+                    className={`
+                      inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium
+                      transition-all duration-200 max-w-[160px] group
+                      ${index === 0
+                        ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
+                        : 'bg-blue-50 text-blue-700 border border-blue-200'
+                      }
+                    `}
+                  >
+                    <FileText className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="truncate">{doc.name}</span>
+                    {index === 0 && activeDocuments.length > 1 && (
+                      <span className="px-1 py-0.5 bg-indigo-200 text-indigo-800 rounded text-xs flex-shrink-0">
+                        1st
                       </span>
                     )}
                   </div>
-                </Card>
-              ))}
+                ))}
+              </div>
             </div>
           )}
 
@@ -572,6 +593,7 @@ export default function Home() {
               history={history}
               performanceSummaries={performanceSummaries}
               onLoadFromHistory={loadFromHistory}
+              onDeleteHistoryItem={deleteHistoryItem}
               onClearHistory={handleClearHistory}
               onClose={() => setShowHistory(false)}
             />

@@ -45,6 +45,7 @@ interface StudyState {
   
   addHistoryItem: (item: Omit<HistoryItem, 'id' | 'timestamp'>) => void;
   addPerformanceSummary: (summary: Omit<PerformanceSummary, 'id' | 'timestamp'>) => void;
+  deleteHistoryItem: (id: number) => void;
   clearHistory: () => void;
   
   resetSession: () => void;
@@ -119,6 +120,12 @@ export const useStudyStore = create<StudyState>()(
         };
         set((state) => ({
           performanceSummaries: [performanceSummary, ...state.performanceSummaries],
+        }));
+      },
+
+      deleteHistoryItem: (id: number) => {
+        set((state) => ({
+          history: state.history.filter((item) => item.id !== id),
         }));
       },
 

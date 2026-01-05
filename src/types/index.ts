@@ -19,7 +19,7 @@ export interface NotificationAction {
 export interface Notification {
   id: number;
   type: NotificationType;
-  icon?: string;
+  icon?: React.ReactNode;
   title: string;
   message: string;
   action?: NotificationAction;

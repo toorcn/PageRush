@@ -1,3 +1,5 @@
+import { getModelForAction, getApiUrl } from '@/lib/gemini-config';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -175,7 +177,24 @@ Text to base questions on:\n\n${text}`;
     case 'exam':
       const examTopicFilter = topics && topics.length > 0 ? `Focus specifically on these topics: ${topics.join(', ')}. ` : '';
       const examKnowledgeTypeFilter = knowledgeType && knowledgeType.trim() ? `Test the user's knowledge specifically on: ${knowledgeType}. ` : '';
-      const performanceFilter = performanceSummary && performanceSummary.trim() ? `\n\nSTUDENT PERFORMANCE CONTEXT:\n${performanceSummary}\n\nUse this performance data to create questions that specifically target the student's weak areas and help them improve. Focus on topics and concepts where they struggled. ` : '';
+      
+      // Enhanced performance-based question generation
+      let performanceFilter = '';
+      if (performanceSummary && performanceSummary.trim()) {
+        performanceFilter = `
+
+=== CRITICAL: PREVIOUS PERFORMANCE DATA ===
+${performanceSummary}
+
+QUESTION GENERATION STRATEGY BASED ON PERFORMANCE:
+1. RE-TEST WRONG CONCEPTS (Priority 1): For each question the student got wrong above, create a NEW question that tests the SAME underlying concept but with different wording/scenario. This ensures they truly understand the material.
+2. REINFORCE WEAK AREAS (Priority 2): Add additional questions on topics where the student struggled.
+3. EXPAND KNOWLEDGE (Priority 3): Include new questions on related topics to broaden understanding.
+4. MAINTAIN BALANCE: Ensure the exam covers both weak areas AND new material for comprehensive learning.
+
+DO NOT simply copy the wrong questions - rephrase them to test the same concept differently.
+`;
+      }
       
       // Build question type specifications with exact counts
       let questionTypeSpecs = '';
@@ -233,7 +252,8 @@ Each question object must have this exact structure:
   "options": ["Option A", "Option B", "Option C", "Option D"], // Only for MCQ type
   "answer": "The correct answer or expected response",
   "explanation": "Brief explanation or assessment criteria",
-  "points": 1 // Points for this question (MCQ=1, shortAnswer=2, discuss=3, describe=3, fillBlanks=1)
+  "points": 1, // Points for this question (MCQ=1, shortAnswer=2, discuss=3, describe=3, fillBlanks=1)
+  "isRetestQuestion": false // Set to true if this question re-tests a concept from a previously wrong answer
 }
 
 Question type requirements:
@@ -248,6 +268,7 @@ VERIFICATION CHECKLIST before returning:
 2. Verify each question type count matches the requirements above
 3. Ensure MCQ questions have exactly 4 options
 4. Ensure non-MCQ questions do NOT have options array
+5. If performance data was provided, ensure some questions re-test previously wrong concepts
 
 Example format:
 [
@@ -257,14 +278,16 @@ Example format:
     "options": ["London", "Paris", "Berlin", "Madrid"],
     "answer": "Paris",
     "explanation": "Paris is the capital city of France.",
-    "points": 1
+    "points": 1,
+    "isRetestQuestion": false
   },
   {
     "question": "Explain the concept of photosynthesis.",
     "type": "discuss",
     "answer": "Photosynthesis is the process by which plants convert sunlight, carbon dioxide, and water into glucose and oxygen. This process occurs in chloroplasts and is essential for plant growth and oxygen production.",
     "explanation": "Response should include: process description, inputs/outputs, location, importance",
-    "points": 3
+    "points": 3,
+    "isRetestQuestion": true
   }
 ]
 
@@ -436,68 +459,117 @@ Simplify this concept.`;
 CONTEXT:
 ${text}
 
-TEACHING APPROACH - Use these evidence-based learning techniques:
+RESPONSE FORMAT - Return a JSON object with this structure:
+{
+  "summary": "1-2 sentence key insight that directly addresses their question (max 50 words)",
+  "details": "Fuller explanation with examples, analogies, and deeper context (100-150 words)",
+  "followUp": "A natural follow-up question the student might want to ask next (short, clickable)",
+  "visualType": "text|table|steps|definition|comparison",
+  "visualData": { ... structure depends on visualType ... }
+}
+
+VISUAL TYPES - Choose the most appropriate for the content:
+
+1. "text" (default) - Regular text explanation
+   visualData: null
+
+2. "table" - For comparing options/choices in MCQ questions
+   visualData: {
+     "headers": ["Option", "Key Point", "Consider"],
+     "rows": [
+       ["A", "Brief description", "Why it might/might not fit"],
+       ["B", "Brief description", "Why it might/might not fit"]
+     ]
+   }
+
+3. "steps" - For processes, sequences, or how-to explanations
+   visualData: {
+     "title": "How to approach this",
+     "steps": [
+       {"label": "Step 1", "content": "First, identify..."},
+       {"label": "Step 2", "content": "Then, consider..."}
+     ]
+   }
+
+4. "definition" - For explaining key terms or concepts
+   visualData: {
+     "term": "The term being defined",
+     "definition": "Clear, concise definition",
+     "example": "A concrete example",
+     "related": ["related term 1", "related term 2"]
+   }
+
+5. "comparison" - For comparing two concepts or approaches
+   visualData: {
+     "itemA": {"name": "Concept A", "points": ["point 1", "point 2"]},
+     "itemB": {"name": "Concept B", "points": ["point 1", "point 2"]},
+     "keyDifference": "The main distinction is..."
+   }
+
+WHEN TO USE EACH:
+- "table": When student asks about choices, comparing options, or "why not X?"
+- "steps": When explaining a process, method, or approach to solving
+- "definition": When student asks "what is X?" or "what does Y mean?"
+- "comparison": When contrasting two concepts, approaches, or ideas
+- "text": For general explanations, hints, or when other formats don't fit
+
+TEACHING APPROACH for the details section:
 1. **Elaborative Interrogation**: Ask "why" and "how" questions to deepen thinking
 2. **Concrete Examples**: Connect abstract concepts to real-world scenarios
-3. **Storytelling**: Share brief origin stories or historical context when relevant
-4. **Analogies**: Compare to familiar concepts ("Think of it like...")
-5. **Chunking**: Break complex ideas into digestible pieces
-6. **Spaced Retrieval Cues**: Give hints that help them recall, not answers
-7. **Dual Coding**: Use visual descriptions or mental imagery
+3. **Analogies**: Compare to familiar concepts ("Think of it like...")
+4. **Chunking**: Break complex ideas into digestible pieces
 
-RESPONSE GUIDELINES:
-- Keep responses concise (150-200 words max)
-- Format with clear structure using line breaks
-- Use **bold** for key terms
-- Use bullet points for lists
-- Include a thought-provoking question at the end to guide their thinking
+FOLLOW-UP SUGGESTIONS - Make them:
+- Natural progressions from the current topic
+- Short enough to fit in a button (5-8 words max)
+- Examples: "How does this apply in practice?", "What's a common mistake here?", "Can you give another example?", "Why is this important?"
+
+GUIDELINES:
+- The summary should be the most important takeaway - concise and meaningful
+- Use **bold** for key terms in both sections
+- Include a thought-provoking question at the end of details
 - If they ask directly for the answer, redirect with a helpful hint instead
-- Reference the answer options indirectly to help them eliminate wrong choices through understanding
-
-FORMATTING EXAMPLE:
-**The Core Idea**
-[1-2 sentence explanation of the concept]
-
-**Think of it like...**
-[Relatable analogy or real-world example]
-
-**Key insight:** [memorable takeaway]
-
-💭 *Consider this: [guiding question to help them arrive at the answer]*
+- Reference the answer options indirectly to help them eliminate wrong choices
 
 DO NOT:
 - Directly state which option is correct
 - Say "the answer is..." or "option X is correct"
 - Be condescending or overly academic
+- Include markdown code blocks in your response
 
-Respond naturally and helpfully:`;
+Return ONLY the JSON object, no other text:`;
       break;
     case 'generateQuestionSuggestions':
-      prompt = `Given this quiz/exam question, generate 3-4 short questions a student might ask to better UNDERSTAND the topic (not just get the answer).
+      prompt = `Given this quiz/exam question, generate 4-5 short help suggestions a student might click to better UNDERSTAND the topic (not just get the answer).
 
 QUESTION: ${text}
 
-Generate questions that:
-1. Help the student understand the underlying concept
-2. Encourage critical thinking, not answer-seeking
-3. Are short (under 8 words each)
-4. Cover different learning angles:
-   - "Why does this work this way?"
-   - "How does this connect to...?"
-   - "What's the key principle here?"
-   - "Can you give me an analogy?"
+Generate suggestions in these SPECIFIC CATEGORIES:
 
-Good examples:
-- "Why is this concept important?"
-- "How does this actually work?"
-- "What's the key idea here?"
-- "Can you explain it simply?"
-- "What's a real-world example?"
+1. ABOUT THE QUESTION (1 suggestion):
+   - Help understand what the question is really asking
+   - Examples: "What is this question asking?", "Break down the question", "Clarify the question"
 
-Bad examples (too answer-focused):
-- "What's the correct answer?"
-- "Is it A or B?"
-- "Tell me the answer"
+2. KEY TERMS/CONCEPTS (1-2 suggestions):
+   - Explain special terminology, technical terms, or concepts mentioned
+   - Be specific to terms in THIS question
+   - Examples: "What does [term] mean?", "Explain [concept]", "Define [technical term]"
+
+3. ABOUT THE CHOICES (1-2 suggestions, ONLY if multiple choice options are provided):
+   - Help understand why certain options might be right/wrong
+   - Compare or contrast the options
+   - Examples: "Compare the options", "Why might [option] be wrong?", "Difference between choices"
+
+4. DEEPER UNDERSTANDING (1 suggestion):
+   - Connect to broader concepts or real-world applications
+   - Examples: "Why is this important?", "Real-world example?", "How does this connect?"
+
+RULES:
+- Keep each suggestion under 8 words
+- Be specific to the actual content of THIS question
+- If the question has answer choices, include at least one "about the choices" suggestion
+- Never suggest getting the direct answer
+- Extract actual terms from the question for the "key terms" category
 
 Return ONLY a JSON array of strings, no markdown, no explanation.`;
       break;
@@ -508,16 +580,25 @@ Return ONLY a JSON array of strings, no markdown, no explanation.`;
   try {
     console.log('Making Gemini API request with prompt type:', promptType);
     const startTime = Date.now();
-    const model = 'gemini-3-flash-preview';
+    const model = getModelForAction('gemini-generate');
     
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    // Set appropriate max tokens based on prompt type
+    const maxOutputTokens = promptType === 'studyGuide' ? 8192 : 
+                            promptType === 'exam' ? 8192 :
+                            promptType === 'chatHelp' ? 2048 : 4096;
+    
+    const response = await fetch(getApiUrl('gemini-generate'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-goog-api-key': geminiApiKey,
       },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }]
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          maxOutputTokens: maxOutputTokens,
+          temperature: 0.7,
+        }
       }),
     });
 

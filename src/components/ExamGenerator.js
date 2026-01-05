@@ -617,29 +617,55 @@ export default function ExamGenerator({ onGenerate, extractedText, apiKey, perfo
 
   const createPerformanceSummary = (summary) => {
     const weakQuestions = summary.details?.filter(d => !d.isCorrect) || [];
+    const partialQuestions = summary.details?.filter(d => !d.isCorrect && d.points > 0) || [];
     const strongQuestions = summary.details?.filter(d => d.isCorrect) || [];
     
-    let summaryText = `EXAM PERFORMANCE SUMMARY:
+    let summaryText = `PREVIOUS EXAM PERFORMANCE SUMMARY:
 Overall Score: ${summary.percentage}% (${summary.score}/${summary.total} points)
 Date: ${new Date(summary.timestamp).toLocaleDateString()}
+Topics Covered: ${summary.topics?.join(', ') || 'Various topics'}
 
-WEAK AREAS (${weakQuestions.length} questions):
+=== QUESTIONS THE STUDENT GOT WRONG (MUST RE-TEST THESE CONCEPTS) ===
+The following ${weakQuestions.length} questions were answered incorrectly. Generate similar questions to re-test these specific concepts:
+
 `;
     
     weakQuestions.forEach((detail, idx) => {
-      summaryText += `${idx + 1}. ${detail.question}\n`;
-      if (detail.feedback) {
-        summaryText += `   Feedback: ${detail.feedback}\n`;
-      }
-      summaryText += `   Expected: ${detail.correctAnswer}\n\n`;
+      summaryText += `WRONG QUESTION ${idx + 1}:
+Question: ${detail.question}
+Student's Wrong Answer: ${detail.userAnswer || 'No answer provided'}
+Correct Answer: ${detail.correctAnswer}
+${detail.feedback ? `Feedback: ${detail.feedback}` : ''}
+${detail.explanation ? `Explanation: ${detail.explanation}` : ''}
+
+`;
     });
     
-    if (strongQuestions.length > 0) {
-      summaryText += `STRONG AREAS (${strongQuestions.length} questions):\n`;
-      strongQuestions.forEach((detail, idx) => {
-        summaryText += `${idx + 1}. ${detail.question}\n`;
+    if (partialQuestions.length > 0) {
+      summaryText += `\n=== PARTIAL CREDIT QUESTIONS (NEEDS REINFORCEMENT) ===\n`;
+      partialQuestions.forEach((detail, idx) => {
+        summaryText += `${idx + 1}. ${detail.question}
+   Student's Answer: ${detail.userAnswer}
+   Expected: ${detail.correctAnswer}
+   
+`;
       });
     }
+    
+    if (strongQuestions.length > 0) {
+      summaryText += `\n=== QUESTIONS ANSWERED CORRECTLY (FOR CONTEXT) ===\n`;
+      strongQuestions.forEach((detail, idx) => {
+        summaryText += `${idx + 1}. ${detail.question} ✓\n`;
+      });
+    }
+    
+    summaryText += `
+=== GENERATION INSTRUCTIONS ===
+1. MUST include questions that re-test the SAME CONCEPTS from the wrong questions above (rephrase them, don't copy exactly)
+2. Add NEW questions on related topics to expand understanding
+3. Focus on the weak areas identified above
+4. Ensure comprehensive coverage of the material
+`;
     
     return summaryText;
   };
@@ -708,9 +734,28 @@ WEAK AREAS (${weakQuestions.length} questions):
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="Paste a previous performance summary here to tailor the exam to your weak areas..."
         />
-        <p className="text-xs text-gray-500">
-          This will help create questions that focus on areas where you need improvement
-        </p>
+        
+        {/* Enhanced explanation of what performance summary does */}
+        {performanceSummary ? (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <div className="flex items-start gap-2">
+              <Target className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="text-xs text-amber-700">
+                <strong className="block mb-1">Personalized Exam Mode Active</strong>
+                <p>Your next exam will include:</p>
+                <ul className="mt-1 space-y-0.5 list-disc list-inside">
+                  <li>Re-test questions on concepts you got wrong</li>
+                  <li>New questions to expand your understanding</li>
+                  <li>Focus on your weak areas for improvement</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500">
+            Load a previous performance summary to create a personalized exam that re-tests concepts you struggled with
+          </p>
+        )}
         
         {/* Topic Suggestions Button */}
         {performanceSummary && topics.length > 0 && (

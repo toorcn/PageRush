@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { createElement } from 'react';
+import { CheckCircle, XCircle, Info } from 'lucide-react';
 import type { Notification, NotificationInput } from '@/types';
 
 interface NotificationState {
@@ -51,13 +53,32 @@ export const useNotify = () => {
 
   return {
     success: (title: string, message: string, action?: Notification['action']) => {
-      addNotification({ type: 'success', title, message, action, icon: '✅' });
+      addNotification({ 
+        type: 'success', 
+        title, 
+        message, 
+        action, 
+        icon: createElement(CheckCircle, { className: 'w-5 h-5 text-green-500' })
+      });
     },
     error: (title: string, message: string, action?: Notification['action']) => {
-      addNotification({ type: 'error', title, message, action, icon: '❌', autoDismiss: false });
+      addNotification({ 
+        type: 'error', 
+        title, 
+        message, 
+        action, 
+        icon: createElement(XCircle, { className: 'w-5 h-5 text-red-500' }),
+        autoDismiss: false 
+      });
     },
     info: (title: string, message: string, action?: Notification['action']) => {
-      addNotification({ type: 'info', title, message, action, icon: 'ℹ️' });
+      addNotification({ 
+        type: 'info', 
+        title, 
+        message, 
+        action, 
+        icon: createElement(Info, { className: 'w-5 h-5 text-blue-500' })
+      });
     },
   };
 };

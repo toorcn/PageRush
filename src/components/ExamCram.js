@@ -394,7 +394,7 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
         <button
           onClick={() => setCurrentView('breakdown')}
-          className="bg-white rounded-xl p-6 lg:p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 text-left group hover:scale-105"
+          className="bg-white rounded-xl p-6 lg:p-8 shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-200 text-left group active:bg-gray-50 touch-manipulation"
         >
           <ClipboardList className="w-8 h-8 lg:w-10 lg:h-10 mb-3 lg:mb-4 text-blue-600" />
           <h3 className="font-bold text-lg lg:text-xl mb-2 lg:mb-3 text-gray-800">Topic Breakdown</h3>
@@ -411,7 +411,7 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
             }
             setCurrentView('assessment');
           }}
-          className="bg-white rounded-xl p-6 lg:p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 text-left group hover:scale-105"
+          className="bg-white rounded-xl p-6 lg:p-8 shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-200 text-left group active:bg-gray-50 touch-manipulation"
         >
           <BarChart2 className="w-8 h-8 lg:w-10 lg:h-10 mb-3 lg:mb-4 text-green-600" />
           <h3 className="font-bold text-lg lg:text-xl mb-2 lg:mb-3 text-gray-800">Readiness Assessment</h3>
@@ -423,7 +423,7 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
 
         <button
           onClick={() => startAdaptiveLearning()}
-          className="bg-white rounded-xl p-6 lg:p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 text-left group hover:scale-105"
+          className="bg-white rounded-xl p-6 lg:p-8 shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-200 text-left group active:bg-gray-50 touch-manipulation"
         >
           <Target className="w-8 h-8 lg:w-10 lg:h-10 mb-3 lg:mb-4 text-purple-600" />
           <h3 className="font-bold text-lg lg:text-xl mb-2 lg:mb-3 text-gray-800">Adaptive Learning</h3>

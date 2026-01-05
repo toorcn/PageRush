@@ -1,3 +1,5 @@
+import { getModelForAction, getApiUrl } from '@/lib/gemini-config';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -95,9 +97,9 @@ Make it engaging, clear, and easy to follow.`;
     }
 
     const startTime = Date.now();
-    const model = 'gemini-3-flash-preview';
+    const model = getModelForAction('focus-mode-generate');
     
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    const response = await fetch(getApiUrl('focus-mode-generate'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

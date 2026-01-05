@@ -98,7 +98,7 @@ export default function OnboardingGuide({
     return (
       <button
         onClick={() => setIsMinimized(false)}
-        className="fixed bottom-4 right-4 z-50 bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 animate-bounce-slow"
+        className="fixed bottom-4 right-4 z-50 bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-shadow duration-200 touch-manipulation"
         aria-label="Show onboarding guide"
       >
         <span className="text-xl">{step.icon}</span>

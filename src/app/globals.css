@@ -49,6 +49,54 @@ body {
   min-height: 100vh;
 }
 
+/* Mermaid diagram high contrast styles */
+.mermaid-diagram {
+  /* Ensure all text in diagrams is readable */
+  & text {
+    fill: #1e293b !important;
+    font-weight: 500;
+  }
+  
+  & .nodeLabel,
+  & .label {
+    color: #1e293b !important;
+    fill: #1e293b !important;
+  }
+  
+  & .edgeLabel {
+    background-color: #ffffff !important;
+    color: #334155 !important;
+    fill: #334155 !important;
+  }
+  
+  & .node rect,
+  & .node circle,
+  & .node ellipse,
+  & .node polygon {
+    stroke: #1e40af !important;
+    stroke-width: 2px !important;
+  }
+  
+  & .flowchart-link {
+    stroke: #475569 !important;
+    stroke-width: 2px !important;
+  }
+  
+  & marker path {
+    fill: #475569 !important;
+  }
+  
+  /* Mindmap specific */
+  & .mindmap-node rect {
+    fill: #dbeafe !important;
+    stroke: #1e40af !important;
+  }
+  
+  & .mindmap-node text {
+    fill: #1e3a5f !important;
+  }
+}
+
 /* Mobile-specific optimizations */
 @media (max-width: 768px) {
   /* Improve touch targets */
@@ -319,4 +367,14 @@ body {
 
 .animate-toast-out {
   animation: toastOut 0.2s ease-out forwards;
+}
+
+/* Scrollbar hide utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }

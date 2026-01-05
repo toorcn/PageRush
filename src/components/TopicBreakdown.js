@@ -4,7 +4,7 @@ import { topicContentManager } from '../utils/topicContentManager';
 import LottieLoader from './LottieLoader';
 import { 
   ClipboardList, BookOpen, Clock, Target, Check, XCircle, Loader2,
-  ChevronRight, ChevronDown, Link2
+  ChevronRight, ChevronDown, ChevronLeft, Link2
 } from 'lucide-react';
 
 export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onViewContent, loading, content, apiKey }) {

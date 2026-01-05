@@ -30,11 +30,14 @@ interface MetricsState {
   clearSessionMetrics: () => void;
 }
 
-// Gemini pricing (as of 2024) - prices per 1M tokens
 const GEMINI_PRICING = {
   'gemini-3-flash-preview': {
-    input: 0.075, // $0.075 per 1M input tokens
-    output: 0.30,  // $0.30 per 1M output tokens
+    input: 0.50,
+    output: 3.00,
+  },
+  'gemini-2.5-flash': {
+    input: 0.3,
+    output: 2.5
   },
   'gemini-1.5-flash': {
     input: 0.075,
@@ -45,8 +48,8 @@ const GEMINI_PRICING = {
     output: 5.00,
   },
   default: {
-    input: 0.075,
-    output: 0.30,
+    input: 0.3,
+    output: 2.50,
   },
 };
 

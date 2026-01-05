@@ -186,9 +186,9 @@ export default function PdfUploaderModal({ isOpen, onClose, onExtracted }) {
           {/* Drag & Drop Area */}
           <button
             type="button"
-            className={`w-full border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer ${
+            className={`w-full border-2 border-dashed rounded-xl p-6 text-center transition-colors cursor-pointer ${
               isDragging 
-                ? 'border-indigo-500 bg-indigo-50 scale-[1.02]' 
+                ? 'border-indigo-500 bg-indigo-50' 
                 : 'border-gray-200 bg-gray-50 hover:border-indigo-400 hover:bg-indigo-50/50'
             }`}
             onDragOver={handleDragOver}
