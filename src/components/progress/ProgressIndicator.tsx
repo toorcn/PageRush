@@ -1,5 +1,7 @@
 'use client';
 
+import { Check } from 'lucide-react';
+
 interface ProgressIndicatorProps {
   readonly currentStep: number;
   readonly totalSteps?: number;
@@ -70,7 +72,7 @@ export function ProgressIndicator({
                   transition-all duration-300 ${getStepStyles(status)}
                 `}
               >
-                {status === 'completed' ? '✓' : index + 1}
+                {status === 'completed' ? <Check className="w-4 h-4" /> : index + 1}
               </div>
 
               {/* Step Label */}

@@ -1,13 +1,20 @@
 'use client';
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { BookOpen, Layers, HelpCircle, ClipboardList, FileText, ChevronDown, Briefcase, Lightbulb } from 'lucide-react';
 import LottieLoader from './LottieLoader';
 
+const FEATURE_CONFIG = {
+  studyGuide: { Icon: BookOpen, color: 'indigo', label: 'Study Guides' },
+  flashcards: { Icon: Layers, color: 'emerald', label: 'Flashcards' },
+  quiz: { Icon: HelpCircle, color: 'violet', label: 'Quizzes' },
+  exam: { Icon: ClipboardList, color: 'amber', label: 'Exams' },
+};
+
 export default function HelpfulResourcesSidebar({ history, performanceSummaries, onLoadFromHistory }) {
-  const [expandedFeatures, setExpandedFeatures] = useState(new Set(['studyGuide', 'flashcards'])); // Default expanded
+  const [expandedFeatures, setExpandedFeatures] = useState(new Set(['studyGuide', 'flashcards']));
   const [showAllResources, setShowAllResources] = useState(false);
   const [loadingItem, setLoadingItem] = useState(null);
 
-  // Get resources by feature type
   const getResourcesByFeature = (feature) => {
     return history.filter(item => item.feature === feature);
   };
@@ -28,43 +35,40 @@ export default function HelpfulResourcesSidebar({ history, performanceSummaries,
   };
 
   const getFeatureIcon = (feature) => {
-    switch (feature) {
-      case 'studyGuide': return '📚';
-      case 'flashcards': return '🃏';
-      case 'quiz': return '❓';
-      case 'exam': return '📝';
-      default: return '📄';
-    }
+    const config = FEATURE_CONFIG[feature];
+    if (!config) return <FileText className="w-5 h-5" />;
+    const { Icon } = config;
+    return <Icon className="w-5 h-5" />;
   };
 
   const getFeatureColor = (feature) => {
-    switch (feature) {
-      case 'studyGuide': return 'text-blue-700';
-      case 'flashcards': return 'text-green-700';
-      case 'quiz': return 'text-purple-700';
-      case 'exam': return 'text-orange-700';
-      default: return 'text-gray-700';
-    }
+    const colors = {
+      studyGuide: 'text-indigo-700',
+      flashcards: 'text-emerald-700',
+      quiz: 'text-violet-700',
+      exam: 'text-amber-700',
+    };
+    return colors[feature] || 'text-gray-700';
   };
 
   const getFeatureBorderColor = (feature) => {
-    switch (feature) {
-      case 'studyGuide': return 'border-blue-200';
-      case 'flashcards': return 'border-green-200';
-      case 'quiz': return 'border-purple-200';
-      case 'exam': return 'border-orange-200';
-      default: return 'border-gray-200';
-    }
+    const colors = {
+      studyGuide: 'border-indigo-200',
+      flashcards: 'border-emerald-200',
+      quiz: 'border-violet-200',
+      exam: 'border-amber-200',
+    };
+    return colors[feature] || 'border-gray-200';
   };
 
   const getFeatureBgColor = (feature) => {
-    switch (feature) {
-      case 'studyGuide': return 'bg-blue-50';
-      case 'flashcards': return 'bg-green-50';
-      case 'quiz': return 'bg-purple-50';
-      case 'exam': return 'bg-orange-50';
-      default: return 'bg-gray-50';
-    }
+    const colors = {
+      studyGuide: 'bg-indigo-50',
+      flashcards: 'bg-emerald-50',
+      quiz: 'bg-violet-50',
+      exam: 'bg-amber-50',
+    };
+    return colors[feature] || 'bg-gray-50';
   };
 
   const handleLoadFromHistory = async (item) => {
@@ -78,7 +82,7 @@ export default function HelpfulResourcesSidebar({ history, performanceSummaries,
     }
   };
 
-  const renderResourceItem = (item, index) => {
+  const renderResourceItem = (item) => {
     const preview = item.result?.result?.candidates?.[0]?.content?.parts?.[0]?.text?.slice(0, 120) || 'No preview available.';
     const date = new Date(item.timestamp).toLocaleDateString();
     const isLoading = loadingItem === item.id;
@@ -94,7 +98,7 @@ export default function HelpfulResourcesSidebar({ history, performanceSummaries,
               </span>
             )}
             {item.topics && item.topics.length > 0 && (
-              <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full font-medium">
+              <span className="text-xs bg-indigo-100 text-indigo-600 px-2 py-1 rounded-full font-medium">
                 {item.topics.length} topics
               </span>
             )}
@@ -105,7 +109,7 @@ export default function HelpfulResourcesSidebar({ history, performanceSummaries,
             className={`text-xs font-medium px-3 py-1 rounded-full transition-all duration-200 ${
               isLoading 
                 ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
-                : 'bg-blue-100 text-blue-700 hover:bg-blue-200 hover:text-blue-800'
+                : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 hover:text-indigo-800'
             }`}
           >
             {isLoading ? (
@@ -134,13 +138,13 @@ export default function HelpfulResourcesSidebar({ history, performanceSummaries,
     const hasMore = resources.length > 3 && !showAllResources;
 
     return (
-      <div className={`${getFeatureBgColor(feature)} rounded-lg border ${getFeatureBorderColor(feature)} overflow-hidden`}>
+      <div className={`${getFeatureBgColor(feature)} rounded-xl border ${getFeatureBorderColor(feature)} overflow-hidden`}>
         <button
           onClick={() => toggleFeature(feature)}
           className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-white/50 transition-colors"
         >
           <div className="flex items-center space-x-3">
-            <span className="text-xl">{getFeatureIcon(feature)}</span>
+            <span className={getFeatureColor(feature)}>{getFeatureIcon(feature)}</span>
             <div>
               <h4 className={`font-semibold ${getFeatureColor(feature)}`}>{title}</h4>
               <p className="text-xs text-gray-500">{resources.length} resource{resources.length !== 1 ? 's' : ''}</p>
@@ -154,9 +158,7 @@ export default function HelpfulResourcesSidebar({ history, performanceSummaries,
                 {resources.length}
               </span>
             )}
-            <span className={`transform transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
-              ▼
-            </span>
+            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
           </div>
         </button>
         
@@ -164,7 +166,7 @@ export default function HelpfulResourcesSidebar({ history, performanceSummaries,
           <div className="px-4 pb-3 space-y-2">
             {resources.length === 0 ? (
               <div className="text-center py-4">
-                <div className="text-gray-400 text-2xl mb-2">{getFeatureIcon(feature)}</div>
+                <div className="text-gray-300 mb-2">{getFeatureIcon(feature)}</div>
                 <p className="text-xs text-gray-500">No {title.toLowerCase()} yet</p>
                 <p className="text-xs text-gray-400">Generate your first one to see it here!</p>
               </div>
@@ -174,7 +176,7 @@ export default function HelpfulResourcesSidebar({ history, performanceSummaries,
                 {hasMore && (
                   <button
                     onClick={() => setShowAllResources(true)}
-                    className="w-full text-xs text-blue-600 hover:text-blue-800 font-medium py-2 hover:bg-white/50 rounded transition-colors"
+                    className="w-full text-xs text-indigo-600 hover:text-indigo-800 font-medium py-2 hover:bg-white/50 rounded transition-colors"
                   >
                     Show {resources.length - 3} more...
                   </button>
@@ -190,25 +192,17 @@ export default function HelpfulResourcesSidebar({ history, performanceSummaries,
   const totalResources = studyGuides.length + flashcards.length + quizzes.length + exams.length;
 
   return (
-    <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 p-4">
+    <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-100 p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-gray-800 flex items-center">
-          <span className="mr-2">🧰</span>
+        <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+          <Briefcase className="w-4 h-4 text-gray-500" />
           Study Resources
           {totalResources > 0 && (
-            <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+            <span className="ml-1 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium">
               {totalResources}
             </span>
           )}
         </h3>
-        {/* {totalResources > 3 && (
-          <button
-            onClick={() => setShowAllResources(!showAllResources)}
-            className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium"
-          >
-            {showAllResources ? 'Show Recent' : 'Show All'}
-          </button>
-        )} */}
       </div>
       
       <div className="space-y-3">
@@ -219,15 +213,16 @@ export default function HelpfulResourcesSidebar({ history, performanceSummaries,
         
         {totalResources === 0 && (
           <div className="text-center py-8">
-            <div className="text-gray-400 text-4xl mb-3">📚</div>
+            <BookOpen className="w-10 h-10 mx-auto mb-3 text-gray-300" />
             <div className="text-sm text-gray-500 font-medium mb-1">No resources generated yet</div>
             <div className="text-xs text-gray-400">Generate your first study material to see it here!</div>
-            <div className="mt-3 text-xs text-gray-400">
-              💡 Try uploading a document and creating flashcards, quizzes, or study guides
+            <div className="mt-3 text-xs text-gray-400 flex items-center justify-center gap-1">
+              <Lightbulb className="w-3 h-3" />
+              Try uploading a document and creating flashcards, quizzes, or study guides
             </div>
           </div>
         )}
       </div>
     </div>
   );
-} 
+}

@@ -1,20 +1,15 @@
 'use client';
 import { useRef, useState, useCallback, useEffect } from 'react';
+import { FileText, X, FolderOpen, CheckCircle, Loader2 } from 'lucide-react';
 import LottieLoader from './LottieLoader';
 
-// Dynamic import for PDF.js to avoid SSR issues
 const loadPdfJs = async () => {
   const pdfjs = await import('pdfjs-dist');
-  // Use unpkg CDN which always has the latest versions
   const version = pdfjs.version;
   pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
   return pdfjs;
 };
 
-/**
- * Modal version of PDF uploader that can be triggered from anywhere in the app
- * Provides a consistent upload experience regardless of where the user is
- */
 export default function PdfUploaderModal({ isOpen, onClose, onExtracted }) {
   const fileInput = useRef();
   const modalRef = useRef();
@@ -24,7 +19,6 @@ export default function PdfUploaderModal({ isOpen, onClose, onExtracted }) {
   const [processingStatus, setProcessingStatus] = useState('');
   const [progress, setProgress] = useState({ current: 0, total: 0, pages: 0, totalPages: 0 });
 
-  // Close on escape key
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape' && isOpen && !isProcessing) {
@@ -35,7 +29,6 @@ export default function PdfUploaderModal({ isOpen, onClose, onExtracted }) {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, isProcessing, onClose]);
 
-  // Prevent body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -47,7 +40,6 @@ export default function PdfUploaderModal({ isOpen, onClose, onExtracted }) {
     };
   }, [isOpen]);
 
-  // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setFiles([]);
@@ -161,18 +153,20 @@ export default function PdfUploaderModal({ isOpen, onClose, onExtracted }) {
   return (
     <div 
       ref={modalRef}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn"
       onClick={handleBackdropClick}
     >
       <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto animate-slideUp">
         {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5 rounded-t-2xl">
+        <div className="sticky top-0 bg-indigo-600 text-white p-5 rounded-t-2xl">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <span className="text-2xl">📄</span>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                <FileText className="w-5 h-5" />
+              </div>
               <div>
-                <h2 className="text-lg font-bold">Upload Documents</h2>
-                <p className="text-blue-100 text-sm">Add PDF files to study</p>
+                <h2 className="text-lg font-semibold">Upload Documents</h2>
+                <p className="text-indigo-200 text-sm">Add PDF files to study</p>
               </div>
             </div>
             {!isProcessing && (
@@ -181,7 +175,7 @@ export default function PdfUploaderModal({ isOpen, onClose, onExtracted }) {
                 className="text-white/80 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/20"
                 aria-label="Close"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             )}
           </div>
@@ -190,26 +184,28 @@ export default function PdfUploaderModal({ isOpen, onClose, onExtracted }) {
         {/* Content */}
         <div className="p-5 space-y-4">
           {/* Drag & Drop Area */}
-          <div
-            role="button"
-            tabIndex={0}
-            className={`border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer ${
+          <button
+            type="button"
+            className={`w-full border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer ${
               isDragging 
-                ? 'border-blue-500 bg-blue-50 scale-[1.02]' 
-                : 'border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50/50'
+                ? 'border-indigo-500 bg-indigo-50 scale-[1.02]' 
+                : 'border-gray-200 bg-gray-50 hover:border-indigo-400 hover:bg-indigo-50/50'
             }`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={() => fileInput.current?.click()}
-            onKeyDown={(e) => e.key === 'Enter' && fileInput.current?.click()}
           >
-            <div className="text-4xl mb-3">📁</div>
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3 ${
+              isDragging ? 'bg-indigo-100' : 'bg-gray-100'
+            }`}>
+              <FolderOpen className={`w-6 h-6 ${isDragging ? 'text-indigo-600' : 'text-gray-400'}`} />
+            </div>
             <p className="text-base font-medium text-gray-700 mb-1">
               {isDragging ? 'Drop your PDFs here' : 'Drag & drop PDFs here'}
             </p>
-            <p className="text-gray-500 text-sm mb-3">or click to browse</p>
-            <span className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors">
+            <p className="text-gray-400 text-sm mb-3">or click to browse</p>
+            <span className="inline-block px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium text-sm hover:bg-indigo-700 transition-colors">
               Choose Files
             </span>
             <input
@@ -220,29 +216,32 @@ export default function PdfUploaderModal({ isOpen, onClose, onExtracted }) {
               onChange={handleFileSelect}
               className="hidden"
             />
-          </div>
+          </button>
 
-          <p className="text-green-600 text-xs text-center">
-            ✓ PDFs are processed locally in your browser
+          <p className="text-emerald-600 text-xs text-center flex items-center justify-center gap-1">
+            <CheckCircle className="w-3.5 h-3.5" />
+            PDFs are processed locally in your browser
           </p>
 
           {/* File List */}
           {files.length > 0 && (
-            <div className="bg-gray-50 rounded-xl p-4">
-              <h3 className="font-semibold text-sm mb-3 text-gray-700">
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+              <h3 className="font-medium text-sm mb-3 text-gray-700">
                 Selected Files ({files.length})
               </h3>
               <div className="space-y-2 max-h-40 overflow-y-auto">
                 {files.map((file, index) => (
                   <div 
                     key={file.name + file.size} 
-                    className="flex items-center justify-between p-2 bg-white rounded-lg border border-gray-200"
+                    className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-100"
                   >
-                    <div className="flex items-center space-x-2 min-w-0 flex-1">
-                      <span className="text-lg">📄</span>
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="w-9 h-9 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <FileText className="w-4 h-4 text-indigo-600" />
+                      </div>
                       <div className="min-w-0 flex-1">
                         <p className="font-medium text-gray-800 text-sm truncate">{file.name}</p>
-                        <p className="text-xs text-gray-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                        <p className="text-xs text-gray-400">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                       </div>
                     </div>
                     <button
@@ -251,10 +250,10 @@ export default function PdfUploaderModal({ isOpen, onClose, onExtracted }) {
                         e.stopPropagation();
                         removeFile(index);
                       }}
-                      className="text-red-500 hover:text-red-700 p-1.5 rounded hover:bg-red-50 transition-colors"
+                      className="text-gray-400 hover:text-red-500 p-1.5 rounded hover:bg-red-50 transition-colors"
                       aria-label={`Remove ${file.name}`}
                     >
-                      ✕
+                      <X className="w-4 h-4" />
                     </button>
                   </div>
                 ))}
@@ -264,22 +263,25 @@ export default function PdfUploaderModal({ isOpen, onClose, onExtracted }) {
 
           {/* Processing Progress */}
           {isProcessing && (
-            <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+            <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-blue-800">{processingStatus}</span>
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" />
+                  <span className="text-sm font-medium text-indigo-800">{processingStatus}</span>
+                </div>
                 {progress.total > 1 && (
-                  <span className="text-sm text-blue-600">File {progress.current} of {progress.total}</span>
+                  <span className="text-sm text-indigo-600">File {progress.current} of {progress.total}</span>
                 )}
               </div>
               {progress.totalPages > 0 && (
                 <div className="mt-2">
-                  <div className="flex items-center justify-between text-xs text-blue-600 mb-1">
+                  <div className="flex items-center justify-between text-xs text-indigo-600 mb-1">
                     <span>Page progress</span>
                     <span>{progress.pages} / {progress.totalPages}</span>
                   </div>
-                  <div className="w-full bg-blue-200 rounded-full h-2">
+                  <div className="w-full bg-indigo-200 rounded-full h-1.5">
                     <div 
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      className="bg-indigo-600 h-1.5 rounded-full transition-all duration-300"
                       style={{ width: `${(progress.pages / progress.totalPages) * 100}%` }}
                     />
                   </div>
@@ -290,8 +292,8 @@ export default function PdfUploaderModal({ isOpen, onClose, onExtracted }) {
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 p-4 rounded-b-2xl">
-          <div className="flex space-x-3">
+        <div className="sticky bottom-0 bg-gray-50 border-t border-gray-100 p-4 rounded-b-2xl fixed-bottom-safe">
+          <div className="flex gap-3">
             <button
               onClick={onClose}
               disabled={isProcessing}
@@ -302,12 +304,12 @@ export default function PdfUploaderModal({ isOpen, onClose, onExtracted }) {
             <button
               onClick={handleSubmit}
               disabled={!files.length || isProcessing}
-              className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+              className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
             >
               {isProcessing ? (
-                <span className="flex items-center justify-center">
-                  <LottieLoader size="small" text="" />
-                  <span className="ml-2">Processing...</span>
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Processing...
                 </span>
               ) : (
                 `Upload ${files.length > 0 ? `(${files.length})` : ''}`

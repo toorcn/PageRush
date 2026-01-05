@@ -1,5 +1,6 @@
 'use client';
 
+import { X } from 'lucide-react';
 import { useNotificationStore } from '@/stores';
 import type { Notification } from '@/types';
 
@@ -50,7 +51,7 @@ function NotificationItem({ notification }: { notification: Notification }) {
         className={`flex-shrink-0 ${textColors[notification.type]} opacity-50 hover:opacity-100`}
         aria-label="Dismiss notification"
       >
-        ✕
+        <X className="w-4 h-4" />
       </button>
     </div>
   );

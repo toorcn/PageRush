@@ -70,7 +70,10 @@ Example:
   ]
 }`;
 
-        const assessmentResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent', {
+        const model = 'gemini-3-flash-preview';
+        const startTime = Date.now();
+        
+        const assessmentResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -80,6 +83,8 @@ Example:
             contents: [{ parts: [{ text: assessmentPrompt }] }]
           }),
         });
+
+        const responseTimeMs = Date.now() - startTime;
 
         if (!assessmentResponse.ok) {
           throw new Error(`Gemini assessment API error: ${assessmentResponse.status}`);

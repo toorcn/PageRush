@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import { Check } from 'lucide-react';
 
 interface ProgressIndicatorProps {
   currentStep: number;
@@ -22,7 +22,7 @@ export default function ProgressIndicator({ currentStep, totalSteps = 4, labels 
         {/* Progress Line */}
         <div className="absolute top-5 left-0 right-0 h-0.5 bg-gray-200 -z-10">
           <div 
-            className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 transition-all duration-500 ease-out"
+            className="h-full bg-indigo-600 transition-all duration-500 ease-out"
             style={{ width: `${(currentStep / (totalSteps - 1)) * 100}%` }}
           />
         </div>
@@ -33,7 +33,7 @@ export default function ProgressIndicator({ currentStep, totalSteps = 4, labels 
           const label = labels[index] || `Step ${index + 1}`;
           
           return (
-            <div key={index} className="flex flex-col items-center flex-1 relative">
+            <div key={step} className="flex flex-col items-center flex-1 relative">
               {/* Step Circle */}
               <div
                 className={`
@@ -41,15 +41,15 @@ export default function ProgressIndicator({ currentStep, totalSteps = 4, labels 
                   transition-all duration-300
                   ${
                     status === 'completed'
-                      ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg scale-110'
+                      ? 'bg-emerald-500 text-white shadow-md'
                       : status === 'current'
-                      ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg scale-110 animate-pulse-slow'
+                      ? 'bg-indigo-600 text-white shadow-md animate-pulse-slow'
                       : 'bg-gray-200 text-gray-500'
                   }
                 `}
               >
                 {status === 'completed' ? (
-                  <span>✓</span>
+                  <Check className="w-5 h-5" />
                 ) : (
                   <span>{index + 1}</span>
                 )}
@@ -62,9 +62,9 @@ export default function ProgressIndicator({ currentStep, totalSteps = 4, labels 
                     text-xs font-medium transition-colors duration-300
                     ${
                       status === 'completed'
-                        ? 'text-green-600'
+                        ? 'text-emerald-600'
                         : status === 'current'
-                        ? 'text-blue-600 font-semibold'
+                        ? 'text-indigo-600 font-semibold'
                         : 'text-gray-500'
                     }
                   `}
@@ -79,4 +79,3 @@ export default function ProgressIndicator({ currentStep, totalSteps = 4, labels 
     </div>
   );
 }
-

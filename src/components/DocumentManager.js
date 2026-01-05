@@ -1,5 +1,6 @@
 'use client';
-import React, { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { Library, X, Search, FileText, Check, Trash2, Upload } from 'lucide-react';
 
 export default function DocumentManager({ 
   documents, 
@@ -10,64 +11,77 @@ export default function DocumentManager({
   onAddMoreDocuments 
 }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
-  const [selectedDocuments, setSelectedDocuments] = useState(new Set());
-  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
-  const [activeTab, setActiveTab] = useState('active');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const formatDate = (timestamp) => {
-    return new Date(timestamp).toLocaleDateString() + ' ' + new Date(timestamp).toLocaleTimeString();
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return date.toLocaleDateString();
   };
 
   const getDocumentSize = (text) => {
     const sizeInKB = Math.round(text.length / 1024);
-    if (sizeInKB < 1024) {
-      return `${sizeInKB} KB`;
+    if (sizeInKB < 1024) return `${sizeInKB} KB`;
+    return `${(sizeInKB / 1024).toFixed(1)} MB`;
+  };
+
+  // Get active documents as array
+  const activeDocuments = useMemo(() => {
+    if (Array.isArray(activeDocument)) return activeDocument;
+    return activeDocument ? [activeDocument] : [];
+  }, [activeDocument]);
+
+  const isDocumentActive = (docId) => {
+    return activeDocuments.some(doc => doc.id === docId);
+  };
+
+  // Filter and sort documents: active first, then by date
+  const sortedDocuments = useMemo(() => {
+    let filtered = documents;
+    
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = documents.filter(doc => 
+        doc.name.toLowerCase().includes(query) ||
+        doc.text.toLowerCase().includes(query)
+      );
+    }
+
+    return [...filtered].sort((a, b) => {
+      const aActive = isDocumentActive(a.id);
+      const bActive = isDocumentActive(b.id);
+      if (aActive && !bActive) return -1;
+      if (!aActive && bActive) return 1;
+      return b.timestamp - a.timestamp;
+    });
+  }, [documents, searchQuery, activeDocuments]);
+
+  const handleToggleDocument = (doc) => {
+    const isActive = isDocumentActive(doc.id);
+    
+    if (isActive) {
+      // Prevent unselecting the last active document
+      if (activeDocuments?.length <= 1) {
+        return; // Don't allow deselecting the only active document
+      }
+      // Remove from active
+      const newActive = activeDocuments.filter(d => d.id !== doc.id);
+      onSelectDocument(newActive);
     } else {
-      return `${(sizeInKB / 1024).toFixed(1)} MB`;
+      // Add to active
+      onSelectDocument([...activeDocuments, doc]);
     }
   };
 
   const handleRemoveDocument = (documentId) => {
     onRemoveDocument(documentId);
     setShowDeleteConfirm(null);
-    // Remove from selected documents if it was selected
-    setSelectedDocuments(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(documentId);
-      return newSet;
-    });
-  };
-
-  const toggleDocumentSelection = (documentId) => {
-    setSelectedDocuments(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(documentId)) {
-        newSet.delete(documentId);
-      } else {
-        newSet.add(documentId);
-      }
-      return newSet;
-    });
-  };
-
-  const handleSelectMultiple = () => {
-    if (selectedDocuments.size > 0) {
-      // Get all selected documents
-      const selectedDocs = documents.filter(doc => selectedDocuments.has(doc.id));
-      
-      // Pass the array of selected documents to the parent component
-      // The parent component will need to handle multiple documents
-      onSelectDocument(selectedDocs);
-    }
-    setIsMultiSelectMode(false);
-    setSelectedDocuments(new Set());
-  };
-
-  const handleUnselectDocument = (documentId) => {
-    // If this was the active document, clear the active document
-    if (activeDocument?.id === documentId) {
-      onSelectDocument(null);
-    }
   };
 
   const handleAddMoreDocuments = () => {
@@ -77,284 +91,213 @@ export default function DocumentManager({
     onClose();
   };
 
-  const isDocumentSelected = (documentId) => {
-    return selectedDocuments.has(documentId);
-  };
-
-  const isDocumentActive = (documentId) => {
-    // Check if this document is in the active documents array
-    if (Array.isArray(activeDocument)) {
-      return activeDocument.some(doc => doc.id === documentId);
-    }
-    return activeDocument?.id === documentId;
-  };
-
-  // Get active document names for display
-  const getActiveDocumentNames = () => {
-    if (Array.isArray(activeDocument)) {
-      return activeDocument.map(doc => doc.name).join(', ');
-    }
-    return activeDocument?.name || '';
-  };
-
-  // Get all active documents for display
-  const getActiveDocuments = () => {
-    if (Array.isArray(activeDocument)) {
-      return activeDocument;
-    }
-    return activeDocument ? [activeDocument] : [];
-  };
-
   return (
-    <div className="h-full fixed inset-0 bg-gray-900/75 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full h-full max-h-[95vh] overflow-hidden flex flex-col mx-2">
+    <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b flex-shrink-0">
-          <h2 className="text-2xl font-bold text-gray-800">📚 Document Manager</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl"
-          >
-            ×
-          </button>
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Library className="w-6 h-6" />
+              <div>
+                <h2 className="text-lg font-bold">Documents</h2>
+                <p className="text-blue-100 text-sm">
+                  {activeDocuments?.length > 0 
+                    ? `${activeDocuments?.length} active · ${documents.length} total`
+                    : `${documents.length} document${documents.length !== 1 ? 's' : ''}`
+                  }
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-white/80 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/20"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b flex-shrink-0">
-          <button
-            onClick={() => setActiveTab('active')}
-            className={`px-6 py-3 font-medium transition-colors ${
-              activeTab === 'active' 
-                ? 'text-blue-600 border-b-2 border-blue-600' 
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Active Documents ({getActiveDocuments().length})
-          </button>
-          <button
-            onClick={() => setActiveTab('all')}
-            className={`px-6 py-3 font-medium transition-colors ${
-              activeTab === 'all' 
-                ? 'text-blue-600 border-b-2 border-blue-600' 
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            All Documents ({documents.length})
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-6 overflow-y-auto flex-1">
-          {activeTab === 'active' && (
-            <div className="space-y-4">
-              {getActiveDocuments().length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <div className="text-4xl mb-4">📄</div>
-                  <p>No active documents</p>
-                  <p className="text-sm">Select documents from the "All Documents" tab to make them active</p>
-                </div>
-              ) : (
-                getActiveDocuments().map((doc) => (
-                  <div
-                    key={`active-${doc.id}`}
-                    className="border rounded-lg p-4 hover:bg-gray-50 transition-colors border-blue-500 bg-blue-50"
-                  >
-                    {/* Selection Checkbox */}
-                    {isMultiSelectMode && (
-                      <div className="mb-3">
-                        <input
-                          type="checkbox"
-                          checked={isDocumentSelected(doc.id)}
-                          onChange={() => toggleDocumentSelection(doc.id)}
-                          className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                        />
-                        <span className="ml-2 text-sm text-gray-600">Select for multi-document operation</span>
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-3">
-                        <span className="text-2xl">📄</span>
-                        <div>
-                          <h3 className="font-semibold text-gray-800">
-                            {doc.name}
-                          </h3>
-                          <p className="text-sm text-gray-500">{formatDate(doc.timestamp)}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
-                          Active
-                        </span>
-                        <button
-                          onClick={() => setShowDeleteConfirm(doc.id)}
-                          className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition-colors"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <div className="text-sm text-gray-600 mb-2">
-                      <span className="mr-4">📏 {getDocumentSize(doc.text)}</span>
-                      <span>{doc.text.substring(0, 100)}...</span>
-                    </div>
-                  </div>
-                ))
+        {/* Search Bar */}
+        {documents.length > 3 && (
+          <div className="px-5 pt-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search documents..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-gray-100 border-0 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               )}
             </div>
-          )}
+          </div>
+        )}
 
-          {activeTab === 'all' && (
-            <div className="space-y-4">
-              {documents.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <div className="text-4xl mb-4">📄</div>
-                  <p>No documents uploaded yet</p>
-                  <p className="text-sm">Upload your first document to get started</p>
-                </div>
-              ) : (
-                documents.map((doc) => (
-                  <div
-                    key={doc.id}
-                    className={`border rounded-lg p-4 hover:bg-gray-50 transition-colors ${
-                      isDocumentActive(doc.id)
-                        ? 'border-blue-500 bg-blue-50'
-                        : isDocumentSelected(doc.id)
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-gray-200'
-                    }`}
+        {/* Document List */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-3">
+          {documents.length === 0 ? (
+            <div className="text-center py-12">
+              <FileText className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">No documents yet</h3>
+              <p className="text-gray-500 text-sm mb-6 max-w-xs mx-auto">
+                Upload a PDF to start creating flashcards, quizzes, and study guides
+              </p>
+              <button
+                onClick={handleAddMoreDocuments}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-medium hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg inline-flex items-center"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Your First PDF
+              </button>
+              <p className="text-xs text-gray-400 mt-4">
+                PDFs are processed locally in your browser
+              </p>
+            </div>
+          ) : sortedDocuments.length === 0 ? (
+            <div className="text-center py-12">
+              <Search className="w-10 h-10 mx-auto mb-3 text-gray-400" />
+              <p className="text-gray-500">No documents match "{searchQuery}"</p>
+            </div>
+          ) : (
+            sortedDocuments.map((doc) => {
+              const isActive = isDocumentActive(doc.id);
+              const isLastActive = isActive && activeDocuments?.length === 1;
+              return (
+                <div
+                  key={doc.id}
+                  className={`group relative rounded-xl border-2 transition-all duration-200 ${
+                    isActive
+                      ? 'border-blue-500 bg-blue-50/50 shadow-md'
+                      : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+                  }`}
+                >
+                  <div 
+                    role="button"
+                    tabIndex={0}
+                    className={`p-4 ${isLastActive ? 'cursor-default' : 'cursor-pointer'}`}
+                    onClick={() => handleToggleDocument(doc)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleToggleDocument(doc)}
                   >
-                    {/* Selection Checkbox */}
-                    {isMultiSelectMode && (
-                      <div className="mb-3">
-                        <input
-                          type="checkbox"
-                          checked={isDocumentSelected(doc.id)}
-                          onChange={() => toggleDocumentSelection(doc.id)}
-                          className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                        />
-                        <span className="ml-2 text-sm text-gray-600">Select for multi-document operation</span>
+                    <div className="flex items-start space-x-3">
+                      {/* Checkbox */}
+                      <div 
+                        className={`mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+                          isActive 
+                            ? isLastActive
+                              ? 'bg-blue-400 border-blue-400 cursor-not-allowed'
+                              : 'bg-blue-600 border-blue-600' 
+                            : 'border-gray-300 group-hover:border-blue-400'
+                        }`}
+                        title={isLastActive ? 'At least one document must be selected' : ''}
+                      >
+                        {isActive && <Check className="w-3 h-3 text-white" />}
                       </div>
-                    )}
 
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-3">
-                        <span className="text-2xl">📄</span>
-                        <div>
-                          <h3 className="font-semibold text-gray-800">
-                            {doc.name}
-                          </h3>
-                          <p className="text-sm text-gray-500">{formatDate(doc.timestamp)}</p>
+                      {/* Document Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <h3 className="font-semibold text-gray-800 truncate">{doc.name}</h3>
+                          {isActive && (
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
+                              isLastActive 
+                                ? 'bg-amber-100 text-amber-700' 
+                                : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              {isLastActive ? 'Required' : 'Active'}
+                            </span>
+                          )}
                         </div>
+                        <div className="flex items-center space-x-3 text-xs text-gray-500">
+                          <span>{formatDate(doc.timestamp)}</span>
+                          <span>•</span>
+                          <span>{getDocumentSize(doc.text)}</span>
+                        </div>
+                        <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+                          {doc.text.substring(0, 150)}...
+                        </p>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        {isDocumentActive(doc.id) && (
-                          <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
-                            Active
-                          </span>
-                        )}
-                        {!isDocumentActive(doc.id) && (
-                          <button
-                            onClick={() => onSelectDocument([doc])}
-                            className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
-                          >
-                            Select
-                          </button>
-                        )}
-                        <button
-                          onClick={() => setShowDeleteConfirm(doc.id)}
-                          className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition-colors"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <div className="text-sm text-gray-600 mb-2">
-                      <span className="mr-4">📏 {getDocumentSize(doc.text)}</span>
-                      <span>{doc.text.substring(0, 100)}...</span>
+
+                      {/* Delete Button - Always visible on mobile, hover on desktop */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowDeleteConfirm(doc.id);
+                        }}
+                        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                        aria-label={`Delete ${doc.name}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
+                </div>
+              );
+            })
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t bg-gray-50">
-          <div className="text-sm text-gray-500">
-            {activeTab === 'active' 
-              ? `${getActiveDocuments().length} active document${getActiveDocuments().length !== 1 ? 's' : ''}`
-              : `${documents.length} document${documents.length !== 1 ? 's' : ''} total`
-            }
-          </div>
-          <div className="flex space-x-2">
-            {!isMultiSelectMode ? (
-              <>
-                <button
-                  onClick={() => setIsMultiSelectMode(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Select Multiple
-                </button>
+        <div className="border-t border-gray-200 bg-gray-50 p-4 fixed-bottom-safe">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500">
+              {activeDocuments?.length > 0 && (
+                <span className="text-blue-600 font-medium">
+                  {activeDocuments?.length} selected for study
+                </span>
+              )}
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={onClose}
+                className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition-colors"
+              >
+                Done
+              </button>
+              {documents.length > 0 && (
                 <button
                   onClick={handleAddMoreDocuments}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-medium hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md inline-flex items-center"
                 >
-                  Add More
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload New
                 </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => {
-                    setIsMultiSelectMode(false);
-                    setSelectedDocuments(new Set());
-                  }}
-                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSelectMultiple}
-                  disabled={selectedDocuments.size === 0}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Select ({selectedDocuments.size})
-                </button>
-              </>
-            )}
-            {/* <button
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-            >
-              Close
-            </button> */}
+              )}
+            </div>
           </div>
         </div>
 
         {/* Delete Confirmation Modal */}
         {showDeleteConfirm && (
-          <div className="absolute inset-0 bg-gray-900/75 backdrop-blur-sm flex items-center justify-center z-10">
-            <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4">
+          <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-10 rounded-2xl">
+            <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4 animate-slideUp">
               <div className="text-center">
-                <div className="text-4xl mb-4">⚠️</div>
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Trash2 className="w-6 h-6 text-red-600" />
+                </div>
                 <h3 className="text-lg font-bold text-gray-800 mb-2">Delete Document?</h3>
-                <p className="text-gray-600 mb-6">
-                  This action cannot be undone. The document will be permanently removed.
+                <p className="text-gray-600 text-sm mb-6">
+                  This will permanently remove the document and cannot be undone.
                 </p>
                 <div className="flex space-x-3">
                   <button
                     onClick={() => setShowDeleteConfirm(null)}
-                    className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                    className="flex-1 px-4 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={() => handleRemoveDocument(showDeleteConfirm)}
-                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-colors"
                   >
                     Delete
                   </button>
@@ -366,4 +309,4 @@ export default function DocumentManager({
       </div>
     </div>
   );
-} 
+}

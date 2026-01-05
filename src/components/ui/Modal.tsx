@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, type ReactNode } from 'react';
+import { X } from 'lucide-react';
 
 interface ModalProps {
   isOpen: boolean;
@@ -63,7 +64,7 @@ export function Modal({ isOpen, onClose, children, title, size = 'md' }: ModalPr
               className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
               aria-label="Close modal"
             >
-              ✕
+              <X className="w-5 h-5" />
             </button>
           </div>
         )}

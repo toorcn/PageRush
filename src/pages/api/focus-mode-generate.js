@@ -94,7 +94,10 @@ Please provide:
 Make it engaging, clear, and easy to follow.`;
     }
 
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent', {
+    const startTime = Date.now();
+    const model = 'gemini-3-flash-preview';
+    
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -104,6 +107,8 @@ Make it engaging, clear, and easy to follow.`;
         contents: [{ parts: [{ text: prompt }] }]
       }),
     });
+
+    const responseTimeMs = Date.now() - startTime;
 
     if (!response.ok) {
       const errorData = await response.text();
@@ -115,7 +120,13 @@ Make it engaging, clear, and easy to follow.`;
 
     const data = await response.json();
     console.log('Gemini API successful response for focus mode:', JSON.stringify(data, null, 2));
-    res.status(200).json({ result: data });
+    res.status(200).json({ 
+      result: data,
+      usageMetadata: data.usageMetadata || null,
+      responseTimeMs,
+      model,
+      promptType: lessonType
+    });
 
   } catch (error) {
     console.error('Focus mode generation error:', error);

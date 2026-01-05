@@ -128,6 +128,13 @@ export interface Flashcard {
 }
 
 // Gemini API types
+export interface UsageMetadata {
+  promptTokenCount: number;
+  candidatesTokenCount: number;
+  totalTokenCount: number;
+  cachedContentTokenCount?: number;
+}
+
 export interface GeminiResponse {
   result?: {
     candidates?: Array<{
@@ -137,7 +144,11 @@ export interface GeminiResponse {
         }>;
       };
     }>;
+    usageMetadata?: UsageMetadata;
   };
+  usageMetadata?: UsageMetadata;
+  responseTimeMs?: number;
+  model?: string;
   error?: string;
 }
 

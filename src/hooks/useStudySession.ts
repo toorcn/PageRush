@@ -15,15 +15,6 @@ const FEATURE_LABELS: Record<StudyFeature, string> = {
   '': 'Study Tools',
 };
 
-const FEATURE_ICONS: Record<StudyFeature, string> = {
-  examCram: '🚀',
-  studyGuide: '📚',
-  flashcards: '📝',
-  quiz: '🎓',
-  exam: '📊',
-  '': '✨',
-};
-
 export function useStudySession() {
   const { getActiveText, activeDocuments } = useDocumentStore();
   const {
@@ -44,7 +35,6 @@ export function useStudySession() {
   const notify = useNotify();
 
   const getFeatureLabel = useCallback((ft: StudyFeature) => FEATURE_LABELS[ft], []);
-  const getFeatureIcon = useCallback((ft: StudyFeature) => FEATURE_ICONS[ft], []);
 
   const generateContent = useCallback(
     async (
@@ -120,7 +110,7 @@ export function useStudySession() {
         return;
       }
 
-      if (!activeDocuments.length || !apiKey) return;
+      if (!activeDocuments?.length || !apiKey) return;
 
       await generateContent(ft);
     },
@@ -228,6 +218,5 @@ export function useStudySession() {
 
     // Helpers
     getFeatureLabel,
-    getFeatureIcon,
   };
 }

@@ -1,5 +1,9 @@
 'use client';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { 
+  BookOpen, Lightbulb, BarChart3, RefreshCw, ChevronDown, ChevronRight,
+  Inbox, Check
+} from 'lucide-react';
 
 // Mermaid diagram component
 const MermaidDiagram = ({ chart, id }) => {
@@ -96,7 +100,7 @@ const KeyPointsBox = ({ points, title = "Key Points" }) => {
   return (
     <div className="my-4 bg-gradient-to-r from-amber-50 to-yellow-50 border-l-4 border-amber-400 rounded-r-lg p-4">
       <h4 className="font-semibold text-amber-800 mb-2 flex items-center gap-2">
-        <span>💡</span> {title}
+        <Lightbulb className="w-4 h-4" /> {title}
       </h4>
       <ul className="space-y-1">
         {points.map((point, idx) => (
@@ -563,7 +567,7 @@ export default function StudyGuide({ content, onRegenerate }) {
       return `${firstContent.items.length} item(s)`;
     }
     if (firstContent.type === 'diagram') {
-      return '📊 Contains diagram';
+      return 'Contains diagram';
     }
     return '';
   };
@@ -600,8 +604,8 @@ export default function StudyGuide({ content, onRegenerate }) {
                       </span>
                     )}
                     {section.hasDiagram && (
-                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-700">
-                        📊 Diagram
+                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-700 flex items-center gap-1">
+                        <BarChart3 className="w-3 h-3" /> Diagram
                       </span>
                     )}
                     {!sectionHasContent(section) && (
@@ -635,7 +639,7 @@ export default function StudyGuide({ content, onRegenerate }) {
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold text-gray-800">{section.title}</h3>
                   <div className="flex gap-1">
-                    {section.hasDiagram && <span className="text-purple-600">📊</span>}
+                    {section.hasDiagram && <BarChart3 className="w-4 h-4 text-purple-600" />}
                     {section.subsections?.length > 0 && (
                       <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
                         {section.subsections.length}
@@ -760,15 +764,15 @@ export default function StudyGuide({ content, onRegenerate }) {
   if (!content || !content.trim()) {
     return (
       <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-        <div className="text-6xl mb-4">📚</div>
+        <div className="text-6xl mb-4"><BookOpen className="w-16 h-16 mx-auto text-gray-400" /></div>
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Study Guide</h2>
         <p className="text-gray-600 mb-6">No content available to display</p>
         {onRegenerate && (
           <button
             onClick={onRegenerate}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium shadow-md hover:shadow-lg"
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium shadow-md hover:shadow-lg flex items-center gap-2 mx-auto"
           >
-            🔄 Generate Study Guide
+            <RefreshCw className="w-4 h-4" /> Generate Study Guide
           </button>
         )}
       </div>
@@ -783,7 +787,7 @@ export default function StudyGuide({ content, onRegenerate }) {
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-6 border-b border-gray-200">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center space-x-3">
-            <div className="text-3xl">📚</div>
+            <BookOpen className="w-8 h-8 text-blue-600" />
             <div>
               <h2 className="text-2xl font-bold text-gray-800">Study Guide</h2>
               <p className="text-gray-600 text-sm">
@@ -810,7 +814,7 @@ export default function StudyGuide({ content, onRegenerate }) {
                 onClick={onRegenerate}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-medium shadow-md hover:shadow-lg flex items-center space-x-2"
               >
-                <span>🔄</span>
+                <RefreshCw className="w-4 h-4" />
                 <span>Regenerate</span>
               </button>
             )}
@@ -883,9 +887,9 @@ export default function StudyGuide({ content, onRegenerate }) {
                    aria-expanded={isExpanded}
                  >
                    <div className="flex-1 text-left">
-                     <div className="font-semibold text-gray-800 text-lg group-hover:text-blue-700 transition-colors flex items-center gap-2">
+                   <div className="font-semibold text-gray-800 text-lg group-hover:text-blue-700 transition-colors flex items-center gap-2">
                        {section.title}
-                       {section.hasDiagram && <span className="text-purple-500">📊</span>}
+                       {section.hasDiagram && <BarChart3 className="w-4 h-4 text-purple-500" />}
                        {!hasContent && <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded">Empty</span>}
                      </div>
                      {!isExpanded && hasContent && (
@@ -901,7 +905,7 @@ export default function StudyGuide({ content, onRegenerate }) {
                        </span>
                      )}
                      <span className="text-gray-500 text-lg transition-transform duration-200 group-hover:text-blue-600">
-                       {isExpanded ? '▼' : '▶'}
+                       {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
                      </span>
                    </div>
                  </button>
@@ -914,7 +918,7 @@ export default function StudyGuide({ content, onRegenerate }) {
                        </>
                      ) : (
                        <div className="text-center py-8 text-gray-500">
-                         <div className="text-4xl mb-2">📭</div>
+                         <Inbox className="w-12 h-12 mx-auto mb-2 text-gray-400" />
                          <p>This section has no content yet.</p>
                          {onRegenerate && (
                            <button
@@ -936,7 +940,7 @@ export default function StudyGuide({ content, onRegenerate }) {
         {/* Footer */}
         <div className="mt-8 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
           <div className="flex items-center space-x-3">
-            <div className="text-blue-600 text-xl">💡</div>
+            <Lightbulb className="w-5 h-5 text-blue-600" />
             <div>
               <p className="text-blue-800 font-medium">Study Tip</p>
               <p className="text-blue-700 text-sm">

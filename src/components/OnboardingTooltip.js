@@ -1,5 +1,6 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { X } from 'lucide-react';
 
 /**
  * Contextual tooltip for providing hints during onboarding
@@ -99,7 +100,7 @@ export default function OnboardingTooltip({
               className="text-white/70 hover:text-white transition-colors flex-shrink-0 p-0.5"
               aria-label="Dismiss tooltip"
             >
-              ✕
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>

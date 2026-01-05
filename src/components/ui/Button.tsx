@@ -13,16 +13,16 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl',
-  secondary: 'bg-white/80 backdrop-blur-sm text-gray-700 border border-gray-200 hover:bg-white hover:border-blue-300 shadow-sm',
-  ghost: 'bg-transparent text-gray-600 hover:bg-gray-100',
-  danger: 'bg-red-600 text-white hover:bg-red-700',
+  primary: 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg border border-indigo-600',
+  secondary: 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 shadow-sm',
+  ghost: 'bg-transparent text-gray-600 hover:bg-gray-100 hover:text-gray-800',
+  danger: 'bg-red-600 text-white hover:bg-red-700 shadow-md border border-red-600',
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
-  sm: 'px-3 py-1.5 text-sm',
-  md: 'px-4 py-2 text-base',
-  lg: 'px-6 py-3 text-lg',
+  sm: 'px-3 py-1.5 text-sm gap-1.5',
+  md: 'px-4 py-2 text-sm gap-2',
+  lg: 'px-5 py-2.5 text-base gap-2',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -32,9 +32,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         disabled={disabled || loading}
         className={`
-          inline-flex items-center justify-center gap-2 rounded-lg font-medium
-          transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-          disabled:opacity-50 disabled:cursor-not-allowed
+          inline-flex items-center justify-center rounded-lg font-medium
+          transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
+          disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none
           ${variantStyles[variant]}
           ${sizeStyles[size]}
           ${className}
@@ -42,9 +42,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       >
         {loading ? (
-          <span className="animate-spin">⏳</span>
+          <span className="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
         ) : icon ? (
-          <span>{icon}</span>
+          <span className="flex-shrink-0">{icon}</span>
         ) : null}
         {children}
       </button>

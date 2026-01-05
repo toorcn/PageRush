@@ -2,11 +2,11 @@
 
 import { useDocumentStore, useUIStore } from '@/stores';
 import { Button } from '@/components/ui';
+import { FileText, FolderOpen, Library, Sparkles } from 'lucide-react';
 
 export function Header() {
   const { documents, activeDocuments } = useDocumentStore();
   const {
-    setShowUploadModal,
     toggleDocumentManager,
     toggleHistory,
     setShowFeatureSelector,
@@ -22,10 +22,10 @@ export function Header() {
             alt="PageRush AI"
             className="h-12 w-auto"
           />
-          {activeDocuments.length > 0 && (
-            <div className="flex items-center space-x-2">
-              <span className="text-gray-500">📄</span>
-              <span className="text-sm font-medium text-gray-700">
+          {activeDocuments?.length > 0 && (
+            <div className="flex items-center space-x-2 text-gray-600">
+              <FileText className="w-4 h-4" />
+              <span className="text-sm font-medium">
                 {activeDocuments.map((doc) => doc.name).join(', ')}
               </span>
             </div>
@@ -33,61 +33,50 @@ export function Header() {
         </div>
 
         <div className="flex items-center space-x-3">
-          <Button
-            variant="secondary"
-            onClick={() => setShowUploadModal(true)}
-            icon="📄"
-          >
-            Upload
-          </Button>
           <Button variant="secondary" onClick={toggleDocumentManager}>
-            📚 Documents ({documents.length})
+            <FolderOpen className="w-4 h-4" />
+            Documents ({documents.length})
           </Button>
           <Button variant="secondary" onClick={toggleHistory}>
-            📊 History
+            <Library className="w-4 h-4" />
+            Library
           </Button>
-          <Button onClick={() => setShowFeatureSelector(true)} icon="✨">
+          <Button onClick={() => setShowFeatureSelector(true)}>
+            <Sparkles className="w-4 h-4" />
             Study Tools
           </Button>
         </div>
       </header>
 
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm fixed-top-safe">
         <div className="flex items-center justify-between px-4 py-3">
           <img
             src="/pagerushai-logo.png"
             alt="PageRush AI"
-            className="h-5 w-3/4"
+            className="h-8 max-h-8 w-auto max-w-[140px]"
           />
           <div className="flex items-center space-x-2">
             <button
-              onClick={() => setShowUploadModal(true)}
-              className="p-2 bg-blue-100 rounded-lg text-blue-700 hover:bg-blue-200 transition-colors"
-              title="Upload PDF"
-            >
-              📄
-            </button>
-            <button
               onClick={toggleDocumentManager}
-              className="p-2 bg-gray-100 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors"
+              className="p-2.5 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200 hover:text-gray-800 transition-all"
               title="Documents"
             >
-              📚
+              <FolderOpen className="w-5 h-5" />
             </button>
             <button
               onClick={toggleHistory}
-              className="p-2 bg-gray-100 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors"
-              title="History"
+              className="p-2.5 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200 hover:text-gray-800 transition-all"
+              title="Study Library"
             >
-              📊
+              <Library className="w-5 h-5" />
             </button>
             <button
               onClick={() => setShowFeatureSelector(true)}
-              className="p-2 bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg text-white hover:from-green-700 hover:to-emerald-700 transition-colors"
+              className="p-2.5 bg-indigo-600 rounded-lg text-white hover:bg-indigo-700 transition-all shadow-md"
               title="Study Tools"
             >
-              ✨
+              <Sparkles className="w-5 h-5" />
             </button>
           </div>
         </div>

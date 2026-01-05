@@ -3,6 +3,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { parseTopics } from '../utils/parseGeminiResponse';
 import { saveTopicsToCache, getTopicsFromCache, clearTopicCache } from '../utils/topicCache';
 import LottieLoader from './LottieLoader';
+import { 
+  ClipboardList, Target, Lightbulb, BookOpen, Check, HelpCircle, 
+  Pencil, MessageSquare, Square, Bot, BarChart3, Save, Zap, AlertTriangle,
+  ChevronRight, Loader2
+} from 'lucide-react';
 
 export default function ExamGenerator({ onGenerate, extractedText, apiKey, performanceSummaries }) {
   const [selectedTopics, setSelectedTopics] = useState([]);
@@ -651,17 +656,19 @@ WEAK AREAS (${weakQuestions.length} questions):
   };
 
   const questionTypeConfigs = [
-    { key: 'mcq', label: 'Multiple Choice', icon: '❓', description: 'Choose the best answer from options' },
-    { key: 'shortAnswer', label: 'Short Answer', icon: '✏️', description: 'Brief written responses' },
-    { key: 'discuss', label: 'Discuss', icon: '💭', description: 'Explain concepts in detail' },
-    { key: 'describe', label: 'Describe', icon: '📝', description: 'Provide detailed descriptions' },
-    { key: 'fillBlanks', label: 'Fill in the Blanks', icon: '⬜', description: 'Complete missing words/phrases' }
+    { key: 'mcq', label: 'Multiple Choice', icon: <HelpCircle className="w-5 h-5" />, description: 'Choose the best answer from options' },
+    { key: 'shortAnswer', label: 'Short Answer', icon: <Pencil className="w-5 h-5" />, description: 'Brief written responses' },
+    { key: 'discuss', label: 'Discuss', icon: <MessageSquare className="w-5 h-5" />, description: 'Explain concepts in detail' },
+    { key: 'describe', label: 'Describe', icon: <ClipboardList className="w-5 h-5" />, description: 'Provide detailed descriptions' },
+    { key: 'fillBlanks', label: 'Fill in the Blanks', icon: <Square className="w-5 h-5" />, description: 'Complete missing words/phrases' }
   ];
 
   return (
     <div className="bg-white rounded-xl shadow p-6 space-y-6">
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">📝 Exam Generator</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-2">
+          <ClipboardList className="w-6 h-6" /> Exam Generator
+        </h2>
         <p className="text-gray-600">Create a comprehensive exam with mixed question types</p>
       </div>
 
@@ -688,9 +695,9 @@ WEAK AREAS (${weakQuestions.length} questions):
           {performanceSummaries.length > 0 && (
             <button
               onClick={() => setShowPerformanceHistory(!showPerformanceHistory)}
-              className="text-sm text-blue-600 hover:text-blue-700"
+              className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
             >
-              📊 Load from History ({performanceSummaries.length})
+              <BarChart3 className="w-4 h-4" /> Load from History ({performanceSummaries.length})
             </button>
           )}
         </div>
@@ -708,7 +715,7 @@ WEAK AREAS (${weakQuestions.length} questions):
         {/* Topic Suggestions Button */}
         {performanceSummary && topics.length > 0 && (
           <div className="space-y-2">
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2">
               <button
                 onClick={triggerTopicSuggestions}
                 disabled={isGeneratingSuggestions}
@@ -718,7 +725,7 @@ WEAK AREAS (${weakQuestions.length} questions):
                     : 'bg-green-600 text-white hover:bg-green-700'
                 }`}
               >
-                <span>{isGeneratingSuggestions ? '⏳' : '🎯'}</span>
+                {isGeneratingSuggestions ? <Loader2 className="w-4 h-4 animate-spin" /> : <Target className="w-4 h-4" />}
                 <span>{isGeneratingSuggestions ? 'Generating...' : 'Generate Topic Suggestions'}</span>
               </button>
               <p className="text-xs text-gray-500">
@@ -730,7 +737,7 @@ WEAK AREAS (${weakQuestions.length} questions):
             {suggestionsGenerated && (
               <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                 <div className="flex items-center space-x-2">
-                  <span className="text-green-600">✅</span>
+                  <Check className="w-4 h-4 text-green-600" />
                   <p className="text-sm text-green-800">
                     <strong>Topic suggestions generated!</strong> Topics have been automatically selected based on your performance summary.
                   </p>
@@ -757,7 +764,7 @@ WEAK AREAS (${weakQuestions.length} questions):
                     <div className="font-medium">Exam {idx + 1} - {new Date(summary.timestamp).toLocaleDateString()}</div>
                     <div className="text-sm text-gray-500">{summary.percentage}% ({summary.score}/{summary.total} points)</div>
                   </div>
-                  <span className="text-blue-600">→</span>
+                  <span className="text-blue-600"><ChevronRight className="w-4 h-4" /></span>
                 </div>
               </button>
             ))}
@@ -768,7 +775,9 @@ WEAK AREAS (${weakQuestions.length} questions):
       {/* Topic Selection */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-lg text-gray-800">📚 Select Topics</h3>
+          <h3 className="font-semibold text-lg text-gray-800 flex items-center gap-2">
+            <BookOpen className="w-5 h-5" /> Select Topics
+          </h3>
           {selectedTopics.length > 0 && (
             <>
             <button
@@ -796,7 +805,7 @@ WEAK AREAS (${weakQuestions.length} questions):
         {autoSelectionReason && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <div className="flex items-center space-x-2">
-              <span className="text-blue-600">🤖</span>
+              <Bot className="w-4 h-4 text-blue-600" />
               <p className="text-sm text-blue-800">
                 <strong>Auto-selected:</strong> {autoSelectionReason}
               </p>
@@ -815,7 +824,7 @@ WEAK AREAS (${weakQuestions.length} questions):
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <span className={cacheStatus === 'cached' ? 'text-green-600' : cacheStatus === 'generated' ? 'text-blue-600' : 'text-yellow-600'}>
-                  {cacheStatus === 'cached' ? '💾' : cacheStatus === 'generated' ? '⚡' : '⚠️'}
+                  {cacheStatus === 'cached' ? <Save className="w-4 h-4" /> : cacheStatus === 'generated' ? <Zap className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
                 </span>
                 <p className={`text-sm ${
                   cacheStatus === 'cached' ? 'text-green-800' : cacheStatus === 'generated' ? 'text-blue-800' : 'text-yellow-800'
@@ -865,7 +874,7 @@ WEAK AREAS (${weakQuestions.length} questions):
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">{topic}</span>
                   {selectedTopics.includes(topic) && (
-                    <span className="text-blue-600">✓</span>
+                    <Check className="w-4 h-4 text-blue-600" />
                   )}
                 </div>
               </button>
@@ -874,8 +883,8 @@ WEAK AREAS (${weakQuestions.length} questions):
         )}
 
         {selectedTopics.length === 0 && !isExtractingTopics && (
-          <p className="text-yellow-600 text-sm">
-            ⚠️ Please select at least one topic to generate an exam
+          <p className="text-yellow-600 text-sm flex items-center gap-1">
+            <AlertTriangle className="w-4 h-4" /> Please select at least one topic to generate an exam
           </p>
         )}
       </div>
@@ -883,7 +892,9 @@ WEAK AREAS (${weakQuestions.length} questions):
       {/* Question Types Selection */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-lg text-gray-800">🎯 Question Types</h3>
+          <h3 className="font-semibold text-lg text-gray-800 flex items-center gap-2">
+            <Target className="w-5 h-5" /> Question Types
+          </h3>
           {questionTypeAutoSelection && (
             <button
               onClick={() => {
@@ -908,7 +919,7 @@ WEAK AREAS (${weakQuestions.length} questions):
         {questionTypeAutoSelection && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-3">
             <div className="flex items-center space-x-2">
-              <span className="text-green-600">🎯</span>
+              <Target className="w-4 h-4 text-green-600" />
               <p className="text-sm text-green-800">
                 <strong>Auto-selected:</strong> {questionTypeAutoSelection}
               </p>
@@ -929,7 +940,7 @@ WEAK AREAS (${weakQuestions.length} questions):
                         : 'border-gray-300 bg-white'
                     }`}
                   >
-                    {questionTypes[key].enabled && '✓'}
+                    {questionTypes[key].enabled && <Check className="w-4 h-4" />}
                   </button>
                   <div>
                     <div className="flex items-center space-x-2">
@@ -978,7 +989,9 @@ WEAK AREAS (${weakQuestions.length} questions):
       {/* Summary */}
       {selectedTopics.length > 0 && getTotalQuestions() > 0 && (
         <div className="bg-blue-50 rounded-lg p-4">
-          <h4 className="font-semibold text-blue-800 mb-2">📋 Exam Summary</h4>
+          <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
+            <ClipboardList className="w-4 h-4" /> Exam Summary
+          </h4>
           <ul className="text-sm text-blue-700 space-y-1">
             <li>• Topics: {selectedTopics.join(', ')}</li>
             <li>• Total Questions: {getTotalQuestions()}</li>

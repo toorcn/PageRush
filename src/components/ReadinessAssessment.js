@@ -1,5 +1,6 @@
 'use client';
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { BarChart2, Search, Lightbulb, CheckCircle, XCircle, AlertTriangle, Target, Calendar, ArrowLeft } from 'lucide-react';
 import LottieLoader from './LottieLoader';
 
 export default function ReadinessAssessment({ assessment, onBack, onStartLearning, loading }) {
@@ -29,9 +30,9 @@ export default function ReadinessAssessment({ assessment, onBack, onStartLearnin
   };
 
   const getReadinessIcon = (score) => {
-    if (score >= 80) return '✅';
-    if (score >= 60) return '⚠️';
-    return '❌';
+    if (score >= 80) return <CheckCircle className="w-5 h-5 text-green-600" />;
+    if (score >= 60) return <AlertTriangle className="w-5 h-5 text-yellow-600" />;
+    return <XCircle className="w-5 h-5 text-red-600" />;
   };
 
   const renderOverview = () => (
@@ -41,7 +42,7 @@ export default function ReadinessAssessment({ assessment, onBack, onStartLearnin
         <div className={`inline-flex items-center justify-center w-24 h-24 rounded-full ${getReadinessColor(assessment.overallScore)} mb-4`}>
           <span className="text-3xl font-bold">{assessment.overallScore}%</span>
         </div>
-        <h3 className="text-xl font-bold text-gray-800 mb-2">
+        <h3 className="text-xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-2">
           {getReadinessIcon(assessment.overallScore)} {getReadinessLevel(assessment.overallScore)}
         </h3>
         <p className="text-gray-600">{assessment.overallAssessment}</p>
@@ -97,12 +98,15 @@ export default function ReadinessAssessment({ assessment, onBack, onStartLearnin
     <div className="space-y-6">
       {/* Knowledge Gaps */}
       <div>
-        <h3 className="text-xl font-bold text-gray-800 mb-4">🔍 Knowledge Gaps Analysis</h3>
+        <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <Search className="w-5 h-5 text-red-600" />
+          Knowledge Gaps Analysis
+        </h3>
         <div className="space-y-4">
           {assessment.knowledgeGaps.map((gap, index) => (
             <div key={index} className="bg-red-50 border border-red-200 rounded-lg p-4">
               <div className="flex items-start space-x-3">
-                <span className="text-red-500 text-xl">⚠️</span>
+                <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <h4 className="font-semibold text-red-800 mb-2">{gap.topic}</h4>
                   <p className="text-red-700 text-sm mb-3">{gap.description}</p>
@@ -128,12 +132,15 @@ export default function ReadinessAssessment({ assessment, onBack, onStartLearnin
 
       {/* Strengths */}
       <div>
-        <h3 className="text-xl font-bold text-gray-800 mb-4">💪 Your Strengths</h3>
+        <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <CheckCircle className="w-5 h-5 text-green-600" />
+          Your Strengths
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {assessment.strengths.map((strength, index) => (
             <div key={index} className="bg-green-50 border border-green-200 rounded-lg p-4">
               <div className="flex items-start space-x-3">
-                <span className="text-green-500 text-xl">✅</span>
+                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
                 <div>
                   <h4 className="font-semibold text-green-800 mb-1">{strength.topic}</h4>
                   <p className="text-green-700 text-sm">{strength.description}</p>
@@ -146,7 +153,10 @@ export default function ReadinessAssessment({ assessment, onBack, onStartLearnin
 
       {/* Topic-by-Topic Analysis */}
       <div>
-        <h3 className="text-xl font-bold text-gray-800 mb-4">📊 Topic-by-Topic Analysis</h3>
+        <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <BarChart2 className="w-5 h-5 text-blue-600" />
+          Topic-by-Topic Analysis
+        </h3>
         <div className="space-y-3">
           {assessment.topicAnalysis.map((topic, index) => (
             <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
@@ -171,10 +181,10 @@ export default function ReadinessAssessment({ assessment, onBack, onStartLearnin
               <p className="text-sm text-gray-600 mb-3">{topic.assessment}</p>
               <div className="flex flex-wrap gap-2">
                 {topic.keyConcepts.map((concept, idx) => (
-                  <span key={idx} className={`px-2 py-1 rounded text-xs ${
+                  <span key={idx} className={`px-2 py-1 rounded text-xs flex items-center gap-1 ${
                     concept.mastered ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                   }`}>
-                    {concept.name} {concept.mastered ? '✓' : '✗'}
+                    {concept.name} {concept.mastered ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
                   </span>
                 ))}
               </div>
@@ -189,7 +199,10 @@ export default function ReadinessAssessment({ assessment, onBack, onStartLearnin
     <div className="space-y-6">
       {/* Study Plan */}
       <div>
-        <h3 className="text-xl font-bold text-gray-800 mb-4">📅 Recommended Study Plan</h3>
+        <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-blue-600" />
+          Recommended Study Plan
+        </h3>
         <div className="space-y-4">
           {assessment.studyPlan.map((phase, index) => (
             <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
@@ -221,12 +234,15 @@ export default function ReadinessAssessment({ assessment, onBack, onStartLearnin
 
       {/* Focus Areas */}
       <div>
-        <h3 className="text-xl font-bold text-gray-800 mb-4">🎯 Priority Focus Areas</h3>
+        <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <Target className="w-5 h-5 text-orange-600" />
+          Priority Focus Areas
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {assessment.priorityAreas.map((area, index) => (
             <div key={index} className="bg-orange-50 border border-orange-200 rounded-lg p-4">
               <div className="flex items-start space-x-3">
-                <span className="text-orange-500 text-xl">🎯</span>
+                <Target className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <h4 className="font-semibold text-orange-800 mb-2">{area.topic}</h4>
                   <p className="text-orange-700 text-sm mb-3">{area.reason}</p>
@@ -252,11 +268,14 @@ export default function ReadinessAssessment({ assessment, onBack, onStartLearnin
 
       {/* Exam Tips */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
-        <h3 className="text-xl font-bold text-blue-800 mb-4">💡 Exam Success Tips</h3>
+        <h3 className="text-xl font-bold text-blue-800 mb-4 flex items-center gap-2">
+          <Lightbulb className="w-5 h-5" />
+          Exam Success Tips
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {assessment.examTips.map((tip, index) => (
             <div key={index} className="flex items-start space-x-3">
-              <span className="text-blue-500 text-xl">💡</span>
+              <Lightbulb className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
               <div>
                 <h4 className="font-semibold text-blue-800 mb-1">{tip.title}</h4>
                 <p className="text-blue-700 text-sm">{tip.description}</p>
@@ -273,23 +292,26 @@ export default function ReadinessAssessment({ assessment, onBack, onStartLearnin
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">📊 Readiness Assessment</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2 flex items-center gap-2">
+            <BarChart2 className="w-6 h-6 text-blue-600" />
+            Readiness Assessment
+          </h2>
           <p className="text-gray-600">Evaluate your exam preparedness</p>
         </div>
         <button
           onClick={onBack}
           className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium"
         >
-          ← Back to Overview
+          <ArrowLeft className="w-4 h-4" /> Back to Overview
         </button>
       </div>
 
       {/* Navigation Tabs */}
       <div className="flex space-x-2 border-b border-gray-200">
         {[
-          { key: 'overview', label: 'Overview', icon: '📊' },
-          { key: 'detailed', label: 'Detailed Analysis', icon: '🔍' },
-          { key: 'recommendations', label: 'Recommendations', icon: '💡' }
+          { key: 'overview', label: 'Overview', icon: BarChart2 },
+          { key: 'detailed', label: 'Detailed Analysis', icon: Search },
+          { key: 'recommendations', label: 'Recommendations', icon: Lightbulb }
         ].map(tab => (
           <button
             key={tab.key}
@@ -300,7 +322,7 @@ export default function ReadinessAssessment({ assessment, onBack, onStartLearnin
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            <span>{tab.icon}</span>
+            <tab.icon className="w-4 h-4" />
             <span>{tab.label}</span>
           </button>
         ))}

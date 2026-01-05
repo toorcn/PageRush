@@ -7,6 +7,7 @@ interface UIState {
   showDocumentManager: boolean;
   showHistory: boolean;
   showApiKeyInput: boolean;
+  showApiKeyModal: boolean;
   showFeatureSelector: boolean;
   
   // Sidebar
@@ -17,6 +18,7 @@ interface UIState {
   
   // Onboarding
   showOnboardingGuide: boolean;
+  showOnboardingFullScreen: boolean;
   onboardingComplete: boolean;
   
   // Highlight states for onboarding
@@ -29,10 +31,12 @@ interface UIState {
   setShowDocumentManager: (show: boolean) => void;
   setShowHistory: (show: boolean) => void;
   setShowApiKeyInput: (show: boolean) => void;
+  setShowApiKeyModal: (show: boolean) => void;
   setShowFeatureSelector: (show: boolean) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setFocusMode: (enabled: boolean) => void;
   setShowOnboardingGuide: (show: boolean) => void;
+  setShowOnboardingFullScreen: (show: boolean) => void;
   completeOnboarding: () => void;
   resetOnboarding: () => void;
   
@@ -44,6 +48,7 @@ interface UIState {
   toggleDocumentManager: () => void;
   toggleHistory: () => void;
   toggleSidebar: () => void;
+  toggleOnboardingView: () => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -54,10 +59,12 @@ export const useUIStore = create<UIState>()(
       showDocumentManager: false,
       showHistory: false,
       showApiKeyInput: false,
+      showApiKeyModal: false,
       showFeatureSelector: false,
       sidebarCollapsed: false,
       focusMode: false,
       showOnboardingGuide: true,
+      showOnboardingFullScreen: false,
       onboardingComplete: false,
       highlightUpload: false,
       highlightApiKey: false,
@@ -68,19 +75,23 @@ export const useUIStore = create<UIState>()(
       setShowDocumentManager: (show) => set({ showDocumentManager: show }),
       setShowHistory: (show) => set({ showHistory: show }),
       setShowApiKeyInput: (show) => set({ showApiKeyInput: show }),
+      setShowApiKeyModal: (show) => set({ showApiKeyModal: show }),
       setShowFeatureSelector: (show) => set({ showFeatureSelector: show }),
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
       setFocusMode: (enabled) => set({ focusMode: enabled }),
       setShowOnboardingGuide: (show) => set({ showOnboardingGuide: show }),
+      setShowOnboardingFullScreen: (show) => set({ showOnboardingFullScreen: show }),
       
       completeOnboarding: () => set({ 
         onboardingComplete: true, 
-        showOnboardingGuide: false 
+        showOnboardingGuide: false,
+        showOnboardingFullScreen: false,
       }),
       
       resetOnboarding: () => set({ 
         onboardingComplete: false, 
-        showOnboardingGuide: true 
+        showOnboardingGuide: true,
+        showOnboardingFullScreen: false,
       }),
 
       highlightStep: (step) => {
@@ -116,6 +127,11 @@ export const useUIStore = create<UIState>()(
       
       toggleSidebar: () => set((state) => ({ 
         sidebarCollapsed: !state.sidebarCollapsed 
+      })),
+      
+      toggleOnboardingView: () => set((state) => ({
+        showOnboardingGuide: state.showOnboardingFullScreen,
+        showOnboardingFullScreen: !state.showOnboardingFullScreen,
       })),
     }),
     {

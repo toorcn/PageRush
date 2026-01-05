@@ -24,12 +24,62 @@ interface GradeQuizParams {
   apiKey: string;
 }
 
+// Callback type for metrics tracking
+type MetricsCallback = (metrics: {
+  endpoint: string;
+  promptType: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  responseTimeMs: number;
+  estimatedCost: number;
+  model: string;
+}) => void;
+
+let metricsCallback: MetricsCallback | null = null;
+
+export function setMetricsCallback(callback: MetricsCallback | null) {
+  metricsCallback = callback;
+}
+
+function trackMetrics(response: GeminiResponse & { responseTimeMs?: number; model?: string; promptType?: string }, endpoint: string) {
+  if (!metricsCallback) return;
+  
+  const usageMetadata = response.usageMetadata || response.result?.usageMetadata;
+  if (!usageMetadata) return;
+
+  const promptTokens = usageMetadata.promptTokenCount || 0;
+  const completionTokens = usageMetadata.candidatesTokenCount || 0;
+  const totalTokens = usageMetadata.totalTokenCount || promptTokens + completionTokens;
+  const model = response.model || 'gemini-3-flash-preview';
+  
+  // Calculate cost based on Gemini pricing
+  const pricing = {
+    'gemini-3-flash-preview': { input: 0.5, output: 3.00 },
+    'gemini-2.5-flash': { input: 0.3, output: 2.5 },
+    'gemini-2.5-flash-lite': { input: 0.1, output: 0.4 }
+  };
+  const modelPricing = pricing[model as keyof typeof pricing] || pricing['gemini-3-flash-preview'];
+  const estimatedCost = (promptTokens / 1_000_000) * modelPricing.input + (completionTokens / 1_000_000) * modelPricing.output;
+
+  metricsCallback({
+    endpoint,
+    promptType: response.promptType || endpoint,
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    responseTimeMs: response.responseTimeMs || 0,
+    estimatedCost,
+    model,
+  });
+}
+
 export const geminiApi = {
   /**
    * Generate study content using Gemini AI
    */
   generate: async (params: GenerateParams): Promise<GeminiResponse> => {
-    return api.post<GeminiResponse>('/api/gemini-generate', {
+    const response = await api.post<GeminiResponse>('/api/gemini-generate', {
       text: params.text,
       promptType: params.promptType,
       geminiApiKey: params.apiKey,
@@ -39,6 +89,8 @@ export const geminiApi = {
       questionTypes: params.questionTypes,
       performanceSummary: params.performanceSummary,
     });
+    trackMetrics(response, 'gemini-generate');
+    return response;
   },
 
   /**
@@ -60,11 +112,13 @@ export const geminiApi = {
     documentText: string,
     apiKey: string
   ): Promise<GeminiResponse> => {
-    return api.post<GeminiResponse>('/api/generate-topic-content', {
+    const response = await api.post<GeminiResponse>('/api/generate-topic-content', {
       topic,
       documentText,
       geminiApiKey: apiKey,
     });
+    trackMetrics(response, 'generate-topic-content');
+    return response;
   },
 
   /**
@@ -74,10 +128,12 @@ export const geminiApi = {
     text: string,
     apiKey: string
   ): Promise<GeminiResponse> => {
-    return api.post<GeminiResponse>('/api/exam-cram', {
+    const response = await api.post<GeminiResponse>('/api/exam-cram', {
       text,
       geminiApiKey: apiKey,
     });
+    trackMetrics(response, 'exam-cram');
+    return response;
   },
 
   /**
@@ -87,10 +143,12 @@ export const geminiApi = {
     text: string,
     apiKey: string
   ): Promise<GeminiResponse> => {
-    return api.post<GeminiResponse>('/api/focus-mode-generate', {
+    const response = await api.post<GeminiResponse>('/api/focus-mode-generate', {
       text,
       geminiApiKey: apiKey,
     });
+    trackMetrics(response, 'focus-mode-generate');
+    return response;
   },
 
   /**
@@ -101,10 +159,12 @@ export const geminiApi = {
     topics: string[],
     apiKey: string
   ): Promise<GeminiResponse> => {
-    return api.post<GeminiResponse>('/api/generate-question-bank', {
+    const response = await api.post<GeminiResponse>('/api/generate-question-bank', {
       text,
       topics,
       geminiApiKey: apiKey,
     });
+    trackMetrics(response, 'generate-question-bank');
+    return response;
   },
 };

@@ -276,13 +276,220 @@ ${text}
 
 Now provide the structured explanation in markdown format.`;
       break;
+    case 'whyThisAnswer':
+      prompt = `You are an expert tutor. A learner wants to understand WHY the correct answer is right for this question.
+
+Provide a clear, focused explanation of why the correct answer is the best choice. Keep it under 250 words.
+
+STRUCTURE (use markdown formatting):
+1. ## Why This Answer - Direct explanation of why this is correct (2-3 sentences)
+2. ## Breaking It Down - Step-by-step reasoning (3-4 bullet points)
+3. ## Why Not The Others - Brief explanation of why other options are wrong (if applicable)
+
+FORMATTING REQUIREMENTS:
+- Use ## for section headings
+- Use - for bullet points
+- Use **bold** for key terms
+- Be direct and specific to THIS question
+- Return ONLY markdown-formatted text
+
+QUESTION AND ANSWER:
+${text}
+
+Explain why this answer is correct.`;
+      break;
+    case 'stepByStep':
+      prompt = `You are an expert tutor. A learner wants a step-by-step breakdown of how to solve or understand this question.
+
+Provide a clear, methodical walkthrough. Keep it under 300 words.
+
+STRUCTURE (use markdown formatting):
+1. ## The Approach - Brief overview of the method (1-2 sentences)
+2. ## Step-by-Step Solution - Numbered steps walking through the reasoning
+3. ## Key Insight - The main takeaway or "aha moment" (1-2 sentences)
+
+FORMATTING REQUIREMENTS:
+- Use ## for section headings
+- Use numbered lists (1. 2. 3.) for steps
+- Use **bold** for important terms
+- Make each step clear and actionable
+- Return ONLY markdown-formatted text
+
+QUESTION:
+${text}
+
+Provide the step-by-step breakdown.`;
+      break;
+    case 'realWorldExample':
+      prompt = `You are an expert tutor. A learner wants to see how this concept applies in the real world.
+
+Provide practical, relatable examples that make the concept concrete. Keep it under 250 words.
+
+STRUCTURE (use markdown formatting):
+1. ## Real-World Connection - How this concept appears in everyday life (1-2 sentences)
+2. ## Practical Examples - 2-3 specific, relatable examples with brief explanations
+3. ## Why It Matters - The practical importance of understanding this (1-2 sentences)
+
+FORMATTING REQUIREMENTS:
+- Use ## for section headings
+- Use - for bullet points
+- Use **bold** for key terms
+- Make examples relatable and memorable
+- Return ONLY markdown-formatted text
+
+QUESTION:
+${text}
+
+Provide real-world examples.`;
+      break;
+    case 'memoryTips':
+      prompt = `You are an expert tutor. A learner wants memory aids and tricks to remember this concept.
+
+Provide creative, effective memorization techniques. Keep it under 250 words.
+
+STRUCTURE (use markdown formatting):
+1. ## Quick Memory Hook - A catchy phrase, acronym, or mental image (1-2 sentences)
+2. ## Memory Techniques - 2-3 specific tricks to remember this
+3. ## Association Tips - How to connect this to things they already know
+
+FORMATTING REQUIREMENTS:
+- Use ## for section headings
+- Use - for bullet points
+- Use **bold** for key terms and memory hooks
+- Be creative and make it stick
+- Return ONLY markdown-formatted text
+
+QUESTION:
+${text}
+
+Provide memory tips and tricks.`;
+      break;
+    case 'relatedTopics':
+      prompt = `You are an expert tutor. A learner wants to understand how this concept connects to related topics.
+
+Show the bigger picture and connections. Keep it under 250 words.
+
+STRUCTURE (use markdown formatting):
+1. ## Where This Fits - How this concept fits into the broader subject (1-2 sentences)
+2. ## Related Concepts - 3-4 connected topics with brief explanations of the connection
+3. ## What to Learn Next - Suggested topics to explore after mastering this
+
+FORMATTING REQUIREMENTS:
+- Use ## for section headings
+- Use - for bullet points
+- Use **bold** for topic names
+- Show clear connections between concepts
+- Return ONLY markdown-formatted text
+
+QUESTION:
+${text}
+
+Show related topics and connections.`;
+      break;
+    case 'simplifyIt':
+      prompt = `You are an expert tutor. A learner is struggling and needs this concept explained in the simplest possible terms.
+
+Break it down to the basics. Keep it under 200 words.
+
+STRUCTURE (use markdown formatting):
+1. ## In Simple Terms - Explain like they're a complete beginner (2-3 sentences, no jargon)
+2. ## Think of It Like... - A simple analogy or comparison to something familiar
+3. ## The Basics - 2-3 fundamental points to remember
+
+FORMATTING REQUIREMENTS:
+- Use ## for section headings
+- Use - for bullet points
+- Use **bold** sparingly
+- Avoid technical jargon
+- Use everyday language
+- Return ONLY markdown-formatted text
+
+QUESTION:
+${text}
+
+Simplify this concept.`;
+      break;
+    case 'chatHelp':
+      prompt = `You are a friendly, expert tutor helping a student understand a quiz/exam question. Your goal is to BUILD UNDERSTANDING, not give away the answer.
+
+CONTEXT:
+${text}
+
+TEACHING APPROACH - Use these evidence-based learning techniques:
+1. **Elaborative Interrogation**: Ask "why" and "how" questions to deepen thinking
+2. **Concrete Examples**: Connect abstract concepts to real-world scenarios
+3. **Storytelling**: Share brief origin stories or historical context when relevant
+4. **Analogies**: Compare to familiar concepts ("Think of it like...")
+5. **Chunking**: Break complex ideas into digestible pieces
+6. **Spaced Retrieval Cues**: Give hints that help them recall, not answers
+7. **Dual Coding**: Use visual descriptions or mental imagery
+
+RESPONSE GUIDELINES:
+- Keep responses concise (150-200 words max)
+- Format with clear structure using line breaks
+- Use **bold** for key terms
+- Use bullet points for lists
+- Include a thought-provoking question at the end to guide their thinking
+- If they ask directly for the answer, redirect with a helpful hint instead
+- Reference the answer options indirectly to help them eliminate wrong choices through understanding
+
+FORMATTING EXAMPLE:
+**The Core Idea**
+[1-2 sentence explanation of the concept]
+
+**Think of it like...**
+[Relatable analogy or real-world example]
+
+**Key insight:** [memorable takeaway]
+
+💭 *Consider this: [guiding question to help them arrive at the answer]*
+
+DO NOT:
+- Directly state which option is correct
+- Say "the answer is..." or "option X is correct"
+- Be condescending or overly academic
+
+Respond naturally and helpfully:`;
+      break;
+    case 'generateQuestionSuggestions':
+      prompt = `Given this quiz/exam question, generate 3-4 short questions a student might ask to better UNDERSTAND the topic (not just get the answer).
+
+QUESTION: ${text}
+
+Generate questions that:
+1. Help the student understand the underlying concept
+2. Encourage critical thinking, not answer-seeking
+3. Are short (under 8 words each)
+4. Cover different learning angles:
+   - "Why does this work this way?"
+   - "How does this connect to...?"
+   - "What's the key principle here?"
+   - "Can you give me an analogy?"
+
+Good examples:
+- "Why is this concept important?"
+- "How does this actually work?"
+- "What's the key idea here?"
+- "Can you explain it simply?"
+- "What's a real-world example?"
+
+Bad examples (too answer-focused):
+- "What's the correct answer?"
+- "Is it A or B?"
+- "Tell me the answer"
+
+Return ONLY a JSON array of strings, no markdown, no explanation.`;
+      break;
     default:
       return res.status(400).json({ error: 'Invalid prompt type' });
   }
 
   try {
     console.log('Making Gemini API request with prompt type:', promptType);
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent', {
+    const startTime = Date.now();
+    const model = 'gemini-3-flash-preview';
+    
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -292,6 +499,8 @@ Now provide the structured explanation in markdown format.`;
         contents: [{ parts: [{ text: prompt }] }]
       }),
     });
+
+    const responseTimeMs = Date.now() - startTime;
 
     if (!response.ok) {
       const errorData = await response.text();
@@ -303,7 +512,15 @@ Now provide the structured explanation in markdown format.`;
 
     const data = await response.json();
     console.log('Gemini API successful response:', JSON.stringify(data, null, 2));
-    res.status(200).json({ result: data });
+    
+    // Include usage metadata and timing in response
+    res.status(200).json({ 
+      result: data,
+      usageMetadata: data.usageMetadata || null,
+      responseTimeMs,
+      model,
+      promptType
+    });
   } catch (error) {
     console.error('Gemini API request error:', error);
     res.status(500).json({ error: `Failed to call Gemini API: ${error.message}` });

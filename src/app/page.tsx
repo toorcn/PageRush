@@ -1,26 +1,25 @@
 'use client';
 
 import { useEffect, useMemo, useCallback } from 'react';
-import { useDocumentStore, useStudyStore, useUIStore, useNotify } from '@/stores';
+import { useDocumentStore, useStudyStore, useUIStore, useNotify, useMetricsStore } from '@/stores';
 import { useOnboardingStep } from '@/hooks';
 import { parseFlashcards, parseQuiz, parseExam } from '@/lib/parsing';
-import { geminiApi } from '@/lib/api';
+import { geminiApi, setMetricsCallback } from '@/lib/api';
+import { Sparkles, FileText, Upload, Target, Lightbulb } from 'lucide-react';
 
 // Layout components
 import { Header, Footer } from '@/components/layout';
 import { NotificationToast } from '@/components/notifications';
 import { FullPageLoader } from '@/components/loading';
 import { ProgressIndicator } from '@/components/progress';
-import { Card, CardTitle, Button } from '@/components/ui';
+import { Card, Button } from '@/components/ui';
 
 // Feature components
-import PdfUploader from '@/components/PdfUploader';
 import PdfUploaderModal from '@/components/PdfUploaderModal';
-import ApiKeyInput from '@/components/ApiKeyInput';
+import ApiKeyModal from '@/components/ApiKeyModal';
 import FeatureSelector from '@/components/FeatureSelector';
 import DocumentManager from '@/components/DocumentManager';
 import HistoryPanel from '@/components/HistoryPanel';
-import HelpfulResourcesSidebar from '@/components/HelpfulResourcesSidebar';
 import StudyGuide from '@/components/StudyGuide';
 import Flashcards from '@/components/Flashcards';
 import Quiz from '@/components/Quiz';
@@ -30,8 +29,8 @@ import ExamGenerator from '@/components/ExamGenerator';
 import ExamCramComponent from '@/components/ExamCram';
 import Insights from '@/components/Insights';
 import FocusMode from '@/components/FocusMode';
-import FocusModeStats from '@/components/FocusModeStats';
 import OnboardingGuide from '@/components/OnboardingGuide';
+import Onboarding from '@/components/Onboarding';
 import StepHighlight from '@/components/StepHighlight';
 
 import type { StudyFeature, HistoryItem, PerformanceSummary } from '@/types';
@@ -49,21 +48,8 @@ const FEATURE_LABELS: Record<StudyFeature, string> = {
   '': 'Study Tools',
 };
 
-const FEATURE_ICONS: Record<StudyFeature, string> = {
-  examCram: '🚀',
-  studyGuide: '📚',
-  flashcards: '📝',
-  quiz: '🎓',
-  exam: '📊',
-  '': '✨',
-};
-
 function getFeatureLabel(ft: StudyFeature): string {
   return FEATURE_LABELS[ft];
-}
-
-function getFeatureIcon(ft: StudyFeature): string {
-  return FEATURE_ICONS[ft];
 }
 
 // Calculate current step for UI
@@ -112,6 +98,8 @@ export default function Home() {
   // UI store
   const showUploadModal = useUIStore((s) => s.showUploadModal);
   const setShowUploadModal = useUIStore((s) => s.setShowUploadModal);
+  const showApiKeyModal = useUIStore((s) => s.showApiKeyModal);
+  const setShowApiKeyModal = useUIStore((s) => s.setShowApiKeyModal);
   const showDocumentManager = useUIStore((s) => s.showDocumentManager);
   const setShowDocumentManager = useUIStore((s) => s.setShowDocumentManager);
   const showHistory = useUIStore((s) => s.showHistory);
@@ -119,19 +107,28 @@ export default function Home() {
   const showApiKeyInput = useUIStore((s) => s.showApiKeyInput);
   const setShowApiKeyInput = useUIStore((s) => s.setShowApiKeyInput);
   const showFeatureSelector = useUIStore((s) => s.showFeatureSelector);
-  const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
-  const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
   const focusMode = useUIStore((s) => s.focusMode);
   const setFocusMode = useUIStore((s) => s.setFocusMode);
   const showOnboardingGuide = useUIStore((s) => s.showOnboardingGuide);
+  const showOnboardingFullScreen = useUIStore((s) => s.showOnboardingFullScreen);
+  const setShowOnboardingFullScreen = useUIStore((s) => s.setShowOnboardingFullScreen);
   const completeOnboarding = useUIStore((s) => s.completeOnboarding);
-  const highlightUpload = useUIStore((s) => s.highlightUpload);
-  const highlightApiKey = useUIStore((s) => s.highlightApiKey);
   const highlightFeatures = useUIStore((s) => s.highlightFeatures);
   const highlightStep = useUIStore((s) => s.highlightStep);
 
   const notify = useNotify();
   const { currentStepIndex, labels } = useOnboardingStep();
+  
+  // Metrics store
+  const addMetric = useMetricsStore((s) => s.addMetric);
+
+  // Setup metrics callback for API calls
+  useEffect(() => {
+    setMetricsCallback((metrics) => {
+      addMetric(metrics);
+    });
+    return () => setMetricsCallback(null);
+  }, [addMetric]);
 
   // Migrate old localStorage data to new stores on first load
   useEffect(() => {
@@ -189,7 +186,7 @@ export default function Home() {
   }, []);
 
   // Derived state
-  const step = calculateStep(activeDocuments.length > 0, !!apiKey, !!result);
+  const step = calculateStep(activeDocuments?.length > 0, !!apiKey, !!result);
 
   // Parsed content (memoized)
   const parsedFlashcards = useMemo(() => {
@@ -306,7 +303,7 @@ export default function Home() {
     if (feature === 'examCram') {
       return; // ExamCram handles its own generation
     }
-    if (activeDocuments.length > 0 && apiKey) {
+    if (activeDocuments?.length > 0 && apiKey) {
       await generateContent(feature);
     }
   };
@@ -463,19 +460,64 @@ export default function Home() {
       {loading && <FullPageLoader />}
 
       <div className="font-sans min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        {/* Onboarding Guide */}
-        {showOnboardingGuide && (
+        {/* Onboarding Guide (Floating Card) - Hide from Select Tool step onwards */}
+        {showOnboardingGuide && !showOnboardingFullScreen && currentStepIndex < 2 && (
           <OnboardingGuide
             currentStep={currentStepIndex}
             onComplete={() => {
               completeOnboarding();
               notify.success('Welcome!', "You're all set! Enjoy your study session.");
             }}
-            onSkip={completeOnboarding}
             onFocusStep={handleFocusStep}
             onOpenUploadModal={() => setShowUploadModal(true)}
+            onOpenApiKeyModal={() => setShowApiKeyModal(true)}
+            onOpenFullScreen={() => setShowOnboardingFullScreen(true)}
+            onSaveApiKey={(key: string) => {
+              setApiKey(key);
+              notify.success('API Key Saved', 'Your Gemini API key has been configured.');
+            }}
+            currentApiKey={apiKey}
+            hasApiKey={!!apiKey}
           />
         )}
+
+        {/* Onboarding Full Screen Modal */}
+        {showOnboardingFullScreen && (
+          <Onboarding
+            isOpen={showOnboardingFullScreen}
+            onClose={() => setShowOnboardingFullScreen(false)}
+            onMinimize={() => setShowOnboardingFullScreen(false)}
+            onComplete={() => {
+              completeOnboarding();
+              notify.success('Welcome!', "You're all set! Enjoy your study session.");
+            }}
+            documentsCount={documents.length}
+            hasApiKey={!!apiKey}
+            hasSelectedFeature={!!feature}
+            onOpenApiKeyModal={() => setShowApiKeyModal(true)}
+            onSaveApiKey={(key: string) => {
+              setApiKey(key);
+              notify.success('API Key Saved', 'Your Gemini API key has been configured.');
+            }}
+            currentApiKey={apiKey}
+            onFocusFeatureSelector={() => {
+              highlightStep('features');
+              document.querySelector('[data-feature-selector]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }}
+            onExtractedText={handleExtracted}
+          />
+        )}
+
+        {/* API Key Modal */}
+        <ApiKeyModal
+          isOpen={showApiKeyModal}
+          onClose={() => setShowApiKeyModal(false)}
+          onSave={(key: string) => {
+            setApiKey(key);
+            notify.success('API Key Saved', 'Your Gemini API key has been configured.');
+          }}
+          currentKey={apiKey}
+        />
 
         {/* Upload Modal */}
         <PdfUploaderModal
@@ -488,18 +530,18 @@ export default function Home() {
           <Header />
 
           {/* Mobile Document Info */}
-          {activeDocuments.length > 0 && (
+          {activeDocuments?.length > 0 && (
             <div className="lg:hidden space-y-2">
               <div className="text-xs font-medium text-gray-600 px-1">
-                Active Documents ({activeDocuments.length})
+                Active Documents ({activeDocuments?.length})
               </div>
               {activeDocuments.map((doc, index) => (
                 <Card key={doc.id} variant="glass" padding="sm">
                   <div className="flex items-center space-x-2">
-                    <span className="text-gray-500">📄</span>
+                    <FileText className="w-4 h-4 text-gray-400" />
                     <span className="text-sm font-medium text-gray-700 truncate">{doc.name}</span>
                     {index === 0 && (
-                      <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium flex-shrink-0">
+                      <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-medium flex-shrink-0">
                         Primary
                       </span>
                     )}
@@ -556,28 +598,34 @@ export default function Home() {
 
                 {/* Feature Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 animate-slideUp">
-                  <Card variant="glass" className="hover:shadow-md transition-shadow">
-                    <div className="text-3xl mb-3">📚</div>
+                  <Card variant="glass" hover className="text-center">
+                    <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                      <Upload className="w-6 h-6 text-indigo-600" />
+                    </div>
                     <h3 className="font-semibold text-gray-800 mb-2">Upload Documents</h3>
-                    <p className="text-sm text-gray-600">Upload your PDFs and let AI extract the content</p>
+                    <p className="text-sm text-gray-500">Upload your PDFs and let AI extract the content</p>
                   </Card>
-                  <Card variant="glass" className="hover:shadow-md transition-shadow">
-                    <div className="text-3xl mb-3">✨</div>
+                  <Card variant="glass" hover className="text-center">
+                    <div className="w-12 h-12 bg-violet-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                      <Sparkles className="w-6 h-6 text-violet-600" />
+                    </div>
                     <h3 className="font-semibold text-gray-800 mb-2">Choose Tools</h3>
-                    <p className="text-sm text-gray-600">Select from flashcards, quizzes, study guides, and more</p>
+                    <p className="text-sm text-gray-500">Select from flashcards, quizzes, study guides, and more</p>
                   </Card>
-                  <Card variant="glass" className="hover:shadow-md transition-shadow">
-                    <div className="text-3xl mb-3">🎯</div>
+                  <Card variant="glass" hover className="text-center">
+                    <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                      <Target className="w-6 h-6 text-emerald-600" />
+                    </div>
                     <h3 className="font-semibold text-gray-800 mb-2">Study Smart</h3>
-                    <p className="text-sm text-gray-600">Learn efficiently with AI-powered adaptive learning</p>
+                    <p className="text-sm text-gray-500">Learn efficiently with AI-powered adaptive learning</p>
                   </Card>
                 </div>
 
                 {/* Quick Start CTA */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200 animate-slideUp">
+                <div className="bg-indigo-50 rounded-xl p-6 border border-indigo-100 animate-slideUp">
                   <p className="text-gray-700 font-medium mb-2">Ready to get started?</p>
-                  <p className="text-sm text-gray-600 mb-4">Upload your first document below to begin!</p>
-                  <Button onClick={() => setShowUploadModal(true)} icon="📄">
+                  <p className="text-sm text-gray-500 mb-4">Upload your first document below to begin</p>
+                  <Button onClick={() => setShowUploadModal(true)} icon={<Upload className="w-4 h-4" />}>
                     Upload PDF
                   </Button>
                 </div>
@@ -585,146 +633,25 @@ export default function Home() {
             </div>
           )}
 
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-            {/* Left Sidebar */}
-            <div className={`lg:col-span-1 space-y-4 lg:space-y-6 transition-all duration-300 ${sidebarCollapsed ? 'lg:col-span-0 lg:w-16' : ''}`}>
-              {/* Collapse Button */}
-              <div className="hidden lg:flex justify-end">
-                <button
-                  onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                  className="p-2 bg-white/80 backdrop-blur-sm rounded-lg shadow-sm border border-gray-200 hover:bg-white transition-all duration-200"
-                  title={sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
-                >
-                  {sidebarCollapsed ? '→' : '←'}
-                </button>
-              </div>
-
-              {/* Upload Section */}
-              {step === 0 && !sidebarCollapsed && (
-                <StepHighlight isActive={highlightUpload}>
-                  <div data-upload-area>
-                    <PdfUploader onExtracted={handleExtracted} />
-                  </div>
-                </StepHighlight>
-              )}
-
-              {/* API Key Section */}
-              {step >= 1 && !sidebarCollapsed && (
-                <StepHighlight isActive={highlightApiKey}>
-                  <Card variant="glass" padding="none" data-api-key-section>
-                    {step < 3 && (
-                      <div className="px-4 lg:px-6 pt-4 pb-2">
-                        <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                          <span>Setup Progress</span>
-                          <span>{step === 1 ? 'Step 1 of 2' : 'Step 2 of 2'}</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5">
-                          <div
-                            className="bg-gradient-to-r from-blue-500 to-indigo-600 h-1.5 rounded-full transition-all duration-500"
-                            style={{ width: `${(step / 2) * 100}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="border-b border-gray-200">
-                      <button
-                        onClick={() => setShowApiKeyInput(!showApiKeyInput)}
-                        className={`w-full px-4 lg:px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 transition-colors ${
-                          step === 1 && !apiKey ? 'bg-blue-50/50 border-l-4 border-l-blue-500' : ''
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div
-                            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
-                              apiKey
-                                ? 'bg-gradient-to-r from-green-500 to-emerald-600 shadow-lg scale-110'
-                                : step === 1
-                                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 animate-pulse shadow-lg'
-                                : 'bg-gray-300'
-                            }`}
-                          >
-                            <span className="text-white text-base">{apiKey ? '✓' : '🔑'}</span>
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-gray-800 flex items-center">
-                              API Key
-                              {step === 1 && !apiKey && (
-                                <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium animate-pulse">
-                                  Required
-                                </span>
-                              )}
-                            </h3>
-                            <p className="text-sm text-gray-500">{apiKey ? 'Configured and ready' : 'Required for AI features'}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          {apiKey && <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">✓ Ready</span>}
-                          <span className={`transform transition-transform duration-200 ${showApiKeyInput ? 'rotate-180' : ''}`}>▼</span>
-                        </div>
-                      </button>
-                      {showApiKeyInput && (
-                        <div className="px-4 lg:px-6 pb-4 animate-slideUp">
-                          <ApiKeyInput onChange={setApiKey} />
-                        </div>
-                      )}
-                    </div>
-                  </Card>
-                </StepHighlight>
-              )}
-
-              {/* Helpful Resources */}
-              {!sidebarCollapsed && (
-                <HelpfulResourcesSidebar history={history} performanceSummaries={performanceSummaries} onLoadFromHistory={loadFromHistory} />
-              )}
-
-              {/* Progress Tracker */}
-              {(feature === 'quiz' || feature === 'exam') && result && !sidebarCollapsed && (
-                <Card variant="glass">
-                  <CardTitle icon="📊">Progress</CardTitle>
-                  <div className="space-y-3 mt-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Question</span>
-                      <span className="font-medium">{currentQuestionIndex + 1} / {totalQuestions}</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${((currentQuestionIndex + 1) / totalQuestions) * 100}%` }}
-                      />
-                    </div>
-                    <div className="text-xs text-gray-500 text-center">
-                      {Math.round(((currentQuestionIndex + 1) / totalQuestions) * 100)}% Complete
-                    </div>
-                  </div>
-                </Card>
-              )}
-
-              {!sidebarCollapsed && <FocusModeStats onEnterFocusMode={() => setFocusMode(true)} />}
-            </div>
-
-            {/* Main Content Area */}
-            <div className={`space-y-4 lg:space-y-6 transition-all duration-300 ${sidebarCollapsed ? 'lg:col-span-3' : 'lg:col-span-2'}`}>
+          {/* Main Content Area */}
+          <div className="space-y-4 lg:space-y-6">
               {/* Feature Selection */}
               {step >= 2 && ((!showQuizGenerator && !showExamGenerator && !result) || showFeatureSelector) && (
                 <StepHighlight isActive={highlightFeatures}>
                   <Card
                     variant="glass"
-                    className={step === 2 && !feature ? 'ring-2 ring-blue-500 ring-offset-2' : ''}
+                    className={step === 2 && !feature ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}
                     data-feature-selector
                   >
                     <div className="text-center mb-4 lg:mb-6">
                       <div className="flex justify-center mb-4">
                         <img src="/pagerushai-logo.png" alt="PageRush AI" className="h-12 w-auto" />
                       </div>
-                      <div className="flex items-center justify-center space-x-2 mb-2">
-                        <h2 className="text-xl lg:text-2xl font-bold text-gray-800">✨ Choose Your Study Tool</h2>
-                        {step === 2 && !feature && (
-                          <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium animate-pulse">Step 2</span>
-                        )}
+                      <div className="flex items-center justify-center gap-2 mb-2">
+                        <Sparkles className="w-5 h-5 text-indigo-600" />
+                        <h2 className="text-xl lg:text-2xl font-semibold text-gray-900">Choose Your Study Tool</h2>
                       </div>
-                      <p className="text-gray-600 text-sm lg:text-base">
+                      <p className="text-gray-500 text-sm lg:text-base">
                         {step === 2 && !feature
                           ? 'Select a study tool to get started with your documents'
                           : 'Select how you\'d like to study your materials'}
@@ -732,9 +659,9 @@ export default function Home() {
                     </div>
 
                     {step === 2 && !feature && showOnboardingGuide && (
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 animate-slideUp">
-                        <p className="text-sm text-blue-800 flex items-start">
-                          <span className="mr-2">💡</span>
+                      <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 mb-4 animate-slideUp">
+                        <p className="text-sm text-indigo-800 flex items-start gap-2">
+                          <Lightbulb className="w-4 h-4 flex-shrink-0 mt-0.5" />
                           <span>
                             <strong>Tip:</strong> Start with <strong>Exam Cram</strong> for smart topic breakdown, or choose{' '}
                             <strong>Study Guide</strong> for organized notes.
@@ -764,7 +691,7 @@ export default function Home() {
               )}
 
               {/* Study Content */}
-              {feature === 'examCram' && activeDocuments.length > 0 && (
+              {feature === 'examCram' && activeDocuments?.length > 0 && (
                 <ExamCram
                   content={getActiveText()}
                   documentName={activeDocuments.map((d) => d.name).join(', ')}
@@ -814,7 +741,6 @@ export default function Home() {
                   {quizScore && <Insights score={quizScore.score} total={quizScore.total} details={quizScore.details || []} />}
                 </>
               )}
-            </div>
           </div>
 
           <Footer />

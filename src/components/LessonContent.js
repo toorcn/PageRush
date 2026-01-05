@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { CheckCircle } from 'lucide-react';
 import LottieLoader from './LottieLoader';
 import StudyGuide from './StudyGuide';
 import Flashcards from './Flashcards';
@@ -79,7 +80,7 @@ const LessonContent = ({ lessonType, content, onComplete, result }) => {
           onClick={onComplete}
           className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-3 rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center space-x-2"
         >
-          <span>✅</span>
+          <CheckCircle className="w-5 h-5" />
           <span>Complete Lesson</span>
         </button>
       </div>

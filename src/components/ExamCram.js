@@ -1,5 +1,6 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { Rocket, RefreshCw, ClipboardList, BarChart2, Target, PartyPopper, ArrowLeft } from 'lucide-react';
 import TopicBreakdown from './TopicBreakdown';
 import ReadinessAssessment from './ReadinessAssessment';
 import AdaptiveLearning from './AdaptiveLearning';
@@ -321,7 +322,10 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
     <div className="space-y-8">
       {/* Header */}
       <div className="text-center">
-        <h2 className="text-4xl font-bold text-gray-800 mb-3">🚀 Exam Cram</h2>
+        <h2 className="text-4xl font-bold text-gray-800 mb-3 flex items-center justify-center gap-3">
+          <Rocket className="w-10 h-10 text-blue-600" />
+          Exam Cram
+        </h2>
         <p className="text-gray-600 text-lg">Accelerated study with smart topic breakdown and adaptive learning</p>
       </div>
 
@@ -330,7 +334,7 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 lg:p-6">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
             <div className="flex items-start space-x-3">
-              <div className="text-2xl lg:text-3xl flex-shrink-0">🔄</div>
+              <RefreshCw className="w-6 h-6 lg:w-7 lg:h-7 text-blue-600 flex-shrink-0" />
               <div className="min-w-0 flex-1">
                 <h3 className="font-bold text-base lg:text-lg text-blue-800">Previously Generated Content Available</h3>
                 <p className="text-blue-600 text-sm lg:text-base">
@@ -392,7 +396,7 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
           onClick={() => setCurrentView('breakdown')}
           className="bg-white rounded-xl p-6 lg:p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 text-left group hover:scale-105"
         >
-          <div className="text-3xl lg:text-4xl mb-3 lg:mb-4">📋</div>
+          <ClipboardList className="w-8 h-8 lg:w-10 lg:h-10 mb-3 lg:mb-4 text-blue-600" />
           <h3 className="font-bold text-lg lg:text-xl mb-2 lg:mb-3 text-gray-800">Topic Breakdown</h3>
           <p className="text-gray-600 mb-4 lg:mb-6 text-sm lg:text-base">See the most important concepts at a glance</p>
           <div className="text-blue-600 font-semibold group-hover:text-blue-700 transition-colors text-sm lg:text-base">
@@ -409,7 +413,7 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
           }}
           className="bg-white rounded-xl p-6 lg:p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 text-left group hover:scale-105"
         >
-          <div className="text-3xl lg:text-4xl mb-3 lg:mb-4">📊</div>
+          <BarChart2 className="w-8 h-8 lg:w-10 lg:h-10 mb-3 lg:mb-4 text-green-600" />
           <h3 className="font-bold text-lg lg:text-xl mb-2 lg:mb-3 text-gray-800">Readiness Assessment</h3>
           <p className="text-gray-600 mb-4 lg:mb-6 text-sm lg:text-base">Evaluate your exam preparedness</p>
           <div className="text-green-600 font-semibold group-hover:text-green-700 transition-colors text-sm lg:text-base">
@@ -421,7 +425,7 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
           onClick={() => startAdaptiveLearning()}
           className="bg-white rounded-xl p-6 lg:p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 text-left group hover:scale-105"
         >
-          <div className="text-3xl lg:text-4xl mb-3 lg:mb-4">🎯</div>
+          <Target className="w-8 h-8 lg:w-10 lg:h-10 mb-3 lg:mb-4 text-purple-600" />
           <h3 className="font-bold text-lg lg:text-xl mb-2 lg:mb-3 text-gray-800">Adaptive Learning</h3>
           <p className="text-gray-600 mb-4 lg:mb-6 text-sm lg:text-base">Practice until you master each concept</p>
           <div className="text-purple-600 font-semibold group-hover:text-purple-700 transition-colors text-sm lg:text-base">
@@ -434,7 +438,7 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
       {learningProgress.completedTopics.length > 0 && (
         <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6 lg:p-8">
           <h3 className="font-bold text-lg lg:text-xl mb-4 text-green-800 flex items-center">
-            <span className="mr-2">🎉</span>
+            <PartyPopper className="w-5 h-5 mr-2" />
             Progress Made!
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
@@ -523,7 +527,7 @@ export default function ExamCram({ content, documentName, apiKey, onGenerateCont
                 onClick={() => setCurrentView('overview')}
                 className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium"
               >
-                ← Back to Exam Cram
+                <ArrowLeft className="w-4 h-4" /> Back to Exam Cram
               </button>
             </div>
             <StudyGuide 

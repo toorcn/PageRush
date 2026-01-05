@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import { Target, BookOpen, Library, Clock, Loader, CheckCircle, RefreshCw, AlertTriangle, Flame, MessageCircle, Zap, Bot, BarChart2, Lightbulb, XCircle, ArrowLeft, X } from 'lucide-react';
 import { questionBankManager } from '../utils/questionBankManager';
 import LottieLoader from './LottieLoader';
 
@@ -510,7 +511,10 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="text-center flex-1">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">🎯 Choose a Topic to Practice</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-2">
+            <Target className="w-6 h-6 text-blue-600" />
+            Choose a Topic to Practice
+          </h2>
           <p className="text-gray-600">Select a topic to start adaptive learning</p>
         </div>
         <button
@@ -523,7 +527,10 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
 
       {/* Question Bank Status */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-3">📚 Question Bank Status</h3>
+        <h3 className="font-semibold text-blue-800 mb-3 flex items-center gap-2">
+          <Library className="w-5 h-5" />
+          Question Bank Status
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {topicBreakdown?.topics.map((topic) => {
             const cacheStatus = questionBankManager.getCacheStatus()[topic.id];
@@ -535,9 +542,9 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
               <div key={topic.id} className="flex items-center justify-between p-2 bg-white rounded border">
                 <span className="text-sm font-medium text-gray-700">{topic.title}</span>
                 <div className="flex items-center space-x-2">
-                  {status === 'loading' && <span className="text-blue-600">⏳</span>}
-                  {isTrulyCompleted && <span className="text-green-600">✅</span>}
-                  {isCompleted && !isTrulyCompleted && <span className="text-yellow-600">🔄</span>}
+                  {status === 'loading' && <Loader className="w-4 h-4 text-blue-600 animate-spin" />}
+                  {isTrulyCompleted && <CheckCircle className="w-4 h-4 text-green-600" />}
+                  {isCompleted && !isTrulyCompleted && <RefreshCw className="w-4 h-4 text-yellow-600" />}
                   {cacheStatus ? (
                     <span className={`text-xs ${
                       isTrulyCompleted ? 'text-green-600' : 
@@ -585,9 +592,9 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
               <div className="flex items-start justify-between mb-3">
                 <h3 className="font-bold text-lg text-gray-800">{topic.title}</h3>
                 <div className="flex items-center space-x-2">
-                  {isTrulyCompleted && <span className="text-green-600">✅</span>}
-                  {isCompleted && hasQuestionsLeft && <span className="text-yellow-600">🔄</span>}
-                  {isWeak && <span className="text-red-600">⚠️</span>}
+                  {isTrulyCompleted && <CheckCircle className="w-4 h-4 text-green-600" />}
+                  {isCompleted && hasQuestionsLeft && <RefreshCw className="w-4 h-4 text-yellow-600" />}
+                  {isWeak && <AlertTriangle className="w-4 h-4 text-red-600" />}
                   {cacheStatus && (
                     <span className="text-blue-600 text-xs bg-blue-100 px-2 py-1 rounded">
                       {cacheStatus.remainingQuestions} questions
@@ -606,8 +613,8 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
               <p className="text-gray-600 text-sm mb-3">{topic.description}</p>
               
               <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-500">
-                  ⏱️ {topic.estimatedStudyTime} min • 📚 {topic.keyConcepts.length} concepts
+                <div className="text-sm text-gray-500 flex items-center gap-1">
+                  <Clock className="w-4 h-4" /> {topic.estimatedStudyTime} min • <Library className="w-4 h-4" /> {topic.keyConcepts.length} concepts
                 </div>
                 <div className="flex space-x-2">
                   {!cacheStatus && (
@@ -652,7 +659,10 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">📖 Review: {currentTopic?.title}</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2 flex items-center gap-2">
+            <BookOpen className="w-6 h-6 text-blue-600" />
+            Review: {currentTopic?.title}
+          </h2>
           <p className="text-gray-600">Review the key concepts before practicing</p>
         </div>
         <div className="flex space-x-3">
@@ -704,15 +714,18 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
       <div className="space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex-1">
-            <h2 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2">🎯 Practice: {currentTopic?.title}</h2>
+            <h2 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2 flex items-center gap-2">
+              <Target className="w-6 h-6 text-blue-600" />
+              Practice: {currentTopic?.title}
+            </h2>
             {/* Enhanced Stats - Responsive grid */}
             <div className="grid grid-cols-2 lg:flex lg:items-center lg:space-x-4 gap-2 lg:gap-4 text-sm lg:text-base text-gray-600">
               <span className="bg-gray-100 px-2 py-1 rounded text-xs lg:text-sm">Questions: {sessionStats.questionsAnswered}</span>
               <span className="bg-gray-100 px-2 py-1 rounded text-xs lg:text-sm">Correct: {sessionStats.correctAnswers}</span>
               <span className="bg-gray-100 px-2 py-1 rounded text-xs lg:text-sm">Avg Time: {sessionStats.averageTime.toFixed(1)}s</span>
               {sessionStats.streakCount > 0 && (
-                <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs lg:text-sm">
-                  🔥 Streak: {sessionStats.streakCount}
+                <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs lg:text-sm flex items-center gap-1">
+                  <Flame className="w-3 h-3" /> Streak: {sessionStats.streakCount}
                 </span>
               )}
               {sessionStats.questionsAnswered > 0 && (
@@ -734,7 +747,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
         {breakReminder && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div className="flex items-center space-x-3">
-              <span className="text-yellow-600 text-xl">⏰</span>
+              <Clock className="w-5 h-5 text-yellow-600" />
               <div>
                 <h4 className="font-medium text-yellow-800">Time for a Break!</h4>
                 <p className="text-sm text-yellow-700">You've been studying for over 25 minutes. Consider taking a 5-minute break to maintain focus.</p>
@@ -743,7 +756,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
                 onClick={() => setBreakReminder(false)}
                 className="text-yellow-600 hover:text-yellow-800"
               >
-                ×
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -753,7 +766,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
         {showMetacognitivePrompt && currentQuestion && (
           <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
             <div className="flex items-start space-x-3">
-              <span className="text-purple-600 text-lg">💭</span>
+              <MessageCircle className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
               <div>
                 <h4 className="font-medium text-purple-800 mb-1">Learning Strategy</h4>
                 <p className="text-sm text-purple-700">{getMetacognitivePrompt()}</p>
@@ -762,7 +775,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
                 onClick={() => setShowMetacognitivePrompt(false)}
                 className="text-purple-600 hover:text-purple-800"
               >
-                ×
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -801,8 +814,8 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
               <div className="space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <h4 className="font-medium text-gray-800 text-sm lg:text-base">Select the best answer:</h4>
-                  <span className="text-green-600 text-xs lg:text-sm font-medium bg-green-100 px-2 py-1 rounded self-start sm:self-auto">
-                    ⚡ Instant Feedback
+                  <span className="text-green-600 text-xs lg:text-sm font-medium bg-green-100 px-2 py-1 rounded self-start sm:self-auto flex items-center gap-1">
+                    <Zap className="w-3 h-3" /> Instant Feedback
                   </span>
                 </div>
                 <div className="space-y-2">
@@ -827,8 +840,8 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
               <div className="space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <h4 className="font-medium text-gray-800 text-sm lg:text-base">Your answer:</h4>
-                  <span className="text-blue-600 text-xs lg:text-sm font-medium bg-blue-100 px-2 py-1 rounded self-start sm:self-auto">
-                    🤖 AI Grading
+                  <span className="text-blue-600 text-xs lg:text-sm font-medium bg-blue-100 px-2 py-1 rounded self-start sm:self-auto flex items-center gap-1">
+                    <Bot className="w-3 h-3" /> AI Grading
                   </span>
                 </div>
                 <textarea
@@ -888,7 +901,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <span className="text-2xl">
-                        {questionHistory[questionHistory.length - 1]?.isCorrect ? '✅' : '❌'}
+                        {questionHistory[questionHistory.length - 1]?.isCorrect ? <CheckCircle className="w-7 h-7 text-green-600" /> : <XCircle className="w-7 h-7 text-red-600" />}
                       </span>
                       <div>
                         <span className="font-semibold text-lg">
@@ -928,19 +941,19 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
                       className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 bg-gray-50 border-r border-gray-200 hover:bg-gray-100 transition-colors"
                       onClick={() => setActiveTab('comparison')}
                     >
-                      📊 Comparison
+                      <BarChart2 className="w-4 h-4 inline mr-1" /> Comparison
                     </button>
                     <button
                       className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 bg-gray-50 border-r border-gray-200 hover:bg-gray-100 transition-colors"
                       onClick={() => setActiveTab('explanation')}
                     >
-                      💡 Explanation
+                      <Lightbulb className="w-4 h-4 inline mr-1" /> Explanation
                     </button>
                     <button
                       className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 transition-colors"
                       onClick={() => setActiveTab('learning')}
                     >
-                      🎯 Learning Tips
+                      <Target className="w-4 h-4 inline mr-1" /> Learning Tips
                     </button>
                   </div>
 
@@ -995,30 +1008,30 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
                             {questionHistory[questionHistory.length - 1]?.isCorrect ? (
                               userConfidence >= 4 ? (
                                 <div className="flex items-start space-x-2">
-                                  <span className="text-green-600">✅</span>
+                                  <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
                                   <span className="text-sm text-gray-700">Great job! You have a solid understanding of this concept.</span>
                                 </div>
                               ) : (
                                 <div className="flex items-start space-x-2">
-                                  <span className="text-yellow-600">⚠️</span>
+                                  <AlertTriangle className="w-4 h-4 text-yellow-600 flex-shrink-0 mt-0.5" />
                                   <span className="text-sm text-gray-700">You got it right, but with low confidence. Review this concept to build stronger understanding.</span>
                                 </div>
                               )
                             ) : (
                               userConfidence >= 4 ? (
                                 <div className="flex items-start space-x-2">
-                                  <span className="text-red-600">❌</span>
+                                  <XCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
                                   <span className="text-sm text-gray-700">You were confident but incorrect. This is a valuable learning moment - review the concept carefully.</span>
                                 </div>
                               ) : (
                                 <div className="flex items-start space-x-2">
-                                  <span className="text-blue-600">💡</span>
+                                  <Lightbulb className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
                                   <span className="text-sm text-gray-700">You were unsure and incorrect. Focus on understanding the fundamentals of this topic.</span>
                                 </div>
                               )
                             )}
                             <div className="flex items-start space-x-2">
-                              <span className="text-purple-600">🎯</span>
+                              <Target className="w-4 h-4 text-purple-600 flex-shrink-0 mt-0.5" />
                               <span className="text-sm text-gray-700">Try to explain this concept in your own words to reinforce your understanding.</span>
                             </div>
                           </div>
@@ -1047,14 +1060,17 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2">🎯 Adaptive Learning</h2>
+          <h2 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2 flex items-center gap-2">
+            <Target className="w-6 h-6 text-blue-600" />
+            Adaptive Learning
+          </h2>
           <p className="text-gray-600 text-sm lg:text-base">Practice until you master each concept</p>
         </div>
         <button
           onClick={handleBackToOverview}
           className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium text-sm lg:text-base self-start sm:self-auto"
         >
-          ← Back to Overview
+          <ArrowLeft className="w-4 h-4" /> Back to Overview
         </button>
       </div>
 
@@ -1073,7 +1089,10 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
       {/* Performance Analytics */}
       {currentMode === 'select' && (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">📊 Performance Analytics</h3>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+            <BarChart2 className="w-5 h-5 text-blue-600" />
+            Performance Analytics
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {topicBreakdown?.topics.map((topic) => {
               const analytics = questionBankManager.getPerformanceAnalytics(topic.id);

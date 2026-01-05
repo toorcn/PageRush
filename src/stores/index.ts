@@ -10,3 +10,5 @@ export {
   useStudyLoadingText,
 } from './studyStore';
 export { useUIStore } from './uiStore';
+export { useMetricsStore, calculateCost } from './metricsStore';
+export type { ApiMetrics } from './metricsStore';
