@@ -5,7 +5,7 @@ import AIHelpChat from './AIHelpChat';
 import { 
   HelpCircle, Pencil, MessageSquare, FileText, Square, Check, X, 
   ThumbsUp, Target, Lightbulb, ClipboardList, BarChart3, AlertTriangle, 
-  BookOpen, Bot 
+  BookOpen, Bot, ChevronDown, ChevronRight
 } from 'lucide-react';
 
 export default function Exam({ questions, onSubmit, feedback, currentQuestionIndex, setCurrentQuestionIndex, setTotalQuestions, onSaveResults, examMode = 'standard' }) {
@@ -27,6 +27,7 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
   const [chatWidth, setChatWidth] = useState(384);
   const [currentExamMode, setCurrentExamMode] = useState(examMode);
   const [isLargeScreen, setIsLargeScreen] = useState(false);
+  const [expandedHints, setExpandedHints] = useState(new Set());
   const questionRefs = useRef([]);
   const observerRef = useRef(null);
 
@@ -80,6 +81,20 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
   useEffect(() => {
     setTotalQuestions(questions.length);
   }, [questions.length, setTotalQuestions]);
+
+  // Set submitted state and restore answers when feedback is received (handles component remount)
+  useEffect(() => {
+    if (feedback && feedback.length > 0) {
+      setSubmitted(true);
+      setShowPerformanceSummary(true);
+      // Restore answers from feedback
+      const restoredAnswers = questions.map((_, idx) => {
+        const fb = feedback[idx];
+        return fb?.userAnswer || '';
+      });
+      setAnswers(restoredAnswers);
+    }
+  }, [feedback, questions]);
 
   useEffect(() => {
     if (questionRefs.current[currentQuestionIndex]) {
@@ -167,6 +182,13 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
   const closeChat = () => {
     setChatOpen(false);
     setInitialChatMessage(null);
+  };
+
+  const toggleHints = (questionIndex) => {
+    const newExpanded = new Set(expandedHints);
+    if (newExpanded.has(questionIndex)) newExpanded.delete(questionIndex);
+    else newExpanded.add(questionIndex);
+    setExpandedHints(newExpanded);
   };
 
   const handleSubmit = async (e) => {
@@ -262,9 +284,12 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
 
   const getQuestionTypeIcon = (type) => {
     const icons = { 
-      mcq: <HelpCircle className="w-4 h-4" />, 
-      shortAnswer: <Pencil className="w-4 h-4" />, 
-      discuss: <MessageSquare className="w-4 h-4" />, 
+      mcq: <HelpCircle className="w-4 h-4" />,
+      'multiple-choice': <HelpCircle className="w-4 h-4" />,
+      shortAnswer: <Pencil className="w-4 h-4" />,
+      'short-answer': <Pencil className="w-4 h-4" />,
+      discuss: <MessageSquare className="w-4 h-4" />,
+      essay: <MessageSquare className="w-4 h-4" />,
       describe: <FileText className="w-4 h-4" />, 
       fillBlanks: <Square className="w-4 h-4" /> 
     };
@@ -272,12 +297,30 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
   };
 
   const getQuestionTypeLabel = (type) => {
-    const labels = { mcq: 'Multiple Choice', shortAnswer: 'Short Answer', discuss: 'Discuss', describe: 'Describe', fillBlanks: 'Fill in the Blanks' };
+    const labels = { 
+      mcq: 'Multiple Choice', 
+      'multiple-choice': 'Multiple Choice',
+      shortAnswer: 'Short Answer', 
+      'short-answer': 'Short Answer',
+      discuss: 'Discuss', 
+      essay: 'Discuss',
+      describe: 'Describe', 
+      fillBlanks: 'Fill in the Blanks' 
+    };
     return labels[type] || 'Question';
   };
 
   const getQuestionTypeColor = (type) => {
-    const colors = { mcq: 'bg-purple-100 text-purple-700', shortAnswer: 'bg-blue-100 text-blue-700', discuss: 'bg-green-100 text-green-700', describe: 'bg-orange-100 text-orange-700', fillBlanks: 'bg-yellow-100 text-yellow-700' };
+    const colors = { 
+      mcq: 'bg-purple-100 text-purple-700', 
+      'multiple-choice': 'bg-purple-100 text-purple-700',
+      shortAnswer: 'bg-blue-100 text-blue-700', 
+      'short-answer': 'bg-blue-100 text-blue-700',
+      discuss: 'bg-green-100 text-green-700', 
+      essay: 'bg-green-100 text-green-700',
+      describe: 'bg-orange-100 text-orange-700', 
+      fillBlanks: 'bg-yellow-100 text-yellow-700' 
+    };
     return colors[type] || 'bg-gray-100 text-gray-700';
   };
 
@@ -378,23 +421,44 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
                 </div>
               </div>
 
-              {/* AI Help Suggestions - Clickable chips */}
-              <div className="flex flex-wrap gap-2">
-                {q.aiSuggestions?.map((suggestion, sIdx) => (
-                  <button key={sIdx} type="button" onClick={() => handleSuggestionClick(idx, suggestion)}
-                    className={`px-3 py-1.5 rounded-full text-xs transition-colors flex items-center gap-1.5 ${
-                      isActiveInChat 
-                        ? 'bg-indigo-600 text-white border border-indigo-600' 
-                        : 'bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300'
-                    }`}>
-                    <Bot className="w-3.5 h-3.5" />
-                    <span>{suggestion}</span>
+              {/* AI Help Suggestions - Expandable */}
+              {q.aiSuggestions && q.aiSuggestions.length > 0 && (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleHints(idx)}
+                    className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 transition-colors"
+                  >
+                    {expandedHints.has(idx) ? (
+                      <ChevronDown className="w-4 h-4" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4" />
+                    )}
+                    <Lightbulb className="w-4 h-4" />
+                    <span className="font-medium">
+                      {expandedHints.has(idx) ? 'Hide hints' : 'Need a hint?'}
+                    </span>
                   </button>
-                ))}
-              </div>
+                  {expandedHints.has(idx) && (
+                    <div className="flex flex-wrap gap-2 pl-6 animate-in fade-in slide-in-from-top-1 duration-200">
+                      {q.aiSuggestions.map((suggestion, sIdx) => (
+                        <button key={sIdx} type="button" onClick={() => handleSuggestionClick(idx, suggestion)}
+                          className={`px-3 py-1.5 rounded-full text-xs transition-colors flex items-center gap-1.5 ${
+                            isActiveInChat 
+                              ? 'bg-indigo-600 text-white border border-indigo-600' 
+                              : 'bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300'
+                          }`}>
+                          <Bot className="w-3.5 h-3.5" />
+                          <span>{suggestion}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Answer Options for MCQ */}
-              {q.type === 'mcq' && q.options && (
+              {(q.type === 'mcq' || q.type === 'multiple-choice') && q.options && q.options.length > 0 && (
                 <div className="grid grid-cols-1 gap-3 lg:gap-4">
                   {q.options.map((opt, oidx) => {
                     const isSelectedOption = answers[idx] === opt;
@@ -418,8 +482,8 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
                 </div>
               )}
 
-              {/* Text Input for other question types */}
-              {q.type !== 'mcq' && (
+              {/* Text Input for other question types (or MCQ without options as fallback) */}
+              {((q.type !== 'mcq' && q.type !== 'multiple-choice') || !q.options || q.options.length === 0) && (
                 <div className="space-y-2">
                   <textarea value={answers[idx] || ''} onChange={(e) => handleTextChange(idx, e.target.value)} disabled={submitted}
                     rows={q.type === 'discuss' || q.type === 'describe' ? 4 : 2}
@@ -473,6 +537,12 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
                     </div>
                     <div className="text-sm lg:text-base font-semibold">{questionFeedback.points}/{questionFeedback.maxPoints} points</div>
                   </div>
+                  
+                  {/* Show user's answer */}
+                  <div className="text-sm mb-2 opacity-90">
+                    <span className="font-medium">Your answer:</span> {questionFeedback.userAnswer || answers[idx] || 'No answer provided'}
+                  </div>
+                  
                   <div className="text-sm lg:text-base mb-3 lg:mb-4 leading-relaxed">
                     {typeof questionFeedback.feedback === 'string' ? questionFeedback.feedback : JSON.stringify(questionFeedback.feedback)}
                   </div>

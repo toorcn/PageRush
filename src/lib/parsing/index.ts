@@ -196,16 +196,25 @@ export function parseExam(response: GeminiResponse): ExamQuestion[] {
     const exam = JSON.parse(cleanedText);
     if (Array.isArray(exam)) {
       return exam.map((q, i) => {
-        const type = q.type || 'multiple-choice';
+        const rawType = q.type || 'mcq';
+        // Normalize type names - keep original API types (mcq, shortAnswer, etc.)
+        // but also handle legacy types (multiple-choice, short-answer, essay)
+        let type = rawType;
+        if (rawType === 'multiple-choice') type = 'mcq';
+        if (rawType === 'short-answer') type = 'shortAnswer';
+        if (rawType === 'essay') type = 'discuss';
+        
         return {
           question: String(q.question || q.Question || `Question ${i + 1}`),
           answer: String(q.answer || q.Answer || q.correct || ''),
-          type: type === 'mcq' ? 'multiple-choice' : type,
-          options: type === 'mcq' || type === 'multiple-choice'
+          type,
+          options: (type === 'mcq' || rawType === 'multiple-choice')
             ? (Array.isArray(q.options) ? q.options.map(String) : undefined)
             : undefined,
           maxPoints: q.points || q.maxPoints || 1,
+          points: q.points || q.maxPoints || 1,
           topic: q.topic ? String(q.topic) : undefined,
+          explanation: q.explanation ? String(q.explanation) : undefined,
         };
       });
     }
@@ -223,12 +232,16 @@ export function parseExam(response: GeminiResponse): ExamQuestion[] {
 
     const question = lines[0].replace(/^\d+\.\s*/, '').trim();
     
-    // Determine question type
-    let type: ExamQuestion['type'] = 'multiple-choice';
+    // Determine question type - use API type names
+    let type: ExamQuestion['type'] = 'mcq';
     if (/discuss|explain/i.test(question)) {
-      type = 'essay';
-    } else if (/describe|short/i.test(question) || question.length > 100) {
-      type = 'short-answer';
+      type = 'discuss';
+    } else if (/describe/i.test(question)) {
+      type = 'describe';
+    } else if (/short|brief/i.test(question) || question.length > 100) {
+      type = 'shortAnswer';
+    } else if (/fill|blank/i.test(question)) {
+      type = 'fillBlanks';
     }
 
     const options: string[] = [];
@@ -248,8 +261,9 @@ export function parseExam(response: GeminiResponse): ExamQuestion[] {
         question,
         answer,
         type,
-        options: type === 'multiple-choice' && options.length >= 2 ? options : undefined,
+        options: type === 'mcq' && options.length >= 2 ? options : undefined,
         maxPoints: 1,
+        points: 1,
       });
     }
   }

@@ -13,6 +13,28 @@ const LessonContent = ({ lessonType, content, onComplete, result }) => {
   console.log('LessonContent render:', { lessonType, content: content?.substring(0, 50), result: !!result });
   
   const [quizResult, setQuizResult] = React.useState(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = React.useState(0);
+  const [totalQuestions, setTotalQuestions] = React.useState(0);
+
+  // Handle quiz submission - grade locally since we have the questions
+  const handleQuizSubmit = (answers) => {
+    const actualResult = result || { result: { candidates: [{ content: { parts: [{ text: content }] } }] } };
+    const questions = parseQuiz(actualResult);
+    
+    let numCorrect = 0;
+    const details = questions.map((q, i) => {
+      const isCorrect = answers[i] === q.answer;
+      if (isCorrect) numCorrect++;
+      const status = isCorrect ? 'Correct' : `Incorrect (Correct: ${q.answer})`;
+      return `${i + 1}. ${q.question} — ${status}`;
+    });
+    
+    setQuizResult({
+      numCorrect,
+      totalQuestions: questions.length,
+      details
+    });
+  };
 
   const renderContent = () => {
     if (!content && !result) {
@@ -39,7 +61,13 @@ const LessonContent = ({ lessonType, content, onComplete, result }) => {
         return quizResult ? (
           <Insights score={quizResult.numCorrect} total={quizResult.totalQuestions} details={quizResult.details} />
         ) : (
-          <Quiz questions={parseQuiz(actualResult)} onSubmit={setQuizResult} />
+          <Quiz 
+            questions={parseQuiz(actualResult)} 
+            onSubmit={handleQuizSubmit}
+            currentQuestionIndex={currentQuestionIndex}
+            setCurrentQuestionIndex={setCurrentQuestionIndex}
+            setTotalQuestions={setTotalQuestions}
+          />
         );
       case 'exam':
         return <Exam questions={parseExam(actualResult)} onSubmit={() => onComplete()} />;

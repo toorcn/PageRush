@@ -711,7 +711,7 @@ export default function Home() {
                 <Flashcards cards={parsedFlashcards} onRegenerate={() => generateContent('flashcards')} />
               )}
 
-              {!loading && result && feature === 'quiz' && (
+              {result && feature === 'quiz' && (
                 <>
                   <Quiz
                     questions={parsedQuizQuestions}
@@ -719,6 +719,7 @@ export default function Home() {
                     currentQuestionIndex={currentQuestionIndex}
                     setCurrentQuestionIndex={handleSetCurrentQuestionIndex}
                     setTotalQuestions={handleSetTotalQuestions}
+                    gradingFeedback={quizScore}
                   />
                   {quizScore && <Insights score={quizScore.score} total={quizScore.total} details={quizScore.details || []} />}
                 </>

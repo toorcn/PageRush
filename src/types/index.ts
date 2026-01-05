@@ -56,10 +56,12 @@ export interface QuizQuestion {
 export interface ExamQuestion {
   question: string;
   answer: string;
-  type: 'multiple-choice' | 'short-answer' | 'essay';
+  type: 'mcq' | 'multiple-choice' | 'shortAnswer' | 'short-answer' | 'discuss' | 'describe' | 'fillBlanks' | 'essay';
   options?: string[];
   maxPoints?: number;
   topic?: string;
+  explanation?: string;
+  points?: number;
 }
 
 export interface QuizAnswer {

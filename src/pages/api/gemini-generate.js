@@ -177,28 +177,50 @@ Text to base questions on:\n\n${text}`;
       const examKnowledgeTypeFilter = knowledgeType && knowledgeType.trim() ? `Test the user's knowledge specifically on: ${knowledgeType}. ` : '';
       const performanceFilter = performanceSummary && performanceSummary.trim() ? `\n\nSTUDENT PERFORMANCE CONTEXT:\n${performanceSummary}\n\nUse this performance data to create questions that specifically target the student's weak areas and help them improve. Focus on topics and concepts where they struggled. ` : '';
       
-      // Build question type specifications
+      // Build question type specifications with exact counts
       let questionTypeSpecs = '';
+      let totalQuestionCount = 0;
+      const questionBreakdown = [];
+      
       if (questionTypes && Array.isArray(questionTypes)) {
-        questionTypeSpecs = questionTypes.map(({ type, count }) => {
-          switch (type) {
-            case 'mcq':
-              return `${count} multiple choice questions with 4 options each`;
-            case 'shortAnswer':
-              return `${count} short answer questions (1-2 sentences expected)`;
-            case 'discuss':
-              return `${count} discussion questions (paragraph-length responses expected)`;
-            case 'describe':
-              return `${count} description questions (detailed explanations expected)`;
-            case 'fillBlanks':
-              return `${count} fill-in-the-blank questions`;
-            default:
-              return '';
+        questionTypes.forEach(({ type, count }) => {
+          if (count > 0) {
+            totalQuestionCount += count;
+            switch (type) {
+              case 'mcq':
+                questionBreakdown.push(`- EXACTLY ${count} multiple choice questions (type: "mcq") with 4 options each`);
+                break;
+              case 'shortAnswer':
+                questionBreakdown.push(`- EXACTLY ${count} short answer questions (type: "shortAnswer") expecting 1-2 sentence responses`);
+                break;
+              case 'discuss':
+                questionBreakdown.push(`- EXACTLY ${count} discussion questions (type: "discuss") expecting paragraph-length responses`);
+                break;
+              case 'describe':
+                questionBreakdown.push(`- EXACTLY ${count} description questions (type: "describe") expecting detailed explanations`);
+                break;
+              case 'fillBlanks':
+                questionBreakdown.push(`- EXACTLY ${count} fill-in-the-blank questions (type: "fillBlanks")`);
+                break;
+            }
           }
-        }).filter(spec => spec).join(', ');
+        });
+        questionTypeSpecs = questionBreakdown.join('\n');
+      }
+      
+      // Fallback if no question types specified
+      if (!questionTypeSpecs) {
+        questionTypeSpecs = `- EXACTLY 5 multiple choice questions (type: "mcq") with 4 options each
+- EXACTLY 3 short answer questions (type: "shortAnswer") expecting 1-2 sentence responses
+- EXACTLY 2 discussion questions (type: "discuss") expecting paragraph-length responses`;
+        totalQuestionCount = 10;
       }
 
-      prompt = `Create a comprehensive exam with the following question types: ${questionTypeSpecs || '5 multiple choice, 3 short answer, 2 discussion questions'}.
+      prompt = `Create an exam with EXACTLY ${totalQuestionCount} questions total. You MUST follow these EXACT question counts:
+
+${questionTypeSpecs}
+
+CRITICAL: The total number of questions MUST be exactly ${totalQuestionCount}. Do NOT add extra questions or skip any. Count your questions before returning.
 
 ${examTopicFilter}${examKnowledgeTypeFilter}${performanceFilter}
 
@@ -211,22 +233,21 @@ Each question object must have this exact structure:
   "options": ["Option A", "Option B", "Option C", "Option D"], // Only for MCQ type
   "answer": "The correct answer or expected response",
   "explanation": "Brief explanation or assessment criteria",
-  "points": 1 // Points for this question
+  "points": 1 // Points for this question (MCQ=1, shortAnswer=2, discuss=3, describe=3, fillBlanks=1)
 }
 
-For different question types:
-- MCQ: Include 4 options, one correct answer
-- Short Answer: Expect 1-2 sentence responses
-- Discuss: Expect paragraph-length responses explaining concepts
-- Describe: Expect detailed descriptions
-- Fill Blanks: Provide sentence with blank(s) to fill
+Question type requirements:
+- mcq: MUST include exactly 4 options array, one correct answer, points=1
+- shortAnswer: NO options array, expect 1-2 sentence responses, points=2
+- discuss: NO options array, expect paragraph-length responses, points=3
+- describe: NO options array, expect detailed descriptions, points=3
+- fillBlanks: NO options array, provide sentence with _____ for blank(s), points=1
 
-Assessment criteria:
-- MCQ: Exact match with correct option
-- Short Answer: Key terms and concepts present
-- Discuss: Main points covered, logical flow
-- Describe: Essential details included
-- Fill Blanks: Exact word/phrase match
+VERIFICATION CHECKLIST before returning:
+1. Count total questions = ${totalQuestionCount}
+2. Verify each question type count matches the requirements above
+3. Ensure MCQ questions have exactly 4 options
+4. Ensure non-MCQ questions do NOT have options array
 
 Example format:
 [
@@ -247,7 +268,7 @@ Example format:
   }
 ]
 
-        Text to base questions on:\n\n${text}`;
+Text to base questions on:\n\n${text}`;
       break;
     case 'structuredUnderstanding':
       prompt = `You are an expert tutor. A learner has this question (and possibly their own answer and the correct answer).

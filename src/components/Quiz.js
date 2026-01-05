@@ -2,10 +2,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AIHelpChat from './AIHelpChat';
 import { 
-  HelpCircle, Check, X, Bot
+  HelpCircle, Check, X, Bot, ChevronDown, ChevronRight, Lightbulb,
+  BookOpen, PartyPopper, ThumbsUp
 } from 'lucide-react';
 
-export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCurrentQuestionIndex, setTotalQuestions }) {
+export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCurrentQuestionIndex, setTotalQuestions, gradingFeedback }) {
   const [answers, setAnswers] = useState(Array(questions.length).fill(''));
   const [submitted, setSubmitted] = useState(false);
   const [feedback, setFeedback] = useState(Array(questions.length).fill(null));
@@ -16,6 +17,7 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
   const [initialChatMessage, setInitialChatMessage] = useState(null);
   const [chatWidth, setChatWidth] = useState(384); // 24rem = 384px
   const [isLargeScreen, setIsLargeScreen] = useState(false);
+  const [expandedHints, setExpandedHints] = useState(new Set());
   const questionRefs = useRef([]);
   const observerRef = useRef(null);
 
@@ -99,6 +101,19 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
     setTotalQuestions(questions.length);
   }, [questions.length, setTotalQuestions]);
 
+  // Set submitted state when gradingFeedback is received (handles component remount)
+  useEffect(() => {
+    if (gradingFeedback && gradingFeedback.details) {
+      setSubmitted(true);
+      // Restore answers from grading feedback
+      const restoredAnswers = questions.map((_, idx) => {
+        const feedback = gradingFeedback.details.find(d => d.questionIndex === idx);
+        return feedback?.userAnswer || '';
+      });
+      setAnswers(restoredAnswers);
+    }
+  }, [gradingFeedback, questions]);
+
   useEffect(() => {
     if (questionRefs.current[currentQuestionIndex]) {
       questionRefs.current[currentQuestionIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -123,15 +138,8 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
       return answers[i] === q.answer;
     });
     setFeedback(newFeedback);
-    const numCorrect = newFeedback.filter(Boolean).length;
-    const total = questions.length;
-    const percentCorrect = Math.round((numCorrect / total) * 100);
-    const details = questions.map((q, i) => {
-      if (!q.options || q.options.length < 2) return `Question ${i + 1}: Invalid format`;
-      const status = answers[i] === q.answer ? 'Correct' : `Incorrect (Correct: ${q.answer})`;
-      return `${i + 1}. ${q.question} — ${status}`;
-    });
-    onSubmit({ answers, numCorrect, totalQuestions: total, percentCorrect, details });
+    // Pass just the answers array to onSubmit for grading
+    onSubmit(answers);
   };
 
   const handleSuggestionClick = (questionIdx, suggestion) => {
@@ -150,6 +158,13 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
     if (newExplained.has(questionIndex)) newExplained.delete(questionIndex);
     else newExplained.add(questionIndex);
     setExplainedQuestions(newExplained);
+  };
+
+  const toggleHints = (questionIndex) => {
+    const newExpanded = new Set(expandedHints);
+    if (newExpanded.has(questionIndex)) newExpanded.delete(questionIndex);
+    else newExpanded.add(questionIndex);
+    setExpandedHints(newExpanded);
   };
 
   const numCorrect = feedback.filter(Boolean).length;
@@ -219,24 +234,45 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
                     {idx + 1}. {q.question}
                   </div>
 
-                  {/* AI Help Suggestions */}
-                  <div className="flex flex-wrap gap-2">
-                    {q.aiSuggestions?.map((suggestion, sIdx) => (
+                  {/* AI Help Suggestions - Expandable */}
+                  {q.aiSuggestions && q.aiSuggestions.length > 0 && (
+                    <div className="space-y-2">
                       <button
-                        key={sIdx}
                         type="button"
-                        onClick={() => handleSuggestionClick(idx, suggestion)}
-                        className={`px-3 py-1.5 rounded-full text-xs transition-colors flex items-center gap-1.5 ${
-                          isActiveInChat 
-                            ? 'bg-indigo-600 text-white border border-indigo-600' 
-                            : 'bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300'
-                        }`}
+                        onClick={() => toggleHints(idx)}
+                        className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 transition-colors"
                       >
-                        <Bot className="w-3.5 h-3.5" />
-                        <span>{suggestion}</span>
+                        {expandedHints.has(idx) ? (
+                          <ChevronDown className="w-4 h-4" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4" />
+                        )}
+                        <Lightbulb className="w-4 h-4" />
+                        <span className="font-medium">
+                          {expandedHints.has(idx) ? 'Hide hints' : 'Need a hint?'}
+                        </span>
                       </button>
-                    ))}
-                  </div>
+                      {expandedHints.has(idx) && (
+                        <div className="flex flex-wrap gap-2 pl-6 animate-in fade-in slide-in-from-top-1 duration-200">
+                          {q.aiSuggestions.map((suggestion, sIdx) => (
+                            <button
+                              key={sIdx}
+                              type="button"
+                              onClick={() => handleSuggestionClick(idx, suggestion)}
+                              className={`px-3 py-1.5 rounded-full text-xs transition-colors flex items-center gap-1.5 ${
+                                isActiveInChat 
+                                  ? 'bg-indigo-600 text-white border border-indigo-600' 
+                                  : 'bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300'
+                              }`}
+                            >
+                              <Bot className="w-3.5 h-3.5" />
+                              <span>{suggestion}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Answer Options */}
                   {hasValidOptions ? (
@@ -273,33 +309,69 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
                   {/* Feedback */}
                   {submitted && (
                     <div className="space-y-3 lg:space-y-4">
-                      <div className={`p-3 lg:p-4 rounded-lg ${isCorrect ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-                        <div className="flex items-center space-x-2 mb-2">
-                          {isCorrect ? <Check className="w-5 h-5 text-green-600" /> : <X className="w-5 h-5 text-red-600" />}
-                          <span className={`font-semibold text-sm lg:text-base ${isCorrect ? 'text-green-700' : 'text-red-700'}`}>
-                            {isCorrect ? 'Correct!' : 'Incorrect'}
-                          </span>
-                        </div>
-                        <p className="text-sm lg:text-base text-gray-700">
-                          {isCorrect ? 'Great job!' : `The correct answer is: ${q.answer}`}
-                        </p>
-                      </div>
-
-                      {q.explanation && (
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 lg:p-4">
-                          <button type="button" onClick={() => toggleExplanation(idx)} className="flex items-center justify-between w-full text-left">
-                            <span className="font-semibold text-sm lg:text-base text-blue-700">
-                              {explainedQuestions.has(idx) ? 'Hide' : 'Show'} Explanation
-                            </span>
-                            <ChevronDown className={`w-4 h-4 transform transition-transform duration-200 ${explainedQuestions.has(idx) ? 'rotate-180' : ''}`} />
-                          </button>
-                          {explainedQuestions.has(idx) && (
-                            <div className="mt-3 pt-3 border-t border-blue-200">
-                              <p className="text-sm lg:text-base text-gray-700 leading-relaxed">{q.explanation}</p>
+                      {/* Get feedback from API if available, otherwise use local comparison */}
+                      {(() => {
+                        const apiFeedback = gradingFeedback?.details?.find(d => d.questionIndex === idx);
+                        const isCorrectResult = apiFeedback ? apiFeedback.isCorrect : isCorrect;
+                        const userAnswerDisplay = apiFeedback?.userAnswer || answers[idx] || 'No answer provided';
+                        const feedbackText = apiFeedback?.feedback;
+                        const points = apiFeedback ? `${apiFeedback.points}/${apiFeedback.maxPoints} pts` : null;
+                        
+                        return (
+                          <>
+                            <div className={`p-3 lg:p-4 rounded-lg ${isCorrectResult ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center space-x-2">
+                                  {isCorrectResult ? <Check className="w-5 h-5 text-green-600" /> : <X className="w-5 h-5 text-red-600" />}
+                                  <span className={`font-semibold text-sm lg:text-base ${isCorrectResult ? 'text-green-700' : 'text-red-700'}`}>
+                                    {isCorrectResult ? 'Correct!' : 'Incorrect'}
+                                  </span>
+                                </div>
+                                {points && (
+                                  <span className={`text-sm font-medium ${isCorrectResult ? 'text-green-600' : 'text-red-600'}`}>
+                                    {points}
+                                  </span>
+                                )}
+                              </div>
+                              
+                              {/* Show user's answer */}
+                              <div className="text-sm text-gray-600 mb-2">
+                                <span className="font-medium">Your answer:</span> {userAnswerDisplay}
+                              </div>
+                              
+                              {/* Show correct answer if wrong */}
+                              {!isCorrectResult && (
+                                <div className="text-sm text-gray-700 mb-2">
+                                  <span className="font-medium">Correct answer:</span> {q.answer}
+                                </div>
+                              )}
+                              
+                              {/* Show API feedback if available */}
+                              {feedbackText && (
+                                <p className="text-sm lg:text-base text-gray-700 mt-2 pt-2 border-t border-current border-opacity-20">
+                                  {feedbackText}
+                                </p>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      )}
+
+                            {q.explanation && (
+                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 lg:p-4">
+                                <button type="button" onClick={() => toggleExplanation(idx)} className="flex items-center justify-between w-full text-left">
+                                  <span className="font-semibold text-sm lg:text-base text-blue-700">
+                                    {explainedQuestions.has(idx) ? 'Hide' : 'Show'} Explanation
+                                  </span>
+                                  <ChevronDown className={`w-4 h-4 transform transition-transform duration-200 ${explainedQuestions.has(idx) ? 'rotate-180' : ''}`} />
+                                </button>
+                                {explainedQuestions.has(idx) && (
+                                  <div className="mt-3 pt-3 border-t border-blue-200">
+                                    <p className="text-sm lg:text-base text-gray-700 leading-relaxed">{q.explanation}</p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
