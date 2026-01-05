@@ -1,6 +1,6 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Lightbulb, Brain } from 'lucide-react';
+import { Lightbulb, Brain, MessageCircle, ChevronDown, ChevronUp, X } from 'lucide-react';
 
 // Simple markdown-like formatting for chat messages
 function formatMessage(text) {
@@ -82,6 +82,33 @@ function formatInlineText(text) {
   });
 }
 
+// Floating chat button component for mobile
+export function ChatFloatingButton({ onClick, hasMessages = false }) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  if (!isMobile) return null;
+
+  return (
+    <button
+      onClick={onClick}
+      className="fixed bottom-20 right-4 z-40 w-14 h-14 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+      aria-label="Open Study Helper"
+    >
+      <MessageCircle className="w-6 h-6" />
+      {hasMessages && (
+        <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white" />
+      )}
+    </button>
+  );
+}
+
 export default function AIHelpChat({ 
   question, 
   questionIndex, 
@@ -103,10 +130,14 @@ export default function AIHelpChat({
   const [isMobile, setIsMobile] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [questionContextCollapsed, setQuestionContextCollapsed] = useState(false);
+  const [suggestionsCollapsed, setSuggestionsCollapsed] = useState(false);
   const processedInitialMessagesRef = useRef(new Set());
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const panelRef = useRef(null);
+  const scrollPositionRef = useRef(0);
   const dragStartY = useRef(0);
   const dragThreshold = 100; // pixels to drag before closing
 
@@ -133,27 +164,58 @@ export default function AIHelpChat({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Lock body scroll on mobile when chat is open
+  // Lock body scroll on mobile when chat is open - improved scroll position handling
   useEffect(() => {
     if (isMobile) {
-      // Save current scroll position and lock body
-      const scrollY = window.scrollY;
+      // Save current scroll position before locking
+      scrollPositionRef.current = window.scrollY;
+      
       document.body.style.position = 'fixed';
-      document.body.style.top = `-${scrollY}px`;
+      document.body.style.top = `-${scrollPositionRef.current}px`;
       document.body.style.left = '0';
       document.body.style.right = '0';
       document.body.style.overflow = 'hidden';
+      document.body.style.width = '100%';
       
       return () => {
-        // Restore scroll position when closing
+        // Restore body styles
         document.body.style.position = '';
         document.body.style.top = '';
         document.body.style.left = '';
         document.body.style.right = '';
         document.body.style.overflow = '';
-        window.scrollTo(0, scrollY);
+        document.body.style.width = '';
+        
+        // Restore scroll position without animation to prevent jump
+        window.scrollTo({
+          top: scrollPositionRef.current,
+          left: 0,
+          behavior: 'instant'
+        });
       };
     }
+  }, [isMobile]);
+
+  // Handle mobile keyboard visibility using visualViewport API
+  useEffect(() => {
+    if (!isMobile || typeof window === 'undefined') return;
+
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    const handleResize = () => {
+      // Calculate keyboard height by comparing viewport height to window height
+      const keyboardH = window.innerHeight - viewport.height;
+      setKeyboardHeight(Math.max(0, keyboardH));
+    };
+
+    viewport.addEventListener('resize', handleResize);
+    viewport.addEventListener('scroll', handleResize);
+
+    return () => {
+      viewport.removeEventListener('resize', handleResize);
+      viewport.removeEventListener('scroll', handleResize);
+    };
   }, [isMobile]);
 
   // Handle touch drag for mobile pull-down-to-close
@@ -322,71 +384,94 @@ export default function AIHelpChat({
           ref={panelRef}
           className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl flex flex-col overflow-hidden"
           style={{ 
-            height: '82vh',
+            height: keyboardHeight > 0 ? `calc(100vh - ${keyboardHeight}px)` : '85vh',
+            maxHeight: '100vh',
             transform: `translateY(${dragOffset}px)`,
-            transition: isDragging ? 'none' : 'transform 0.3s ease-out'
+            transition: isDragging ? 'none' : 'transform 0.3s ease-out, height 0.15s ease-out'
           }}
         >
-          {/* Pull-down pill handle */}
+          {/* Compact mobile header with pull handle and close button */}
           <div 
-            className="flex-shrink-0 pt-3 pb-2 flex justify-center cursor-grab active:cursor-grabbing touch-none"
+            className="flex-shrink-0 flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-white"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
           >
-            <div className="w-10 h-1 bg-gray-300 rounded-full" />
-          </div>
-
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white flex-shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                <Brain className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-semibold">Study Helper</h3>
-                <p className="text-xs text-indigo-200">Question {questionIndex + 1}</p>
-              </div>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-1 bg-gray-300 rounded-full" />
+              <span className="text-xs text-gray-500">Q{questionIndex + 1}</span>
             </div>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+              aria-label="Close chat"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="w-5 h-5 text-gray-500" />
             </button>
           </div>
 
-          {/* Question Context */}
-          <div className="px-4 py-3 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-indigo-100 flex-shrink-0">
-            <p className="text-sm text-indigo-800 font-medium leading-relaxed">{question?.question}</p>
-            {question?.options && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {question.options.map((opt, idx) => (
-                  <span key={idx} className="px-2 py-0.5 bg-white/70 text-indigo-600 rounded text-xs border border-indigo-200">
-                    {String.fromCharCode(65 + idx)}) {opt.length > 15 ? opt.substring(0, 15) + '...' : opt}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+          {/* Collapsible Question Context - hide when keyboard is open */}
+          {keyboardHeight === 0 && (
+            <div className="flex-shrink-0 border-b border-gray-100">
+              <button
+                onClick={() => setQuestionContextCollapsed(!questionContextCollapsed)}
+                className="w-full px-4 py-2 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-purple-50 text-left"
+              >
+                <span className="text-xs font-medium text-indigo-700">Question Context</span>
+                {questionContextCollapsed ? (
+                  <ChevronDown className="w-4 h-4 text-indigo-500" />
+                ) : (
+                  <ChevronUp className="w-4 h-4 text-indigo-500" />
+                )}
+              </button>
+              {!questionContextCollapsed && (
+                <div className="px-4 py-2 bg-gradient-to-r from-indigo-50/50 to-purple-50/50">
+                  <p className="text-sm text-indigo-800 font-medium leading-relaxed">{question?.question}</p>
+                  {question?.options && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {question.options.map((opt, idx) => (
+                        <span key={idx} className="px-2 py-0.5 bg-white/70 text-indigo-600 rounded text-xs border border-indigo-200">
+                          {String.fromCharCode(65 + idx)}) {opt.length > 15 ? opt.substring(0, 15) + '...' : opt}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
-          {/* Suggestion Chips */}
-          {messages.length === 0 && question?.aiSuggestions && (
-            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex-shrink-0">
-              <p className="text-xs text-gray-500 mb-2 font-medium flex items-center gap-1"><Lightbulb className="w-3 h-3" /> What would you like to understand?</p>
-              <div className="flex flex-wrap gap-2">
-                {question.aiSuggestions.map((suggestion, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => sendMessage(suggestion)}
-                    className="px-3 py-1.5 bg-white border border-indigo-200 text-indigo-700 rounded-full text-xs hover:bg-indigo-50 hover:border-indigo-300 transition-colors shadow-sm"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
+          {/* Collapsible Suggestion Chips - hide when keyboard is open */}
+          {messages.length === 0 && question?.aiSuggestions && keyboardHeight === 0 && (
+            <div className="flex-shrink-0 border-b border-gray-100">
+              <button
+                onClick={() => setSuggestionsCollapsed(!suggestionsCollapsed)}
+                className="w-full px-4 py-2 flex items-center justify-between bg-gray-50 text-left"
+              >
+                <span className="text-xs font-medium text-gray-600 flex items-center gap-1">
+                  <Lightbulb className="w-3 h-3" /> Suggestions
+                </span>
+                {suggestionsCollapsed ? (
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                ) : (
+                  <ChevronUp className="w-4 h-4 text-gray-400" />
+                )}
+              </button>
+              {!suggestionsCollapsed && (
+                <div className="px-4 py-2 bg-gray-50/50">
+                  <div className="flex flex-wrap gap-2">
+                    {question.aiSuggestions.map((suggestion, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => sendMessage(suggestion)}
+                        className="px-3 py-1.5 bg-white border border-indigo-200 text-indigo-700 rounded-full text-xs hover:bg-indigo-50 hover:border-indigo-300 transition-colors shadow-sm"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -442,8 +527,8 @@ export default function AIHelpChat({
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
-          <form onSubmit={handleSubmit} className="p-4 border-t border-gray-200 bg-gray-50 flex-shrink-0 mobile-safe-bottom">
+          {/* Input - stays above keyboard */}
+          <form onSubmit={handleSubmit} className="p-3 border-t border-gray-200 bg-gray-50 flex-shrink-0 mobile-safe-bottom">
             <div className="flex gap-2">
               <input
                 ref={inputRef}
@@ -453,6 +538,7 @@ export default function AIHelpChat({
                 placeholder="Ask me anything..."
                 className="flex-1 px-4 py-2.5 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
                 disabled={isLoading}
+                enterKeyHint="send"
               />
               <button
                 type="submit"

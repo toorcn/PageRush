@@ -4,10 +4,10 @@ import { BookOpen, Layers, HelpCircle, ClipboardList, FileText, ChevronDown, Bri
 import LottieLoader from './LottieLoader';
 
 const FEATURE_CONFIG = {
-  studyGuide: { Icon: BookOpen, color: 'indigo', label: 'Study Guides' },
-  flashcards: { Icon: Layers, color: 'emerald', label: 'Flashcards' },
-  quiz: { Icon: HelpCircle, color: 'violet', label: 'Quizzes' },
   exam: { Icon: ClipboardList, color: 'amber', label: 'Exams' },
+  quiz: { Icon: HelpCircle, color: 'violet', label: 'Quizzes' },
+  flashcards: { Icon: Layers, color: 'emerald', label: 'Flashcards' },
+  studyGuide: { Icon: BookOpen, color: 'indigo', label: 'Study Guides' },
 };
 
 export default function HelpfulResourcesSidebar({ history, performanceSummaries, onLoadFromHistory }) {

@@ -55,14 +55,13 @@ export default function FeatureSelector({ selected, onSelect }) {
               key={f.key}
               onClick={() => onSelect(f.key)}
               className={`
-                group relative p-4 lg:p-5 rounded-xl border-2 transition-all duration-200 text-left
-                min-h-[80px] lg:min-h-[100px] flex items-center
+                group relative p-4 lg:p-5 rounded-xl border-2 transition-colors duration-200 text-left
+                min-h-[80px] lg:min-h-[100px] flex items-center touch-manipulation
                 ${selected === f.key 
-                  ? 'border-indigo-300 bg-white shadow-lg shadow-indigo-100/50 scale-[1.02]' 
-                  : 'border-gray-200 bg-white/60 hover:bg-white hover:shadow-md hover:border-gray-300 hover:scale-[1.01]'
+                  ? 'border-indigo-300 bg-white shadow-lg shadow-indigo-100/50' 
+                  : 'border-gray-200 bg-white/60 hover:bg-white hover:shadow-md hover:border-gray-300 active:bg-gray-100'
                 }
                 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
-                active:scale-[0.98]
               `}
               aria-pressed={selected === f.key}
               disabled={selected === f.key}

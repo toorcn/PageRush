@@ -35,7 +35,7 @@ export function Card({
     <div
       className={`
         rounded-xl ${variantStyles[variant]} ${paddingStyles[padding]}
-        ${hover ? 'transition-all duration-200 hover:shadow-lg hover:border-gray-200 hover:-translate-y-0.5' : ''}
+        ${hover ? 'transition-shadow duration-200 hover:shadow-lg hover:border-gray-200' : ''}
         ${className}
       `}
       {...props}

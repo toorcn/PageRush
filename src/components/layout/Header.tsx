@@ -49,7 +49,7 @@ export function Header() {
       </header>
 
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm fixed-top-safe">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div className="flex items-center justify-between px-4 py-3">
           <img
             src="/pagerushai-logo.png"
@@ -59,21 +59,21 @@ export function Header() {
           <div className="flex items-center space-x-2">
             <button
               onClick={toggleDocumentManager}
-              className="p-2.5 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200 hover:text-gray-800 transition-all"
+              className="p-2.5 bg-gray-100 rounded-lg text-gray-600 active:bg-gray-300 transition-colors touch-manipulation"
               title="Documents"
             >
               <FolderOpen className="w-5 h-5" />
             </button>
             <button
               onClick={toggleHistory}
-              className="p-2.5 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200 hover:text-gray-800 transition-all"
+              className="p-2.5 bg-gray-100 rounded-lg text-gray-600 active:bg-gray-300 transition-colors touch-manipulation"
               title="Study Library"
             >
               <Library className="w-5 h-5" />
             </button>
             <button
               onClick={() => setShowFeatureSelector(true)}
-              className="p-2.5 bg-indigo-600 rounded-lg text-white hover:bg-indigo-700 transition-all shadow-md"
+              className="p-2.5 bg-indigo-600 rounded-lg text-white active:bg-indigo-800 transition-colors shadow-md touch-manipulation"
               title="Study Tools"
             >
               <Sparkles className="w-5 h-5" />
@@ -82,8 +82,8 @@ export function Header() {
         </div>
       </div>
 
-      {/* Mobile Spacer */}
-      <div className="lg:hidden h-16" />
+      {/* Mobile Spacer - matches header height + safe area */}
+      <div className="lg:hidden" style={{ height: 'calc(56px + env(safe-area-inset-top, 0px))' }} />
     </>
   );
 }

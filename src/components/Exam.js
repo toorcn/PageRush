@@ -1,7 +1,7 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import LottieLoader from './LottieLoader';
-import AIHelpChat from './AIHelpChat';
+import AIHelpChat, { ChatFloatingButton } from './AIHelpChat';
 import { 
   HelpCircle, Pencil, MessageSquare, FileText, Square, Check, X, 
   ThumbsUp, Target, Lightbulb, ClipboardList, BarChart3, AlertTriangle, 
@@ -30,6 +30,52 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
   const [expandedHints, setExpandedHints] = useState(new Set());
   const questionRefs = useRef([]);
   const observerRef = useRef(null);
+  const isScrollingRef = useRef(false);
+
+  // Robust scroll to question function that works well on mobile
+  const scrollToQuestion = useCallback((idx) => {
+    const element = questionRefs.current[idx];
+    if (!element) return;
+
+    // Prevent scroll conflicts
+    if (isScrollingRef.current) return;
+    isScrollingRef.current = true;
+
+    // Get element position
+    const rect = element.getBoundingClientRect();
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    
+    // Calculate target position (center the element with some offset for header)
+    const headerOffset = 100; // Account for any fixed headers
+    const elementCenter = rect.height / 2;
+    const viewportCenter = window.innerHeight / 2;
+    const targetPosition = scrollTop + rect.top - viewportCenter + elementCenter + headerOffset;
+
+    // Use smooth scroll with fallback
+    try {
+      window.scrollTo({
+        top: Math.max(0, targetPosition),
+        behavior: 'smooth'
+      });
+    } catch {
+      // Fallback for older browsers
+      window.scrollTo(0, Math.max(0, targetPosition));
+    }
+
+    // Reset scrolling flag after animation
+    setTimeout(() => {
+      isScrollingRef.current = false;
+    }, 500);
+  }, []);
+
+  // Handle question navigation click
+  const handleQuestionNavClick = useCallback((idx) => {
+    setCurrentQuestionIndex(idx);
+    // Small delay to ensure state is updated before scrolling
+    requestAnimationFrame(() => {
+      scrollToQuestion(idx);
+    });
+  }, [setCurrentQuestionIndex, scrollToQuestion]);
 
   // Track screen size for responsive padding
   useEffect(() => {
@@ -96,11 +142,13 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
     }
   }, [feedback, questions]);
 
+  // Scroll to question when currentQuestionIndex changes from external source
   useEffect(() => {
-    if (questionRefs.current[currentQuestionIndex]) {
-      questionRefs.current[currentQuestionIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Only scroll if not triggered by our own navigation
+    if (!isScrollingRef.current && questionRefs.current[currentQuestionIndex]) {
+      scrollToQuestion(currentQuestionIndex);
     }
-  }, [currentQuestionIndex]);
+  }, [currentQuestionIndex, scrollToQuestion]);
 
   const handleSelect = (qIdx, option) => {
     if (submitted) return;
@@ -377,10 +425,10 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
       )}
 
       {/* Question Navigation */}
-      <div className="bg-white rounded-xl shadow p-4 lg:p-6">
+      <div className="bg-white rounded-xl shadow p-4 lg:p-6 sticky top-0 z-10">
         <div className="flex flex-wrap gap-2 lg:gap-3 justify-center">
           {questions.map((q, idx) => (
-            <button key={idx} onClick={() => setCurrentQuestionIndex(idx)}
+            <button key={idx} onClick={() => handleQuestionNavClick(idx)}
               className={`w-10 h-10 lg:w-12 lg:h-12 rounded-lg text-sm lg:text-base font-medium transition-all duration-200 flex items-center justify-center
                 ${currentQuestionIndex === idx ? 'bg-blue-500 text-white shadow-lg' : answers[idx] ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}
                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 active:scale-95`}
@@ -687,6 +735,14 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
             />
           </div>
         </>
+      )}
+
+      {/* Floating chat button for mobile when chat is closed but available */}
+      {!chatOpen && activeQuestion?.aiSuggestions && (
+        <ChatFloatingButton 
+          onClick={() => setChatOpen(true)} 
+          hasMessages={false}
+        />
       )}
     </div>
   );

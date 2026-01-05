@@ -3,10 +3,10 @@ import { useState, useMemo } from 'react';
 import { BookOpen, Layers, HelpCircle, ClipboardList, FileText, X, ChevronDown, ChevronRight, Target, BarChart3, Check, XCircle, Library, Search, Filter } from 'lucide-react';
 
 const FEATURE_CONFIG = {
-  studyGuide: { Icon: BookOpen, color: 'indigo', label: 'Study Guides' },
-  flashcards: { Icon: Layers, color: 'emerald', label: 'Flashcards' },
   quiz: { Icon: HelpCircle, color: 'violet', label: 'Quizzes' },
   exam: { Icon: ClipboardList, color: 'amber', label: 'Exams' },
+  flashcards: { Icon: Layers, color: 'emerald', label: 'Flashcards' },
+  studyGuide: { Icon: BookOpen, color: 'indigo', label: 'Study Guides' },
 };
 
 export default function HistoryPanel({ history, performanceSummaries, onLoadFromHistory, onClearHistory, onClose }) {
