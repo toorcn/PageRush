@@ -325,7 +325,7 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
     const totalQuestions = questions.length;
     const totalPoints = questions.reduce((sum, q) => sum + (q.points || 1), 0);
     const earnedPoints = feedback.reduce((sum, f) => sum + (f?.points || 0), 0);
-    const percentage = Math.round((earnedPoints / totalPoints) * 100);
+    const percentage = Math.round((earnedPoints / totalPoints) * 1000) / 10; // Single decimal
 
     // Build topic performance using question's topic property first, then AI extraction as fallback
     const topicPerformance = {};
@@ -373,7 +373,7 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
     const recommendations = [];
 
     Object.entries(topicPerformance).forEach(([topic, data]) => {
-      const topicPercentage = Math.round((data.earned / data.total) * 100);
+      const topicPercentage = Math.round((data.earned / data.total) * 1000) / 10; // Single decimal
       const topicLabel = topic.charAt(0).toUpperCase() + topic.slice(1);
       data.percentage = topicPercentage;
       
@@ -974,7 +974,7 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {Object.entries(performanceSummary.topicPerformance).map(([topic, data]) => {
-                  const percentage = data.percentage || Math.round((data.earned / data.total) * 100);
+                  const percentage = data.percentage || Math.round((data.earned / data.total) * 1000) / 10;
                   const bgColor = percentage >= 80 ? 'bg-green-50 border-green-200' : 
                                   percentage >= 50 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200';
                   const textColor = percentage >= 80 ? 'text-green-700' : 

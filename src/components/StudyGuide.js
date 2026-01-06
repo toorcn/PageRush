@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { 
   BookOpen, Lightbulb, BarChart3, RefreshCw, ChevronDown, ChevronRight,
   Inbox, Check, Clock, Target, Bookmark, BookmarkCheck, List, 
-  TrendingUp, Star, AlertCircle, Info, Zap, Eye, EyeOff
+  TrendingUp, Star, AlertCircle, Info, Zap, Eye, EyeOff, X
 } from 'lucide-react';
 
 // Mermaid diagram component with high contrast colors
@@ -61,15 +61,21 @@ const MermaidDiagram = ({ chart, id }) => {
           },
           flowchart: { 
             curve: 'basis', 
-            padding: 20,
-            nodeSpacing: 50,
-            rankSpacing: 60,
+            padding: 15,
+            nodeSpacing: 40,
+            rankSpacing: 50,
             htmlLabels: true,
             defaultRenderer: 'dagre-wrapper',
+            wrappingWidth: 150,
+            useMaxWidth: true,
           },
           mindmap: {
-            padding: 20,
+            padding: 15,
+            useMaxWidth: true,
           },
+          // Global settings for text handling
+          maxTextSize: 50000,
+          wrap: true,
           securityLevel: 'loose',
         });
         
@@ -77,12 +83,12 @@ const MermaidDiagram = ({ chart, id }) => {
         const uniqueId = `mermaid-${id}-${Date.now()}`;
         const { svg: renderedSvg } = await mermaid.render(uniqueId, chart);
         
-        // Post-process SVG to ensure text contrast
+        // Post-process SVG to make it responsive with constrained height
         const enhancedSvg = renderedSvg
-          .replace(/fill="#[a-fA-F0-9]{6}"/g, (match) => {
-            // Keep the fill but ensure text inside has contrast
-            return match;
-          })
+          // Remove fixed width/height and add viewBox for responsiveness
+          .replace(/<svg([^>]*)width="[^"]*"/, '<svg$1width="100%"')
+          .replace(/<svg([^>]*)height="[^"]*"/, '<svg$1height="auto"')
+          .replace(/<svg([^>]*)style="[^"]*"/, '<svg$1style="max-width:100%;height:auto;max-height:380px;"')
           .replace(/<text([^>]*)>/g, (match, attrs) => {
             // Ensure text elements have dark fill for readability
             if (!attrs.includes('fill=')) {
@@ -106,9 +112,9 @@ const MermaidDiagram = ({ chart, id }) => {
 
   if (isLoading) {
     return (
-      <div className="my-6 p-8 bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl border-2 border-blue-200 flex items-center justify-center">
-        <div className="flex items-center gap-3 text-slate-500">
-          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="my-4 sm:my-6 p-6 sm:p-8 bg-gradient-to-br from-slate-50 to-blue-50 rounded-lg sm:rounded-xl border border-blue-200 sm:border-2 flex items-center justify-center">
+        <div className="flex items-center gap-2 text-slate-500 text-sm">
+          <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
           <span>Rendering diagram...</span>
         </div>
       </div>
@@ -117,12 +123,12 @@ const MermaidDiagram = ({ chart, id }) => {
 
   if (error) {
     return (
-      <div className="my-6 bg-amber-50 border-2 border-amber-300 rounded-xl p-5 text-amber-900 text-sm">
-        <div className="flex items-center gap-2 font-semibold mb-3">
-          <AlertCircle className="w-5 h-5" />
+      <div className="my-4 sm:my-6 bg-amber-50 border border-amber-200 sm:border-2 sm:border-amber-300 rounded-lg sm:rounded-xl p-3 sm:p-5 text-amber-900 text-sm">
+        <div className="flex items-center gap-2 font-semibold mb-2 sm:mb-3">
+          <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
           <span>Diagram Preview</span>
         </div>
-        <pre className="text-xs bg-amber-100 p-4 rounded-lg overflow-x-auto text-amber-800 border border-amber-200 whitespace-pre-wrap">{chart}</pre>
+        <pre className="text-xs bg-amber-100 p-2 sm:p-4 rounded-lg overflow-x-auto text-amber-800 border border-amber-200 whitespace-pre-wrap">{chart}</pre>
       </div>
     );
   }
@@ -130,15 +136,16 @@ const MermaidDiagram = ({ chart, id }) => {
   return (
     <div 
       ref={containerRef}
-      className="my-6 p-6 bg-white rounded-xl border-2 border-blue-200 overflow-x-auto shadow-sm mermaid-diagram"
-      dangerouslySetInnerHTML={{ __html: svg }}
-      role="img"
-      aria-label="Concept diagram"
-      style={{
-        // CSS to ensure text visibility in Mermaid diagrams
-        '--mermaid-text-color': '#1e293b',
-      }}
-    />
+      className="my-4 sm:my-6 p-2 sm:p-4 bg-white rounded-lg sm:rounded-xl border border-blue-200 sm:border-2 shadow-sm mermaid-diagram overflow-auto max-h-[400px] sm:max-h-[500px]"
+      style={{ maxHeight: '400px' }}
+    >
+      <div 
+        className="min-w-fit"
+        dangerouslySetInnerHTML={{ __html: svg }}
+        role="img"
+        aria-label="Concept diagram"
+      />
+    </div>
   );
 };
 
@@ -183,19 +190,19 @@ const KeyInsightsBox = ({ points, priority = 'normal', title = "Key Insights" })
     high: {
       container: 'bg-gradient-to-r from-rose-50 to-orange-50 border-l-4 border-rose-500',
       title: 'text-rose-800',
-      icon: <Zap className="w-5 h-5 text-rose-600" />,
+      icon: <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-rose-600" />,
       bullet: 'text-rose-500'
     },
     normal: {
       container: 'bg-gradient-to-r from-amber-50 to-yellow-50 border-l-4 border-amber-500',
       title: 'text-amber-900',
-      icon: <Lightbulb className="w-5 h-5 text-amber-600" />,
+      icon: <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />,
       bullet: 'text-amber-600'
     },
     info: {
       container: 'bg-gradient-to-r from-sky-50 to-cyan-50 border-l-4 border-sky-500',
       title: 'text-sky-900',
-      icon: <Info className="w-5 h-5 text-sky-600" />,
+      icon: <Info className="w-4 h-4 sm:w-5 sm:h-5 text-sky-600" />,
       bullet: 'text-sky-500'
     }
   };
@@ -203,14 +210,14 @@ const KeyInsightsBox = ({ points, priority = 'normal', title = "Key Insights" })
   const style = priorityStyles[priority] || priorityStyles.normal;
   
   return (
-    <div className={`my-5 ${style.container} rounded-r-xl p-5 shadow-sm`}>
-      <h4 className={`font-bold ${style.title} mb-3 flex items-center gap-2 text-base`}>
+    <div className={`my-3 sm:my-5 ${style.container} rounded-r-lg sm:rounded-r-xl p-3 sm:p-5 shadow-sm`}>
+      <h4 className={`font-bold ${style.title} mb-2 sm:mb-3 flex items-center gap-2 text-sm sm:text-base`}>
         {style.icon} {title}
       </h4>
-      <ul className="space-y-2">
+      <ul className="space-y-1.5 sm:space-y-2">
         {points.map((point, idx) => (
-          <li key={idx} className="text-slate-800 text-sm flex items-start gap-3 leading-relaxed">
-            <span className={`${style.bullet} mt-1.5 text-lg`}>•</span>
+          <li key={idx} className="text-slate-800 text-sm flex items-start gap-2 sm:gap-3 leading-relaxed">
+            <span className={`${style.bullet} mt-1 sm:mt-1.5 text-base sm:text-lg`}>•</span>
             <span>{point}</span>
           </li>
         ))}
@@ -221,12 +228,12 @@ const KeyInsightsBox = ({ points, priority = 'normal', title = "Key Insights" })
 
 // Enhanced definition box with better contrast
 const DefinitionBox = ({ term, definition }) => (
-  <div className="my-4 bg-blue-50 border-2 border-blue-300 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
-    <div className="font-bold text-blue-900 text-base flex items-center gap-2">
-      <BookOpen className="w-4 h-4 text-blue-700" />
+  <div className="my-3 sm:my-4 bg-blue-50 border border-blue-200 sm:border-2 sm:border-blue-300 rounded-lg sm:rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+    <div className="font-bold text-blue-900 text-sm sm:text-base flex items-center gap-2">
+      <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-700 flex-shrink-0" />
       {term}
     </div>
-    <div className="text-slate-700 text-sm mt-2 leading-relaxed pl-6">{definition}</div>
+    <div className="text-slate-700 text-sm mt-1.5 sm:mt-2 leading-relaxed pl-5 sm:pl-6">{definition}</div>
   </div>
 );
 
@@ -312,30 +319,30 @@ const StudyStatsDashboard = ({ stats, checklistItems }) => {
     : 0;
 
   return (
-    <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 mb-6 text-white shadow-xl">
-      <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-        <TrendingUp className="w-5 h-5 text-emerald-400" />
-        Study Progress
+    <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl sm:rounded-2xl p-3 sm:p-6 mb-4 sm:mb-6 text-white shadow-xl">
+      <h3 className="font-bold text-sm sm:text-lg mb-3 sm:mb-4 flex items-center gap-2">
+        <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400 flex-shrink-0" />
+        <span>Study Progress</span>
       </h3>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-slate-700/50 rounded-xl p-4 text-center">
-          <div className="flex justify-center mb-2">
+      <div className="grid grid-cols-4 gap-2 sm:gap-4">
+        <div className="bg-slate-700/50 rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">
+          <div className="hidden sm:flex justify-center mb-2">
             <ProgressRing progress={progress} size={50} strokeWidth={5} />
           </div>
-          <div className="text-2xl font-bold text-blue-400">{progress}%</div>
-          <div className="text-xs text-slate-400 mt-1">Complete</div>
+          <div className="text-lg sm:text-2xl font-bold text-blue-400">{progress}%</div>
+          <div className="text-[10px] sm:text-xs text-slate-400 mt-0.5 sm:mt-1">Done</div>
         </div>
-        <div className="bg-slate-700/50 rounded-xl p-4 text-center">
-          <div className="text-3xl font-bold text-emerald-400">{completedCount}</div>
-          <div className="text-xs text-slate-400 mt-1">of {totalCount} Topics</div>
+        <div className="bg-slate-700/50 rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">
+          <div className="text-lg sm:text-3xl font-bold text-emerald-400">{completedCount}</div>
+          <div className="text-[10px] sm:text-xs text-slate-400 mt-0.5 sm:mt-1">of {totalCount}</div>
         </div>
-        <div className="bg-slate-700/50 rounded-xl p-4 text-center">
-          <div className="text-3xl font-bold text-amber-400">{avgConfidence.toFixed(1)}</div>
-          <div className="text-xs text-slate-400 mt-1">Avg Confidence</div>
+        <div className="bg-slate-700/50 rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">
+          <div className="text-lg sm:text-3xl font-bold text-amber-400">{avgConfidence.toFixed(1)}</div>
+          <div className="text-[10px] sm:text-xs text-slate-400 mt-0.5 sm:mt-1">Conf.</div>
         </div>
-        <div className="bg-slate-700/50 rounded-xl p-4 text-center">
-          <div className="text-3xl font-bold text-violet-400">{stats.withDiagrams}</div>
-          <div className="text-xs text-slate-400 mt-1">Diagrams</div>
+        <div className="bg-slate-700/50 rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">
+          <div className="text-lg sm:text-3xl font-bold text-violet-400">{stats.withDiagrams}</div>
+          <div className="text-[10px] sm:text-xs text-slate-400 mt-0.5 sm:mt-1">Diag.</div>
         </div>
       </div>
     </div>
@@ -350,8 +357,11 @@ export default function StudyGuide({ content, onRegenerate }) {
   const [bookmarkedSections, setBookmarkedSections] = useState(new Set());
   const [activeSection, setActiveSection] = useState(0);
   const [showTOC, setShowTOC] = useState(true);
+  const [showStickyHeader, setShowStickyHeader] = useState(false);
   const diagramIdRef = useRef(0);
   const sectionRefs = useRef({});
+  const mainHeaderRef = useRef(null);
+  const containerRef = useRef(null);
 
   // Parse content into structured hierarchy
   const parsedContent = useMemo(() => {
@@ -543,6 +553,36 @@ export default function StudyGuide({ content, onRegenerate }) {
       sections.push(defaultSection);
     }
     
+    // Post-process: Handle empty sections by promoting subsection content or adding placeholder
+    sections.forEach(section => {
+      // If section has no direct content but has subsections with content, 
+      // add an intro paragraph based on the section title
+      if (section.content.length === 0 && section.subsections.length > 0) {
+        const hasSubsectionContent = section.subsections.some(sub => sub.content.length > 0);
+        if (hasSubsectionContent) {
+          // Add a brief intro mentioning the subsections
+          const subsectionNames = section.subsections
+            .filter(sub => sub.content.length > 0)
+            .map(sub => sub.title)
+            .slice(0, 3);
+          if (subsectionNames.length > 0) {
+            section.content.push({
+              type: 'paragraph',
+              text: `This section covers: ${subsectionNames.join(', ')}${section.subsections.length > 3 ? ', and more' : ''}.`
+            });
+          }
+        }
+      }
+      
+      // Also check subsections for empty content
+      section.subsections.forEach(subsection => {
+        if (subsection.content.length === 0 && subsection.title) {
+          // Mark as needing content but don't add placeholder - let UI handle it
+          subsection.isEmpty = true;
+        }
+      });
+    });
+    
     // Calculate estimated reading time per section
     sections.forEach(section => {
       let wordCount = 0;
@@ -635,6 +675,64 @@ export default function StudyGuide({ content, onRegenerate }) {
     }
   }, [expandedSections]);
 
+  // Intersection Observer to track which section is currently in view
+  useEffect(() => {
+    if (displaySections.length === 0) return;
+
+    const observerOptions = {
+      root: null,
+      rootMargin: '-20% 0px -60% 0px', // Trigger when section is in upper portion of viewport
+      threshold: 0
+    };
+
+    const observerCallback = (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const index = Object.keys(sectionRefs.current).find(
+            key => sectionRefs.current[key] === entry.target
+          );
+          if (index !== undefined) {
+            setActiveSection(Number.parseInt(index, 10));
+          }
+        }
+      });
+    };
+
+    const observer = new IntersectionObserver(observerCallback, observerOptions);
+
+    // Observe all section refs
+    Object.values(sectionRefs.current).forEach((ref) => {
+      if (ref) observer.observe(ref);
+    });
+
+    return () => observer.disconnect();
+  }, [displaySections.length]);
+
+  // Intersection Observer to show/hide sticky header when scrolling past the study guide header
+  useEffect(() => {
+    if (!mainHeaderRef.current || !containerRef.current) return;
+
+    const handleScroll = () => {
+      if (!mainHeaderRef.current || !containerRef.current) return;
+      
+      const headerRect = mainHeaderRef.current.getBoundingClientRect();
+      const containerRect = containerRef.current.getBoundingClientRect();
+      
+      // Show sticky header only when:
+      // 1. The main header has scrolled above the viewport (we've scrolled past it)
+      // 2. The study guide container is still partially visible (we're still viewing the study guide)
+      const headerIsAbove = headerRect.bottom < 0;
+      const containerIsVisible = containerRect.bottom > 0 && containerRect.top < window.innerHeight;
+      
+      setShowStickyHeader(headerIsAbove && containerIsVisible);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll(); // Check initial state
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const toggleChecklistItem = (index) => {
     setChecklistItems(prev => ({
       ...prev,
@@ -684,8 +782,8 @@ export default function StudyGuide({ content, onRegenerate }) {
   const renderList = (list, key) => {
     const ListTag = list.type === 'ordered' ? 'ol' : 'ul';
     const listClass = list.type === 'ordered' 
-      ? 'list-decimal ml-6 space-y-2.5' 
-      : 'space-y-2.5 ml-1';
+      ? 'list-decimal ml-4 sm:ml-6 space-y-2' 
+      : 'space-y-2 ml-0.5 sm:ml-1';
     
     const renderItems = (items) => {
       const result = [];
@@ -702,17 +800,17 @@ export default function StudyGuide({ content, onRegenerate }) {
         }
         
         result.push(
-          <li key={i} className="text-slate-700 leading-relaxed flex items-start gap-3">
+          <li key={i} className="text-slate-700 leading-relaxed flex items-start gap-2 sm:gap-3 text-sm sm:text-base">
             {list.type !== 'ordered' && (
-              <span className="w-2 h-2 rounded-full bg-blue-500 mt-2 flex-shrink-0"></span>
+              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-blue-500 mt-2 flex-shrink-0"></span>
             )}
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               {renderInlineFormatting(item.text)}
               {nestedItems.length > 0 && (
-                <ul className="mt-2 space-y-2 ml-5">
+                <ul className="mt-1.5 sm:mt-2 space-y-1.5 sm:space-y-2 ml-3 sm:ml-5">
                   {nestedItems.map((nested, nIdx) => (
-                    <li key={nIdx} className="text-slate-600 leading-relaxed flex items-start gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 mt-2 flex-shrink-0"></span>
+                    <li key={nIdx} className="text-slate-600 leading-relaxed flex items-start gap-1.5 sm:gap-2 text-sm">
+                      <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-slate-400 mt-2 flex-shrink-0"></span>
                       <span>{renderInlineFormatting(nested.text)}</span>
                     </li>
                   ))}
@@ -731,16 +829,16 @@ export default function StudyGuide({ content, onRegenerate }) {
     return <ListTag key={key} className={listClass}>{renderItems(list.items)}</ListTag>;
   };
 
-  // Render code block with better contrast
+  // Render code block with better contrast and constrained height
   const renderCodeBlock = (item, key) => (
-    <div key={key} className="my-5">
+    <div key={key} className="my-3 sm:my-5">
       {item.language && (
-        <div className="bg-slate-700 text-slate-200 text-xs px-4 py-1.5 rounded-t-lg inline-block font-medium">
+        <div className="bg-slate-700 text-slate-200 text-xs px-3 sm:px-4 py-1 sm:py-1.5 rounded-t-lg inline-block font-medium">
           {item.language}
         </div>
       )}
-      <pre className={`bg-slate-800 text-slate-100 p-5 rounded-xl ${item.language ? 'rounded-tl-none' : ''} overflow-x-auto text-sm shadow-lg border border-slate-700`}>
-        <code>{item.content}</code>
+      <pre className={`bg-slate-800 text-slate-100 p-3 sm:p-5 rounded-lg sm:rounded-xl ${item.language ? 'rounded-tl-none' : ''} overflow-auto text-xs sm:text-sm shadow-lg border border-slate-700 max-h-[300px]`}>
+        <code className="whitespace-pre-wrap break-words">{item.content}</code>
       </pre>
     </div>
   );
@@ -750,14 +848,14 @@ export default function StudyGuide({ content, onRegenerate }) {
     if (!contentItems || contentItems.length === 0) return null;
     
     return (
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {contentItems.map((item, index) => {
           switch (item.type) {
             case 'list':
               return renderList(item, index);
             case 'paragraph':
               return (
-                <p key={index} className="text-slate-700 leading-relaxed text-base">
+                <p key={index} className="text-slate-700 leading-relaxed text-sm sm:text-base">
                   {renderInlineFormatting(item.text)}
                 </p>
               );
@@ -780,11 +878,11 @@ export default function StudyGuide({ content, onRegenerate }) {
     if (!subsections || subsections.length === 0) return null;
     
     return (
-      <div className="mt-6 space-y-6">
+      <div className="mt-4 sm:mt-6 space-y-4 sm:space-y-6">
         {subsections.map((subsection, index) => (
-          <div key={index} className="border-l-3 border-blue-300 pl-5 ml-2">
-            <h4 className="font-bold text-slate-800 mb-4 text-base flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+          <div key={index} className="border-l-2 sm:border-l-3 border-blue-300 pl-3 sm:pl-5 ml-1 sm:ml-2">
+            <h4 className="font-bold text-slate-800 mb-2 sm:mb-4 text-sm sm:text-base flex items-center gap-2">
+              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-blue-500"></span>
               {subsection.title}
             </h4>
             {renderSectionContent(subsection.content)}
@@ -818,48 +916,32 @@ export default function StudyGuide({ content, onRegenerate }) {
     return '';
   };
 
-  // Render guided learning view (new default)
-  const renderGuidedView = () => {
+  // Render guided learning view content (TOC is now separate)
+  const renderGuidedViewContent = () => {
     if (!displaySections || displaySections.length === 0) return null;
 
     return (
-      <div className="flex gap-6">
-        {/* Sidebar TOC */}
-        {showTOC && displaySections.length > 2 && (
-          <div className="hidden lg:block w-64 flex-shrink-0">
-            <div className="sticky top-4">
-              <TableOfContents 
-                sections={displaySections}
-                activeSection={activeSection}
-                onNavigate={navigateToSection}
-                bookmarkedSections={bookmarkedSections}
-              />
-            </div>
-          </div>
-        )}
-        
-        {/* Main content */}
-        <div className="flex-1 space-y-6">
-          {displaySections.map((section, index) => {
-            const isExpanded = expandedSections.has(index);
-            const hasContent = sectionHasContent(section);
-            const isBookmarked = bookmarkedSections.has(index);
-            const checklistItem = checklistItems[index];
-            
-            return (
-              <div 
-                key={index} 
-                ref={el => sectionRefs.current[index] = el}
-                className={`border-2 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 ${
-                  !hasContent 
-                    ? 'border-amber-300 bg-amber-50/50' 
-                    : isBookmarked 
-                      ? 'border-amber-400 bg-amber-50/30'
-                      : 'border-slate-200 bg-white'
-                }`}
-              >
+      <div className="space-y-2 sm:space-y-6">
+        {displaySections.map((section, index) => {
+          const isExpanded = expandedSections.has(index);
+          const hasContent = sectionHasContent(section);
+          const isBookmarked = bookmarkedSections.has(index);
+          const checklistItem = checklistItems[index];
+          
+          return (
+            <div 
+              key={index} 
+              ref={el => sectionRefs.current[index] = el}
+              className={`border sm:border-2 rounded-lg sm:rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 ${
+                !hasContent 
+                  ? 'border-amber-300 bg-amber-50/50' 
+                  : isBookmarked 
+                    ? 'border-amber-400 bg-amber-50/30'
+                    : 'border-slate-200 bg-white'
+              }`}
+            >
                 <div
-                  className={`w-full p-5 text-left transition-all duration-200 flex items-center justify-between group ${
+                  className={`w-full p-2 sm:p-5 text-left transition-all duration-200 flex items-center justify-between group rounded-t-lg sm:rounded-t-2xl ${
                     !hasContent 
                       ? 'bg-gradient-to-r from-amber-50 to-orange-50' 
                       : 'bg-gradient-to-r from-slate-50 to-white hover:from-blue-50 hover:to-white'
@@ -867,51 +949,43 @@ export default function StudyGuide({ content, onRegenerate }) {
                 >
                   <button
                     onClick={() => toggleSection(index)}
-                    className="flex-1 text-left"
+                    className="flex-1 text-left min-w-0"
                     aria-expanded={isExpanded}
                   >
-                    <div className="flex items-center gap-3 mb-1">
-                      <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 text-sm font-bold flex items-center justify-center">
+                    <div className="flex items-start gap-2 mb-0.5 sm:mb-1">
+                      <span className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-blue-100 text-blue-700 text-xs sm:text-sm font-bold inline-flex items-center justify-center flex-shrink-0 mt-0.5 sm:mt-0">
                         {index + 1}
                       </span>
-                      <h3 className="font-bold text-slate-800 text-lg group-hover:text-blue-700 transition-colors">
-                        {section.title}
-                      </h3>
-                      {section.hasDiagram && (
-                        <span className="px-2 py-0.5 bg-violet-100 text-violet-700 text-xs font-medium rounded-full flex items-center gap-1">
-                          <BarChart3 className="w-3 h-3" /> Visual
-                        </span>
-                      )}
-                      {!hasContent && (
-                        <span className="px-2 py-0.5 bg-amber-200 text-amber-800 text-xs font-medium rounded-full">
-                          Empty
-                        </span>
-                      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-slate-800 text-sm sm:text-lg group-hover:text-blue-700 transition-colors line-clamp-2 sm:truncate leading-tight">
+                          {section.title}
+                        </h3>
+                        <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="w-3 h-3 flex-shrink-0" />
+                            <span>{section.estimatedTime}m</span>
+                          </span>
+                          {checklistItem?.completed && (
+                            <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                          )}
+                          {section.hasDiagram && (
+                            <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 bg-violet-100 text-violet-700 text-xs font-medium rounded-full">
+                              <BarChart3 className="w-3 h-3" /> Visual
+                            </span>
+                          )}
+                          {!hasContent && (
+                            <span className="px-1.5 py-0.5 bg-amber-200 text-amber-800 text-xs font-medium rounded-full">
+                              Empty
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-4 ml-11 text-sm text-slate-500">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5" />
-                        {section.estimatedTime} min
-                      </span>
-                      {section.subsections?.length > 0 && (
-                        <span>{section.subsections.length} subtopics</span>
-                      )}
-                      {checklistItem?.completed && (
-                        <span className="flex items-center gap-1 text-emerald-600 font-medium">
-                          <Check className="w-3.5 h-3.5" /> Completed
-                        </span>
-                      )}
-                    </div>
-                    {!isExpanded && hasContent && (
-                      <p className="text-sm text-slate-500 mt-2 ml-11 line-clamp-1">
-                        {getPreviewSnippet(section)}
-                      </p>
-                    )}
                   </button>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0 self-start mt-1 sm:mt-0 sm:self-center">
                     <button
                       onClick={() => toggleBookmark(index)}
-                      className={`p-2 rounded-lg transition-colors ${
+                      className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${
                         isBookmarked 
                           ? 'text-amber-500 bg-amber-100' 
                           : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'
@@ -922,7 +996,7 @@ export default function StudyGuide({ content, onRegenerate }) {
                     </button>
                     <button
                       onClick={() => toggleSection(index)}
-                      className="text-slate-400 p-2 hover:text-blue-600 transition-colors"
+                      className="text-slate-400 p-1.5 hover:text-blue-600 transition-colors flex items-center justify-center"
                       aria-label={isExpanded ? 'Collapse section' : 'Expand section'}
                     >
                       {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
@@ -931,19 +1005,19 @@ export default function StudyGuide({ content, onRegenerate }) {
                 </div>
                 
                 {isExpanded && (
-                  <div className="p-6 bg-white border-t border-slate-100">
+                  <div className="p-2 sm:p-6 bg-white border-t border-slate-100">
                     {hasContent ? (
                       <>
                         {renderSectionContent(section.content)}
                         {renderSubsections(section.subsections)}
                         
                         {/* Section completion tracker */}
-                        <div className="mt-8 pt-6 border-t border-slate-200">
-                          <div className="flex items-center justify-between flex-wrap gap-4">
-                            <div className="flex items-center gap-4">
+                        <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-slate-200">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                               <button
                                 onClick={() => toggleChecklistItem(index)}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all ${
+                                className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                                   checklistItem?.completed
                                     ? 'bg-emerald-100 text-emerald-700 border-2 border-emerald-300'
                                     : 'bg-slate-100 text-slate-600 border-2 border-slate-200 hover:bg-emerald-50 hover:border-emerald-200'
@@ -953,14 +1027,14 @@ export default function StudyGuide({ content, onRegenerate }) {
                                 {checklistItem?.completed ? 'Completed' : 'Mark Complete'}
                               </button>
                               
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm text-slate-600 font-medium">Confidence:</span>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs sm:text-sm text-slate-600 font-medium">Confidence:</span>
                                 <div className="flex gap-1">
                                   {[1, 2, 3, 4, 5].map(level => (
                                     <button
                                       key={level}
                                       onClick={() => updateConfidence(index, level)}
-                                      className={`w-8 h-8 rounded-lg text-sm font-medium transition-all ${
+                                      className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-xs sm:text-sm font-medium transition-all ${
                                         (checklistItem?.confidence || 0) >= level 
                                           ? 'bg-blue-500 text-white shadow-sm' 
                                           : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
@@ -971,7 +1045,7 @@ export default function StudyGuide({ content, onRegenerate }) {
                                   ))}
                                 </div>
                                 {checklistItem?.confidence > 0 && (
-                                  <span className={`text-sm font-medium ${getConfidenceColor(checklistItem.confidence)}`}>
+                                  <span className={`text-xs sm:text-sm font-medium hidden sm:inline ${getConfidenceColor(checklistItem.confidence)}`}>
                                     {getConfidenceLabel(checklistItem.confidence)}
                                   </span>
                                 )}
@@ -981,7 +1055,7 @@ export default function StudyGuide({ content, onRegenerate }) {
                             {index < displaySections.length - 1 && (
                               <button
                                 onClick={() => navigateToSection(index + 1)}
-                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm"
+                                className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm w-full sm:w-auto"
                               >
                                 Next Topic <ChevronRight className="w-4 h-4" />
                               </button>
@@ -990,13 +1064,13 @@ export default function StudyGuide({ content, onRegenerate }) {
                         </div>
                       </>
                     ) : (
-                      <div className="text-center py-10 text-slate-500">
-                        <Inbox className="w-14 h-14 mx-auto mb-3 text-slate-300" />
-                        <p className="font-medium">This section has no content yet.</p>
+                      <div className="text-center py-8 sm:py-10 text-slate-500">
+                        <Inbox className="w-12 h-12 sm:w-14 sm:h-14 mx-auto mb-3 text-slate-300" />
+                        <p className="font-medium text-sm sm:text-base">This section has no content yet.</p>
                         {onRegenerate && (
                           <button
                             onClick={onRegenerate}
-                            className="mt-4 text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2 mx-auto"
+                            className="mt-4 text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2 mx-auto text-sm"
                           >
                             <RefreshCw className="w-4 h-4" /> Regenerate to add content
                           </button>
@@ -1008,7 +1082,6 @@ export default function StudyGuide({ content, onRegenerate }) {
               </div>
             );
           })}
-        </div>
       </div>
     );
   };
@@ -1018,7 +1091,7 @@ export default function StudyGuide({ content, onRegenerate }) {
     if (!displaySections || displaySections.length === 0) return null;
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-5">
         {displaySections.map((section, index) => {
           const isExpanded = expandedSections.has(index);
           const hasContent = sectionHasContent(section);
@@ -1027,48 +1100,49 @@ export default function StudyGuide({ content, onRegenerate }) {
           return (
             <div 
               key={index} 
-              className={`bg-white rounded-2xl border-2 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 ${
+              className={`bg-white rounded-xl sm:rounded-2xl border sm:border-2 shadow-sm hover:shadow-lg transition-all duration-300 ${
                 !hasContent ? 'border-amber-300' : checklistItem?.completed ? 'border-emerald-300' : 'border-slate-200'
               }`}
             >
-              <div className="p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">
+              <div className="p-3 sm:p-5">
+                <div className="flex items-start justify-between gap-2 mb-2 sm:mb-3">
+                  <div className="flex items-start gap-2 min-w-0">
+                    <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
                       {index + 1}
                     </span>
-                    <h3 className="font-bold text-slate-800">{section.title}</h3>
+                    <h3 className="font-bold text-slate-800 text-sm sm:text-base leading-tight line-clamp-2">{section.title}</h3>
                   </div>
-                  <div className="flex gap-1">
-                    {checklistItem?.completed && <Check className="w-5 h-5 text-emerald-500" />}
+                  <div className="flex gap-1 flex-shrink-0">
+                    {checklistItem?.completed && <Check className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" />}
                     {section.hasDiagram && <BarChart3 className="w-4 h-4 text-violet-500" />}
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-3 text-xs text-slate-500 mb-3">
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" /> {section.estimatedTime} min
+                <div className="flex items-center gap-2 sm:gap-3 text-xs text-slate-500 mb-2 sm:mb-3 ml-8 sm:ml-9">
+                  <span className="inline-flex items-center gap-1">
+                    <Clock className="w-3 h-3 flex-shrink-0" /> 
+                    <span>{section.estimatedTime}m</span>
                   </span>
                   {section.subsections?.length > 0 && (
-                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">
+                    <span className="px-1.5 sm:px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">
                       {section.subsections.length} sub
                     </span>
                   )}
                 </div>
                 
-                <p className="text-sm text-slate-600 mb-4 line-clamp-2">{getPreviewSnippet(section)}</p>
+                <p className="text-xs sm:text-sm text-slate-600 mb-3 sm:mb-4 line-clamp-2 ml-8 sm:ml-9">{getPreviewSnippet(section)}</p>
                 
                 {hasContent && (
                   <button
                     onClick={() => toggleSection(index)}
-                    className="text-blue-600 hover:text-blue-700 text-sm font-semibold"
+                    className="text-blue-600 hover:text-blue-700 text-xs sm:text-sm font-semibold ml-8 sm:ml-9"
                   >
                     {isExpanded ? 'Show Less' : 'Expand Content'}
                   </button>
                 )}
                 
                 {isExpanded && hasContent && (
-                  <div className="mt-4 pt-4 border-t border-slate-200">
+                  <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-slate-200">
                     {renderSectionContent(section.content)}
                     {renderSubsections(section.subsections)}
                   </div>
@@ -1084,52 +1158,52 @@ export default function StudyGuide({ content, onRegenerate }) {
   // Render checklist view
   const renderAsChecklist = () => {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         <StudyStatsDashboard stats={parsedContent.stats} checklistItems={checklistItems} />
         
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {displaySections.map((section, index) => {
             const item = checklistItems[index] || { completed: false, confidence: 0 };
             
             return (
               <div 
                 key={index} 
-                className={`bg-white border-2 rounded-2xl p-5 shadow-sm transition-all ${
+                className={`bg-white border sm:border-2 rounded-xl sm:rounded-2xl p-3 sm:p-5 shadow-sm transition-all overflow-hidden ${
                   item.completed ? 'border-emerald-300 bg-emerald-50/30' : 'border-slate-200'
                 }`}
               >
-                <div className="flex items-start gap-4">
+                <div className="flex items-start gap-2 sm:gap-4">
                   <button
                     onClick={() => toggleChecklistItem(index)}
-                    className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                    className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all mt-0.5 ${
                       item.completed 
                         ? 'bg-emerald-500 border-emerald-500 text-white' 
                         : 'border-slate-300 hover:border-emerald-400'
                     }`}
                   >
-                    {item.completed && <Check className="w-4 h-4" />}
+                    {item.completed && <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                   </button>
                   
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className={`font-bold text-lg ${item.completed ? 'text-slate-500 line-through' : 'text-slate-800'}`}>
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <h3 className={`font-bold text-sm sm:text-lg leading-tight ${item.completed ? 'text-slate-500 line-through' : 'text-slate-800'}`}>
                         {section.title}
                       </h3>
-                      <div className="flex items-center gap-2 text-sm text-slate-500">
-                        <Clock className="w-4 h-4" />
-                        {section.estimatedTime} min
+                      <div className="flex items-center gap-1 text-xs sm:text-sm text-slate-500 flex-shrink-0">
+                        <Clock className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                        <span>{section.estimatedTime}m</span>
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-4 flex-wrap">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-slate-600">Confidence:</span>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                        <span className="text-xs text-slate-600">Confidence:</span>
                         <div className="flex gap-1">
                           {[1, 2, 3, 4, 5].map(level => (
                             <button
                               key={level}
                               onClick={() => updateConfidence(index, level)}
-                              className={`w-7 h-7 rounded-md text-xs font-medium transition-all ${
+                              className={`w-7 h-7 rounded-md text-xs font-medium transition-all flex-shrink-0 ${
                                 item.confidence >= level 
                                   ? 'bg-blue-500 text-white' 
                                   : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
@@ -1140,14 +1214,14 @@ export default function StudyGuide({ content, onRegenerate }) {
                           ))}
                         </div>
                         {item.confidence > 0 && (
-                          <span className={`text-sm font-medium ${getConfidenceColor(item.confidence)}`}>
+                          <span className={`text-xs font-medium hidden sm:inline ${getConfidenceColor(item.confidence)}`}>
                             {getConfidenceLabel(item.confidence)}
                           </span>
                         )}
                       </div>
                       
                       {section.hasDiagram && (
-                        <span className="px-2 py-1 bg-violet-100 text-violet-700 text-xs font-medium rounded-full flex items-center gap-1">
+                        <span className="hidden sm:inline-flex px-2 py-1 bg-violet-100 text-violet-700 text-xs font-medium rounded-full items-center gap-1 w-fit">
                           <BarChart3 className="w-3 h-3" /> Has Diagram
                         </span>
                       )}
@@ -1155,13 +1229,13 @@ export default function StudyGuide({ content, onRegenerate }) {
                     
                     <button
                       onClick={() => toggleSection(index)}
-                      className="mt-3 text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      className="mt-2 sm:mt-3 text-blue-600 hover:text-blue-700 text-xs sm:text-sm font-medium"
                     >
                       {expandedSections.has(index) ? 'Hide Content' : 'View Content'}
                     </button>
                     
                     {expandedSections.has(index) && (
-                      <div className="mt-4 pt-4 border-t border-slate-200">
+                      <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-slate-200">
                         {renderSectionContent(section.content)}
                         {renderSubsections(section.subsections)}
                       </div>
@@ -1197,135 +1271,297 @@ export default function StudyGuide({ content, onRegenerate }) {
 
   const { stats } = parsedContent;
 
-  return (
-    <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-6 text-white">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center">
-              <BookOpen className="w-8 h-8" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold">Study Guide</h2>
-              <div className="flex items-center gap-4 text-blue-100 text-sm mt-1">
-                <span className="flex items-center gap-1">
-                  <Target className="w-4 h-4" /> {stats.total} topics
-                </span>
-                <span className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" /> ~{stats.totalTime} min
-                </span>
-                {stats.withDiagrams > 0 && (
-                  <span className="flex items-center gap-1">
-                    <BarChart3 className="w-4 h-4" /> {stats.withDiagrams} diagrams
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {stats.empty > 0 && (
-              <button
-                onClick={() => setShowEmptySections(!showEmptySections)}
-                className={`px-3 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${
-                  showEmptySections 
-                    ? 'bg-amber-400 text-amber-900' 
-                    : 'bg-white/20 text-white hover:bg-white/30'
-                }`}
-              >
-                {showEmptySections ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                {showEmptySections ? 'Hide Empty' : `${stats.empty} Empty`}
-              </button>
-            )}
-            {onRegenerate && (
-              <button
-                onClick={onRegenerate}
-                className="px-4 py-2 bg-white text-blue-600 rounded-xl hover:bg-blue-50 transition-all text-sm font-semibold shadow-lg flex items-center gap-2"
-              >
-                <RefreshCw className="w-4 h-4" /> Regenerate
-              </button>
-            )}
-          </div>
+  // Mobile TOC drawer
+  const MobileTOCDrawer = () => (
+    <div 
+      className={`fixed inset-0 z-50 lg:hidden transition-opacity duration-300 ${
+        showTOC ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+      }`}
+    >
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/50"
+        onClick={() => setShowTOC(false)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === 'Escape' && setShowTOC(false)}
+        aria-label="Close contents menu"
+      />
+      {/* Drawer */}
+      <div 
+        className={`absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] bg-white shadow-2xl transform transition-transform duration-300 ${
+          showTOC ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50">
+          <h3 className="font-bold text-slate-800 flex items-center gap-2">
+            <List className="w-5 h-5 text-blue-600" /> Contents
+          </h3>
+          <button 
+            onClick={() => setShowTOC(false)}
+            className="p-2 hover:bg-white/80 rounded-lg transition-colors"
+            aria-label="Close contents menu"
+          >
+            <X className="w-5 h-5 text-slate-500" />
+          </button>
+        </div>
+        <div className="p-4 overflow-y-auto max-h-[calc(100vh-80px)]">
+          <TableOfContents 
+            sections={displaySections}
+            activeSection={activeSection}
+            onNavigate={(index) => {
+              navigateToSection(index);
+              setShowTOC(false);
+            }}
+            bookmarkedSections={bookmarkedSections}
+          />
         </div>
       </div>
+    </div>
+  );
 
-      {/* Content */}
-      <div className="p-6">
-        {/* Format Selector */}
-        {displaySections.length > 1 && (
-          <div className="mb-6 bg-slate-50 rounded-xl p-4 border border-slate-200">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div className="flex items-center gap-4">
-                <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide">View</h3>
-                <div className="flex bg-white rounded-xl p-1 border border-slate-200 shadow-sm">
-                  {[
-                    { id: 'guided', label: 'Guided', icon: Target },
-                    { id: 'cards', label: 'Cards', icon: BarChart3 },
-                    { id: 'checklist', label: 'Progress', icon: Check }
-                  ].map(format => {
-                    const Icon = format.icon;
-                    return (
-                      <button
-                        key={format.id}
-                        onClick={() => setDisplayFormat(format.id)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
-                          displayFormat === format.id 
-                            ? 'bg-blue-600 text-white shadow-sm' 
-                            : 'text-slate-600 hover:bg-slate-100'
-                        }`}
-                      >
-                        <Icon className="w-4 h-4" />
-                        {format.label}
-                      </button>
-                    );
-                  })}
-                </div>
+  // Mobile sticky header that shows current topic
+  const MobileStickyHeader = () => {
+    const currentSection = displaySections[activeSection];
+    const checklistItem = checklistItems[activeSection];
+    const completedCount = Object.values(checklistItems).filter(item => item.completed).length;
+    const totalSections = displaySections.length;
+    
+    if (!currentSection) return null;
+    
+    return (
+      <div 
+        className={`fixed top-0 left-0 right-0 z-40 lg:hidden transform transition-transform duration-300 ${
+          showStickyHeader ? 'translate-y-0' : '-translate-y-full'
+        }`}
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+      >
+        <div className="bg-white border-b border-gray-200 shadow-sm">
+          {/* Main row */}
+          <div className="flex items-center gap-2 px-3 py-2">
+            {/* TOC button */}
+            <button
+              onClick={() => setShowTOC(true)}
+              className="p-2 bg-gray-100 rounded-lg text-gray-600 active:bg-gray-200 transition-colors flex-shrink-0"
+              aria-label="Open table of contents"
+            >
+              <List className="w-5 h-5" />
+            </button>
+            
+            {/* Current section info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center flex-shrink-0">
+                  {activeSection + 1}
+                </span>
+                <span className="text-sm font-medium text-gray-900 truncate">
+                  {currentSection.title}
+                </span>
               </div>
-              {displayFormat === 'guided' && (
-                <div className="flex items-center gap-3">
-                  {displaySections.length > 2 && (
-                    <button
-                      onClick={() => setShowTOC(!showTOC)}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
-                        showTOC ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      <List className="w-4 h-4" />
-                      Contents
-                    </button>
-                  )}
-                  <button onClick={expandAll} className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                    Expand All
-                  </button>
-                  <span className="text-slate-300">|</span>
-                  <button onClick={collapseAll} className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                    Collapse All
-                  </button>
+              {/* Progress bar */}
+              <div className="flex items-center gap-2 mt-1">
+                <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-indigo-500 to-blue-500 rounded-full transition-all duration-300"
+                    style={{ width: `${((activeSection + 1) / totalSections) * 100}%` }}
+                  />
                 </div>
-              )}
+                <span className="text-xs text-gray-500 flex-shrink-0">
+                  {activeSection + 1}/{totalSections}
+                </span>
+              </div>
+            </div>
+            
+            {/* Mark complete button */}
+            <button
+              onClick={() => toggleChecklistItem(activeSection)}
+              className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
+                checklistItem?.completed 
+                  ? 'bg-emerald-100 text-emerald-600' 
+                  : 'bg-gray-100 text-gray-500 active:bg-gray-200'
+              }`}
+              aria-label={checklistItem?.completed ? 'Completed - tap to undo' : 'Mark as complete'}
+            >
+              <Check className="w-5 h-5" />
+            </button>
+          </div>
+          
+          {/* Completion summary - only show if some progress made */}
+          {completedCount > 0 && (
+            <div className="px-3 pb-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-500">
+                  {completedCount} of {totalSections} topics completed
+                </span>
+                <span className="text-emerald-600 font-medium">
+                  {Math.round((completedCount / totalSections) * 100)}% done
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div ref={containerRef} className="relative">
+      {/* Mobile Sticky Header */}
+      <MobileStickyHeader />
+      
+      {/* Mobile TOC Drawer */}
+      <MobileTOCDrawer />
+      
+      {/* Desktop Layout: TOC sidebar + Content */}
+      <div className="flex gap-4 lg:gap-6">
+        {/* Desktop TOC - Fixed sidebar outside content */}
+        {showTOC && displaySections.length > 2 && (
+          <div className="hidden lg:block w-64 flex-shrink-0">
+            <div className="sticky top-4">
+              <TableOfContents 
+                sections={displaySections}
+                activeSection={activeSection}
+                onNavigate={navigateToSection}
+                bookmarkedSections={bookmarkedSections}
+              />
             </div>
           </div>
         )}
-
-        {/* Main Content */}
-        <div>
-          {displayFormat === 'cards' ? renderAsCards() :
-           displayFormat === 'checklist' ? renderAsChecklist() :
-           renderGuidedView()}
-        </div>
-
-        {/* Footer tip */}
-        <div className="mt-8 bg-gradient-to-r from-indigo-50 to-violet-50 rounded-xl p-5 border border-indigo-200">
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
-              <Star className="w-5 h-5 text-indigo-600" />
+        
+        {/* Main Content Card - Full width */}
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-xl overflow-hidden">
+            {/* Header */}
+            <div ref={mainHeaderRef} className="bg-gradient-to-r from-blue-600 to-indigo-600 px-3 sm:px-6 py-3 sm:py-6 text-white rounded-t-xl sm:rounded-t-2xl">
+              <div className="flex items-center justify-between flex-wrap gap-2 sm:gap-4">
+                <div className="flex items-center gap-2 sm:gap-4">
+                  <div className="w-9 h-9 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-white/20 flex items-center justify-center flex-shrink-0">
+                    <BookOpen className="w-5 h-5 sm:w-8 sm:h-8" />
+                  </div>
+                  <div>
+                    <h2 className="text-base sm:text-2xl font-bold">Study Guide</h2>
+                    <div className="flex items-center gap-2 sm:gap-4 text-blue-100 text-xs sm:text-sm mt-0.5 sm:mt-1">
+                      <span className="inline-flex items-center gap-1">
+                        <Target className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                        <span>{stats.total}</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                        <span>{stats.totalTime}m</span>
+                      </span>
+                      {stats.withDiagrams > 0 && (
+                        <span className="inline-flex items-center gap-1">
+                          <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                          <span>{stats.withDiagrams}</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 sm:gap-3">
+                  {stats.empty > 0 && (
+                    <button
+                      onClick={() => setShowEmptySections(!showEmptySections)}
+                      className={`p-1.5 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all flex items-center justify-center ${
+                        showEmptySections 
+                          ? 'bg-amber-400 text-amber-900' 
+                          : 'bg-white/20 text-white hover:bg-white/30'
+                      }`}
+                    >
+                      {showEmptySections ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  )}
+                  {onRegenerate && (
+                    <button
+                      onClick={onRegenerate}
+                      className="p-1.5 sm:px-4 sm:py-2 bg-white text-blue-600 rounded-lg sm:rounded-xl hover:bg-blue-50 transition-all text-xs sm:text-sm font-semibold shadow-lg flex items-center gap-1.5 sm:gap-2"
+                    >
+                      <RefreshCw className="w-4 h-4" /> <span className="hidden sm:inline">Regenerate</span>
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-indigo-900 font-semibold">Study Tip</p>
-              <p className="text-indigo-700 text-sm mt-1">
-                Track your progress using the confidence ratings. Bookmark sections you want to revisit, 
-                and use the Progress view to see your overall mastery at a glance.
-              </p>
+
+            {/* Content */}
+            <div className="p-1.5 sm:p-6">
+              {/* Format Selector */}
+              {displaySections.length > 1 && (
+                <div className="mb-2 sm:mb-6 bg-slate-50 rounded-lg sm:rounded-xl p-1.5 sm:p-4 border border-slate-200">
+                  <div className="flex items-center justify-between gap-2 sm:gap-4">
+                    <div className="flex items-center gap-2 sm:gap-4">
+                      <div className="flex bg-white rounded-lg sm:rounded-xl p-0.5 sm:p-1 border border-slate-200 shadow-sm">
+                        {[
+                          { id: 'guided', label: 'Guided', icon: Target },
+                          { id: 'cards', label: 'Cards', icon: BarChart3 },
+                          { id: 'checklist', label: 'Progress', icon: Check }
+                        ].map(format => {
+                          const Icon = format.icon;
+                          return (
+                            <button
+                              key={format.id}
+                              onClick={() => setDisplayFormat(format.id)}
+                              className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg text-xs sm:text-sm font-medium transition-all inline-flex items-center justify-center gap-1 sm:gap-2 ${
+                                displayFormat === format.id 
+                                  ? 'bg-blue-600 text-white shadow-sm' 
+                                  : 'text-slate-600 hover:bg-slate-100'
+                              }`}
+                            >
+                              <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                              <span className="hidden sm:inline">{format.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    {displayFormat === 'guided' && (
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        {displaySections.length > 2 && (
+                          <button
+                            onClick={() => setShowTOC(!showTOC)}
+                            className={`px-2.5 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors inline-flex items-center justify-center gap-1.5 sm:gap-2 ${
+                              showTOC ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            <List className="w-4 h-4 flex-shrink-0" />
+                            <span className="hidden sm:inline">Contents</span>
+                          </button>
+                        )}
+                        <button onClick={expandAll} className="text-xs sm:text-sm text-blue-600 hover:text-blue-700 font-medium hidden sm:block">
+                          Expand All
+                        </button>
+                        <span className="text-slate-300 hidden sm:block">|</span>
+                        <button onClick={collapseAll} className="text-xs sm:text-sm text-blue-600 hover:text-blue-700 font-medium hidden sm:block">
+                          Collapse All
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Main Content */}
+              <div>
+                {displayFormat === 'cards' ? renderAsCards() :
+                 displayFormat === 'checklist' ? renderAsChecklist() :
+                 renderGuidedViewContent()}
+              </div>
+
+              {/* Footer tip */}
+              <div className="mt-4 sm:mt-8 bg-gradient-to-r from-indigo-50 to-violet-50 rounded-lg sm:rounded-xl p-3 sm:p-5 border border-indigo-200">
+                <div className="flex items-start gap-2 sm:gap-4">
+                  <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                    <Star className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <p className="text-indigo-900 font-semibold text-xs sm:text-base">Study Tip</p>
+                    <p className="text-indigo-700 text-xs sm:text-sm mt-0.5 sm:mt-1">
+                      Track your progress using the confidence ratings. Bookmark sections you want to revisit, 
+                      and use the Progress view to see your overall mastery at a glance.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

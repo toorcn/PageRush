@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Target, BookOpen, Library, Clock, Loader, CheckCircle, RefreshCw, AlertTriangle, Flame, MessageCircle, Zap, Bot, BarChart2, Lightbulb, XCircle, ArrowLeft, X } from 'lucide-react';
+import { Target, BookOpen, Library, Clock, Loader, CheckCircle, RefreshCw, AlertTriangle, Flame, Zap, Bot, BarChart2, Lightbulb, XCircle, ArrowLeft, X } from 'lucide-react';
 import { questionBankManager } from '../utils/questionBankManager';
 import LottieLoader from './LottieLoader';
 
@@ -27,7 +27,8 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
   
   // Enhanced learning features
   const [userConfidence, setUserConfidence] = useState(null); // 1-5 scale
-  const [showMetacognitivePrompt, setShowMetacognitivePrompt] = useState(false);
+  const [showLearningTip, setShowLearningTip] = useState(false);
+  const [currentLearningTip, setCurrentLearningTip] = useState(null); // Store the current tip
   const [learningMode, setLearningMode] = useState('adaptive'); // adaptive, spaced, interleaved
   const [sessionStartTime, setSessionStartTime] = useState(null);
   const [breakReminder, setBreakReminder] = useState(false);
@@ -262,7 +263,16 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
     setCurrentQuestion(null);
     setUserConfidence(null);
     setActiveTab('comparison'); // Reset tab for next question
-    setShowMetacognitivePrompt(Math.random() < 0.3); // 30% chance to show metacognitive prompt
+    
+    // Generate a new learning tip with 30% chance
+    if (Math.random() < 0.3) {
+      const tip = generateLearningTip();
+      setCurrentLearningTip(tip);
+      setShowLearningTip(true);
+    } else {
+      setShowLearningTip(false);
+      setCurrentLearningTip(null);
+    }
     
     // Check for break reminder
     checkBreakReminder();
@@ -365,7 +375,17 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
     setCurrentQuestion(null); // Reset any previous question
     setSessionStartTime(Date.now());
     setUserConfidence(null);
-    setShowMetacognitivePrompt(Math.random() < 0.3); // 30% chance to show metacognitive prompt
+    
+    // Generate initial learning tip with 30% chance
+    if (Math.random() < 0.3) {
+      const tip = generateLearningTip(topic);
+      setCurrentLearningTip(tip);
+      setShowLearningTip(true);
+    } else {
+      setShowLearningTip(false);
+      setCurrentLearningTip(null);
+    }
+    
     setBreakReminder(false);
     generatePracticeQuestion(topic, 'medium');
   };
@@ -426,15 +446,98 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
   };
 
   // Enhanced learning helper functions
-  const getMetacognitivePrompt = () => {
-    const prompts = [
-      "Before answering, think: What do I already know about this concept?",
-      "Consider: How confident am I in my knowledge of this topic?",
-      "Reflect: Have I seen similar questions before?",
-      "Ask yourself: What strategies can I use to approach this question?",
-      "Think: What would be the most logical answer based on the context?"
-    ];
-    return prompts[Math.floor(Math.random() * prompts.length)];
+  const generateLearningTip = (topic = currentTopic) => {
+    // Get topic-specific info
+    const topicTitle = topic?.title || 'this topic';
+    const keyConcepts = topic?.keyConcepts || [];
+    const difficulty = topic?.difficultyLevel || 'medium';
+    const priority = topic?.priority || 'medium';
+    
+    // Get performance data for personalized tips
+    const analytics = topic?.id ? questionBankManager.getPerformanceAnalytics(topic.id) : null;
+    const accuracy = analytics?.accuracy || 0;
+    const questionsAnswered = analytics?.totalQuestions || 0;
+    
+    // Different tip categories
+    const tipCategories = {
+      // Study strategies based on topic
+      studyStrategy: [
+        `💡 For "${topicTitle}", try explaining the concept out loud as if teaching someone else.`,
+        `📝 Create a mind map connecting "${topicTitle}" to related concepts you already know.`,
+        `🔗 Think about how "${topicTitle}" relates to real-world applications.`,
+        `🎯 Focus on understanding the "why" behind "${topicTitle}", not just the "what".`,
+        `📚 After this session, try writing a brief summary of "${topicTitle}" in your own words.`,
+      ],
+      // Memory techniques
+      memoryTips: [
+        `🧠 Use the "chunking" technique: break down complex info into smaller, memorable pieces.`,
+        `🔄 Spaced repetition works! Review "${topicTitle}" again tomorrow for better retention.`,
+        `🎨 Visualize the concepts - mental images stick better than abstract ideas.`,
+        `✍️ Writing by hand activates more brain regions than typing for memory.`,
+        `😴 Sleep consolidates memory - review key points before bed for better recall.`,
+      ],
+      // Exam preparation
+      examTips: [
+        `⏱️ In exams, read the entire question before answering - key details are often at the end.`,
+        `✅ For multiple choice, eliminate obviously wrong answers first to improve your odds.`,
+        `📋 Practice explaining "${topicTitle}" without notes - this reveals knowledge gaps.`,
+        `🎯 High-priority topics like this often appear in exams - master them first!`,
+        `💪 Confidence matters! Studies show confident test-takers perform better.`,
+      ],
+      // Motivational & fun facts
+      motivation: [
+        `🌟 You're building neural pathways right now - every question strengthens your brain!`,
+        `🚀 Mistakes are learning opportunities - your brain grows more from errors than easy wins.`,
+        `⚡ The "testing effect": practicing retrieval (like now!) beats re-reading 3x over.`,
+        `🎮 Treat this like a game - each correct answer is leveling up your knowledge.`,
+        `🏆 Consistency beats intensity - regular short sessions outperform cramming.`,
+      ],
+      // Topic-specific hints using key concepts
+      conceptHints: keyConcepts.length > 0 ? [
+        `🔑 Key concept to remember: "${keyConcepts[0]}" - how does it connect to this question?`,
+        `💭 Think about "${keyConcepts[Math.floor(Math.random() * keyConcepts.length)]}" - it might help here.`,
+        `📌 This topic covers ${keyConcepts.length} key concepts. Can you recall them all?`,
+      ] : [],
+      // Performance-based tips
+      performanceTips: questionsAnswered > 0 ? [
+        accuracy >= 80 
+          ? `🌟 Great job! Your ${Math.round(accuracy)}% accuracy shows solid understanding.`
+          : accuracy >= 60
+            ? `📈 You're at ${Math.round(accuracy)}% accuracy - focus on the concepts you're missing.`
+            : `💪 Keep practicing! Each question helps build your understanding.`,
+        questionsAnswered >= 5
+          ? `📊 You've answered ${questionsAnswered} questions on this topic - consistency is key!`
+          : `🎯 Just getting started - aim for at least 5 questions to gauge your understanding.`,
+      ] : [],
+    };
+    
+    // Weight categories based on context
+    let availableCategories = ['studyStrategy', 'memoryTips', 'examTips', 'motivation'];
+    
+    // Add concept hints if we have key concepts
+    if (keyConcepts.length > 0) {
+      availableCategories.push('conceptHints');
+    }
+    
+    // Add performance tips if we have data
+    if (questionsAnswered > 0) {
+      availableCategories.push('performanceTips');
+    }
+    
+    // Prioritize exam tips for high-priority topics
+    if (priority === 'high') {
+      availableCategories = ['examTips', ...availableCategories];
+    }
+    
+    // Pick a random category and tip
+    const category = availableCategories[Math.floor(Math.random() * availableCategories.length)];
+    const tips = tipCategories[category];
+    
+    if (!tips || tips.length === 0) {
+      return tipCategories.motivation[Math.floor(Math.random() * tipCategories.motivation.length)];
+    }
+    
+    return tips[Math.floor(Math.random() * tips.length)];
   };
 
   const checkBreakReminder = () => {
@@ -479,7 +582,8 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
     });
     setShouldAutoReview(false);
     setUserConfidence(null);
-    setShowMetacognitivePrompt(false);
+    setShowLearningTip(false);
+    setCurrentLearningTip(null);
     setSessionStartTime(null);
     setBreakReminder(false);
     
@@ -789,18 +893,18 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
           </div>
         )}
         
-        {/* Metacognitive Prompt */}
-        {showMetacognitivePrompt && currentQuestion && (
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+        {/* Learning Tip - contextual hints based on topic and document */}
+        {showLearningTip && currentLearningTip && currentQuestion && (
+          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg p-3 sm:p-4">
             <div className="flex items-start space-x-3">
-              <MessageCircle className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-medium text-purple-800 mb-1">Learning Strategy</h4>
-                <p className="text-sm text-purple-700">{getMetacognitivePrompt()}</p>
+              <Lightbulb className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <h4 className="font-medium text-purple-800 mb-1 text-sm sm:text-base">Study Tip</h4>
+                <p className="text-xs sm:text-sm text-purple-700">{currentLearningTip}</p>
               </div>
               <button
-                onClick={() => setShowMetacognitivePrompt(false)}
-                className="text-purple-600 hover:text-purple-800"
+                onClick={() => setShowLearningTip(false)}
+                className="text-purple-600 hover:text-purple-800 p-1 touch-manipulation"
               >
                 <X className="w-4 h-4" />
               </button>

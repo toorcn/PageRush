@@ -31,6 +31,8 @@ export default function ExamGenerator({ onGenerate, extractedText, apiKey, perfo
     describe: { enabled: false, count: 2 },
     fillBlanks: { enabled: false, count: 2 }
   });
+  const [isAnalyzingQuestionTypes, setIsAnalyzingQuestionTypes] = useState(false);
+  const [questionTypeSuggestionsGenerated, setQuestionTypeSuggestionsGenerated] = useState(false);
   
   // Use refs to track extraction state and prevent multiple calls
   const hasExtractedTopics = useRef(false);
@@ -615,6 +617,79 @@ export default function ExamGenerator({ onGenerate, extractedText, apiKey, perfo
     }, 500);
   };
 
+  // AI-powered question type analysis
+  const analyzeQuestionTypesWithAI = async () => {
+    if (selectedTopics.length === 0) {
+      alert('Please select at least one topic first');
+      return;
+    }
+
+    setIsAnalyzingQuestionTypes(true);
+    setQuestionTypeSuggestionsGenerated(false);
+
+    try {
+      const topicsContext = selectedTopics.join(', ');
+      const documentContext = extractedText ? extractedText.substring(0, 2000) : '';
+      
+      const contextText = `Topics to cover: ${topicsContext}
+
+${documentContext ? `Document context (excerpt): ${documentContext}` : ''}
+
+${performanceSummary ? `Previous performance data: ${performanceSummary.substring(0, 500)}` : ''}`;
+
+      const response = await fetch('/api/gemini-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: contextText,
+          promptType: 'analyzeQuestionTypes',
+          geminiApiKey: apiKey,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to analyze question types');
+      }
+
+      const data = await response.json();
+      const aiText = data.result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      
+      // Parse the JSON response
+      const cleanedText = aiText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      const suggestions = JSON.parse(cleanedText);
+      
+      // Apply the suggestions
+      const newQuestionTypes = {
+        mcq: { enabled: suggestions.mcq?.enabled ?? true, count: suggestions.mcq?.count ?? 5 },
+        shortAnswer: { enabled: suggestions.shortAnswer?.enabled ?? true, count: suggestions.shortAnswer?.count ?? 3 },
+        discuss: { enabled: suggestions.discuss?.enabled ?? false, count: suggestions.discuss?.count ?? 2 },
+        describe: { enabled: suggestions.describe?.enabled ?? false, count: suggestions.describe?.count ?? 2 },
+        fillBlanks: { enabled: suggestions.fillBlanks?.enabled ?? false, count: suggestions.fillBlanks?.count ?? 2 }
+      };
+      
+      setQuestionTypes(newQuestionTypes);
+      setQuestionTypeAutoSelection(suggestions.reason || 'AI analyzed your topics and suggested this distribution');
+      setQuestionTypeSuggestionsGenerated(true);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setQuestionTypeSuggestionsGenerated(false);
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error analyzing question types:', error);
+      // Fall back to local analysis
+      const suggestions = generateQuestionTypeSuggestions(topics, selectedTopics);
+      setQuestionTypes(prev => ({
+        ...prev,
+        ...suggestions.config
+      }));
+      setQuestionTypeAutoSelection(suggestions.reason + ' (local analysis)');
+    } finally {
+      setIsAnalyzingQuestionTypes(false);
+    }
+  };
+
   const createPerformanceSummary = (summary) => {
     const weakQuestions = summary.details?.filter(d => !d.isCorrect) || [];
     const partialQuestions = summary.details?.filter(d => !d.isCorrect && d.points > 0) || [];
@@ -940,26 +1015,58 @@ ${detail.explanation ? `Explanation: ${detail.explanation}` : ''}
           <h3 className="font-semibold text-lg text-gray-800 flex items-center gap-2">
             <Target className="w-5 h-5" /> Question Types
           </h3>
-          {questionTypeAutoSelection && (
+          <div className="flex items-center gap-2">
+            {/* AI Suggest Button */}
             <button
-              onClick={() => {
-                setQuestionTypes({
-                  mcq: { enabled: true, count: 5 },
-                  shortAnswer: { enabled: true, count: 3 },
-                  discuss: { enabled: false, count: 2 },
-                  describe: { enabled: false, count: 2 },
-                  fillBlanks: { enabled: false, count: 2 }
-                });
-                setQuestionTypeAutoSelection('');
-              }}
-              className="text-sm text-red-600 hover:text-red-700 px-2 py-1 rounded border border-red-200 hover:bg-red-50"
+              onClick={analyzeQuestionTypesWithAI}
+              disabled={isAnalyzingQuestionTypes || selectedTopics.length === 0}
+              className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg transition-colors text-sm font-medium ${
+                isAnalyzingQuestionTypes || selectedTopics.length === 0
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-indigo-600 text-white hover:bg-indigo-700'
+              }`}
+              title={selectedTopics.length === 0 ? 'Select topics first' : 'Let AI suggest question type distribution'}
             >
-              Reset to Default
+              {isAnalyzingQuestionTypes ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Bot className="w-4 h-4" />
+              )}
+              <span>{isAnalyzingQuestionTypes ? 'Analyzing...' : 'AI Suggest'}</span>
             </button>
-          )}
+            {questionTypeAutoSelection && (
+              <button
+                onClick={() => {
+                  setQuestionTypes({
+                    mcq: { enabled: true, count: 5 },
+                    shortAnswer: { enabled: true, count: 3 },
+                    discuss: { enabled: false, count: 2 },
+                    describe: { enabled: false, count: 2 },
+                    fillBlanks: { enabled: false, count: 2 }
+                  });
+                  setQuestionTypeAutoSelection('');
+                }}
+                className="text-sm text-red-600 hover:text-red-700 px-2 py-1 rounded border border-red-200 hover:bg-red-50"
+              >
+                Reset to Default
+              </button>
+            )}
+          </div>
         </div>
         
         <p className="text-sm text-gray-600">Select question types and set counts for each:</p>
+        
+        {/* AI Suggestions Success Message */}
+        {questionTypeSuggestionsGenerated && (
+          <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+            <div className="flex items-center space-x-2">
+              <Check className="w-4 h-4 text-indigo-600" />
+              <p className="text-sm text-indigo-800">
+                <strong>AI suggestions applied!</strong> Question types have been optimized based on your selected topics.
+              </p>
+            </div>
+          </div>
+        )}
         
         {questionTypeAutoSelection && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-3">

@@ -11,6 +11,7 @@ import AdaptiveLearning from './AdaptiveLearning';
 import ReadinessAssessment from './ReadinessAssessment';
 import TopicContentPage from './TopicContentPage';
 import LottieLoader from './LottieLoader';
+import { useStudyStore } from '@/stores';
 
 /**
  * SmartStudy - Unified Study Experience
@@ -284,6 +285,9 @@ const BreakModal = ({ onDismiss, onTakeBreak, studyTime }) => {
 };
 
 export default function SmartStudy({ content, documentName, apiKey }) {
+  // Study store for saving to library
+  const addHistoryItem = useStudyStore((s) => s.addHistoryItem);
+  
   // Current view/mode
   const [currentMode, setCurrentMode] = useState(STUDY_MODES.OVERVIEW);
   const [selectedTopic, setSelectedTopic] = useState(null);
@@ -551,7 +555,7 @@ export default function SmartStudy({ content, documentName, apiKey }) {
       setTopicBreakdown(breakdownData.breakdown);
       setStats(prev => ({ ...prev, totalTopics: breakdownData.breakdown?.topics?.length || 0 }));
       
-      // Save all
+      // Save all to localStorage
       saveToLocalStorage({
         studyGuideContent: guideContent,
         topicBreakdown: breakdownData.breakdown
@@ -560,6 +564,15 @@ export default function SmartStudy({ content, documentName, apiKey }) {
       setPreviouslyGenerated({
         hasBeenGenerated: true,
         lastGenerated: Date.now()
+      });
+      
+      // Save to study library
+      addHistoryItem({
+        feature: 'smartStudy',
+        documentName: documentName || 'Untitled Document',
+        text: content?.substring(0, 100) + '...',
+        result: guideData,
+        topics: breakdownData.breakdown?.topics?.map(t => t.name || t.title) || [],
       });
     } catch (error) {
       console.error('Error generating content:', error);

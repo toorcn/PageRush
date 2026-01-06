@@ -270,7 +270,7 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
     const weakTopics = [];
     
     Object.entries(topicPerformance).forEach(([topic, data]) => {
-      const percentage = Math.round((data.correct / data.total) * 100);
+      const percentage = Math.round((data.correct / data.total) * 1000) / 10; // Single decimal
       data.percentage = percentage;
       
       const topicData = { name: topic, percentage, count: data.total };
@@ -287,7 +287,7 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
   const performanceSummary = generatePerformanceSummary();
   const numCorrect = feedback.filter(Boolean).length;
   const totalQuestions = questions.length;
-  const percentCorrect = Math.round((numCorrect / totalQuestions) * 100);
+  const percentCorrect = Math.round((numCorrect / totalQuestions) * 1000) / 10; // Single decimal
 
   if (!questions || !questions.length) {
     return (

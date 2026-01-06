@@ -144,11 +144,13 @@ export const geminiApi = {
    * Grade a quiz submission
    */
   gradeQuiz: async (params: GradeQuizParams): Promise<QuizResult> => {
-    return api.post<QuizResult>('/api/grade-quiz', {
+    const response = await api.post<QuizResult & { usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number }; responseTimeMs?: number; model?: string }>('/api/grade-quiz', {
       userAnswers: params.userAnswers,
       quiz: params.quiz,
       geminiApiKey: params.apiKey,
     });
+    trackMetrics(response as GeminiResponse & { responseTimeMs?: number; model?: string; promptType?: string }, 'grade-quiz');
+    return response;
   },
 
   /**

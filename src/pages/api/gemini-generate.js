@@ -46,17 +46,20 @@ Text to analyze:\n\n${text}`;
     case 'studyGuide':
       prompt = `Create a comprehensive, well-structured study guide from the following text. Every section MUST contain meaningful content - no empty sections allowed.
 
-CRITICAL RULES:
-1. EVERY section (## or ###) MUST have at least 2-3 bullet points or a paragraph of content
-2. NEVER create a header without content beneath it
-3. Include visual diagrams using Mermaid syntax where helpful
-4. Use **Term**: Definition format for key concepts
+ABSOLUTE REQUIREMENTS - FAILURE TO FOLLOW WILL RESULT IN REJECTION:
+1. EVERY section header (## or ###) MUST be IMMEDIATELY followed by content (bullet points, paragraphs, or definitions) - NEVER another header
+2. The "Key Takeaways" section MUST have at least 4-5 bullet points summarizing the most important concepts
+3. NEVER create back-to-back headers without content between them
+4. If you don't have enough content for a section, merge it with another section instead of leaving it empty
+5. Include visual diagrams using Mermaid syntax where helpful
+6. Use **Term**: Definition format for key concepts
 
 STRUCTURE REQUIREMENTS:
 - Use # for the main title
 - Use ## for major sections (4-8 sections)
 - Use ### for subsections within major sections
 - Each section MUST have substantive content (definitions, explanations, lists)
+- ALWAYS end with a "## Key Takeaways" section containing 4-5 summary bullet points
 
 CONTENT FOR EACH SECTION MUST INCLUDE:
 - Clear explanations of concepts (2-4 sentences minimum)
@@ -70,26 +73,37 @@ Use Mermaid syntax in code blocks for:
 - Mind maps for concept relationships
 - Sequence diagrams for step-by-step processes
 
-Example Mermaid flowchart:
+IMPORTANT DIAGRAM TEXT RULES:
+- Keep node labels SHORT (max 3-5 words per node)
+- Use abbreviations when appropriate
+- Split long concepts into multiple connected nodes
+- Avoid sentences in node labels - use keywords only
+- For longer explanations, add them as bullet points below the diagram
+
+Example Mermaid flowchart (note the SHORT labels):
 \`\`\`mermaid
 flowchart TD
-    A[Start] --> B{Decision}
-    B -->|Yes| C[Action 1]
-    B -->|No| D[Action 2]
-    C --> E[End]
-    D --> E
+    A[Start Process] --> B{Valid Input?}
+    B -->|Yes| C[Process Data]
+    B -->|No| D[Show Error]
+    C --> E[Save Results]
+    D --> F[Retry]
+    E --> G[Complete]
+    F --> B
 \`\`\`
 
-Example Mermaid mind map:
+Example Mermaid mind map (note the CONCISE branches):
 \`\`\`mermaid
 mindmap
-  root((Main Concept))
-    Branch 1
-      Detail A
-      Detail B
-    Branch 2
-      Detail C
-      Detail D
+  root((Main Topic))
+    Key Area 1
+      Point A
+      Point B
+    Key Area 2
+      Point C
+      Point D
+    Key Area 3
+      Point E
 \`\`\`
 
 FORMAT EXAMPLE:
@@ -135,9 +149,17 @@ flowchart LR
 - Supporting detail 2
 
 ## Key Takeaways
-- Summary point 1
-- Summary point 2
-- Summary point 3
+- Summary point 1: [specific takeaway from the content]
+- Summary point 2: [specific takeaway from the content]
+- Summary point 3: [specific takeaway from the content]
+- Summary point 4: [specific takeaway from the content]
+- Summary point 5: [specific takeaway from the content]
+
+VALIDATION CHECKLIST - Verify before returning:
+1. Does EVERY ## section have content directly beneath it (not just subsections)?
+2. Does EVERY ### subsection have at least 2-3 bullet points or a paragraph?
+3. Is there a "Key Takeaways" section with at least 4-5 bullet points?
+4. Are there NO back-to-back headers without content between them?
 
 REMEMBER: Every single section header MUST be followed by actual content. No empty sections!
 
@@ -577,6 +599,27 @@ RULES:
 - Extract actual terms from the question for the "key terms" category
 
 Return ONLY a JSON array of strings, no markdown, no explanation.`;
+      break;
+    case 'analyzeQuestionTypes':
+      prompt = `Analyze these study topics and suggest the optimal distribution of question types for an exam.
+
+${text}
+
+Based on the topics and content, suggest the number of questions for each type:
+- mcq (Multiple Choice): Good for testing factual knowledge, definitions, and recognition
+- shortAnswer: Good for testing understanding and brief explanations
+- discuss: Good for testing deep understanding and critical thinking
+- describe: Good for testing ability to explain processes or concepts
+- fillBlanks: Good for testing specific terminology and key facts
+
+Consider:
+1. The nature of the topics (theoretical vs practical)
+2. The complexity of the content
+3. A balanced assessment approach
+4. Total questions should be between 10-20 for a reasonable exam length
+
+Respond ONLY with a JSON object in this exact format (no markdown, no explanation):
+{"mcq":{"enabled":true,"count":5},"shortAnswer":{"enabled":true,"count":3},"discuss":{"enabled":true,"count":2},"describe":{"enabled":false,"count":0},"fillBlanks":{"enabled":true,"count":2},"reason":"Brief explanation of why this distribution"}`;
       break;
     default:
       return res.status(400).json({ error: 'Invalid prompt type' });

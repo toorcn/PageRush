@@ -1,6 +1,6 @@
 'use client';
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Library, X, Search, FileText, Check, Trash2, Upload, CheckSquare, Square, Hash } from 'lucide-react';
+import { Library, X, Search, FileText, Check, Trash2, Upload, CheckSquare, Square, Hash, Filter, ArrowUpDown, ChevronDown } from 'lucide-react';
 
 // Helper to estimate word count
 const getWordCount = (text) => {
@@ -122,6 +122,92 @@ function DocumentGroup({ title, docs, isDocumentActive, handleToggleDocument, se
   );
 }
 
+// Filter/Sort Dropdown Component
+function FilterSortDropdown({ 
+  filterBy, 
+  setFilterBy, 
+  sortBy, 
+  setSortBy, 
+  sortOrder, 
+  setSortOrder,
+  onClose 
+}) {
+  return (
+    <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-200 z-20 overflow-hidden">
+      <div className="p-3 border-b border-gray-100">
+        <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+          <Filter className="w-3.5 h-3.5" />
+          Filter by Status
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { value: 'all', label: 'All' },
+            { value: 'active', label: 'Active' },
+            { value: 'inactive', label: 'Inactive' }
+          ].map(option => (
+            <button
+              key={option.value}
+              onClick={() => setFilterBy(option.value)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                filterBy === option.value
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="p-3">
+        <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+          <ArrowUpDown className="w-3.5 h-3.5" />
+          Sort by
+        </div>
+        <div className="space-y-1">
+          {[
+            { value: 'date', label: 'Date Added' },
+            { value: 'name', label: 'Name' },
+            { value: 'size', label: 'Size' }
+          ].map(option => (
+            <button
+              key={option.value}
+              onClick={() => {
+                if (sortBy === option.value) {
+                  setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                } else {
+                  setSortBy(option.value);
+                  setSortOrder(option.value === 'name' ? 'asc' : 'desc');
+                }
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-colors ${
+                sortBy === option.value
+                  ? 'bg-blue-50 text-blue-700'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <span>{option.label}</span>
+              {sortBy === option.value && (
+                <span className="text-xs text-blue-500">
+                  {sortOrder === 'asc' ? '↑ Asc' : '↓ Desc'}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="p-2 border-t border-gray-100 bg-gray-50">
+        <button
+          onClick={onClose}
+          className="w-full px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function DocumentManager({ 
   documents, 
   activeDocument, 
@@ -132,6 +218,10 @@ export default function DocumentManager({
 }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFilterSort, setShowFilterSort] = useState(false);
+  const [filterBy, setFilterBy] = useState('all'); // 'all', 'active', 'inactive'
+  const [sortBy, setSortBy] = useState('date'); // 'date', 'name', 'size'
+  const [sortOrder, setSortOrder] = useState('desc'); // 'asc', 'desc'
   
   // Local state for pending selections - only saved when "Done" is clicked
   const initialActiveDocuments = useMemo(() => {
@@ -173,25 +263,54 @@ export default function DocumentManager({
     const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
     
     let filtered = documents;
+    
+    // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = documents.filter(doc => 
+      filtered = filtered.filter(doc => 
         doc.name.toLowerCase().includes(query) ||
         doc.text.toLowerCase().includes(query)
       );
     }
+    
+    // Apply status filter
+    if (filterBy === 'active') {
+      filtered = filtered.filter(doc => isDocumentActive(doc.id));
+    } else if (filterBy === 'inactive') {
+      filtered = filtered.filter(doc => !isDocumentActive(doc.id));
+    }
 
-    // Sort by timestamp only - no pinning of selected documents
+    // Sort documents based on sortBy and sortOrder
     const sorted = [...filtered].sort((a, b) => {
-      const aActive = isDocumentActive(a.id);
-      const bActive = isDocumentActive(b.id);
-      if (aActive && !bActive) return -1;
-      if (!aActive && bActive) return 1;
-      return new Date(b.timestamp) - new Date(a.timestamp);
+      // First, pin active documents to top (unless filtering by status)
+      if (filterBy === 'all') {
+        const aActive = isDocumentActive(a.id);
+        const bActive = isDocumentActive(b.id);
+        if (aActive && !bActive) return -1;
+        if (!aActive && bActive) return 1;
+      }
+      
+      // Then apply the selected sort
+      let comparison = 0;
+      switch (sortBy) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'size':
+          comparison = a.text.length - b.text.length;
+          break;
+        case 'date':
+        default:
+          comparison = new Date(b.timestamp) - new Date(a.timestamp);
+          // For date, desc means newest first (which is the natural order)
+          return sortOrder === 'desc' ? comparison : -comparison;
+      }
+      
+      return sortOrder === 'asc' ? comparison : -comparison;
     });
 
-    // Only group if we have more than 5 documents
-    if (sorted.length <= 5) {
+    // Only group if we have more than 5 documents and sorting by date
+    if (sorted.length <= 5 || sortBy !== 'date') {
       return { all: sorted };
     }
 
@@ -208,7 +327,7 @@ export default function DocumentManager({
     });
 
     return groups;
-  }, [documents, searchQuery, activeDocuments]);
+  }, [documents, searchQuery, activeDocuments, filterBy, sortBy, sortOrder]);
 
   // For backward compatibility
   const sortedDocuments = useMemo(() => {
@@ -220,9 +339,15 @@ export default function DocumentManager({
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Escape to close (saves changes) - only if something is selected
-      if (e.key === 'Escape' && pendingSelections.length > 0) {
-        onSelectDocument(pendingSelections);
-        onClose();
+      if (e.key === 'Escape') {
+        if (showFilterSort) {
+          setShowFilterSort(false);
+          return;
+        }
+        if (pendingSelections.length > 0) {
+          onSelectDocument(pendingSelections);
+          onClose();
+        }
       }
       // Cmd/Ctrl + A to select all
       if ((e.metaKey || e.ctrlKey) && e.key === 'a' && documents.length > 0) {
@@ -230,10 +355,21 @@ export default function DocumentManager({
         setPendingSelections(documents);
       }
     };
+    
+    // Click outside to close filter dropdown
+    const handleClickOutside = (e) => {
+      if (showFilterSort && !e.target.closest('[data-filter-dropdown]')) {
+        setShowFilterSort(false);
+      }
+    };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [documents, pendingSelections, onSelectDocument, onClose]);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [documents, pendingSelections, onSelectDocument, onClose, showFilterSort]);
 
   // Select all / Deselect all handlers
   const handleSelectAll = useCallback(() => {
@@ -310,24 +446,85 @@ export default function DocumentManager({
         {/* Search Bar & Bulk Actions */}
         {documents.length > 1 && (
           <div className="px-5 pt-4 space-y-3">
-            {/* Search */}
-            {documents.length > 3 && (
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search documents..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-100 border-0 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+            {/* Search and Filter/Sort Row */}
+            <div className="flex items-center gap-2">
+              {/* Search */}
+              {documents.length > 3 && (
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search documents..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-gray-100 border-0 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              )}
+              
+              {/* Filter/Sort Button */}
+              <div className="relative" data-filter-dropdown>
+                <button
+                  onClick={() => setShowFilterSort(!showFilterSort)}
+                  className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium rounded-xl transition-colors ${
+                    showFilterSort || filterBy !== 'all' || sortBy !== 'date'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  <Filter className="w-4 h-4" />
+                  <span className="hidden sm:inline">Filter & Sort</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showFilterSort ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {showFilterSort && (
+                  <FilterSortDropdown
+                    filterBy={filterBy}
+                    setFilterBy={setFilterBy}
+                    sortBy={sortBy}
+                    setSortBy={setSortBy}
+                    sortOrder={sortOrder}
+                    setSortOrder={setSortOrder}
+                    onClose={() => setShowFilterSort(false)}
+                  />
+                )}
+              </div>
+            </div>
+            
+            {/* Active Filters Display */}
+            {(filterBy !== 'all' || sortBy !== 'date') && (
+              <div className="flex items-center gap-2 flex-wrap">
+                {filterBy !== 'all' && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-lg">
+                    <Filter className="w-3 h-3" />
+                    {filterBy === 'active' ? 'Active only' : 'Inactive only'}
+                    <button
+                      onClick={() => setFilterBy('all')}
+                      className="ml-1 hover:text-blue-900"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                {sortBy !== 'date' && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-lg">
+                    <ArrowUpDown className="w-3 h-3" />
+                    Sort: {sortBy === 'name' ? 'Name' : 'Size'} ({sortOrder === 'asc' ? 'Asc' : 'Desc'})
+                    <button
+                      onClick={() => { setSortBy('date'); setSortOrder('desc'); }}
+                      className="ml-1 hover:text-blue-900"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
                 )}
               </div>
             )}
