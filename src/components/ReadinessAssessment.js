@@ -217,9 +217,9 @@ export default function ReadinessAssessment({ assessment, onBack, onStartLearnin
               <div className="space-y-2">
                 {phase.topics.map((topic, idx) => (
                   <div key={idx} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                    <span className="text-sm text-gray-700">{topic}</span>
+                    <span className="text-sm text-gray-700">{typeof topic === 'object' ? topic.name : topic}</span>
                     <button
-                      onClick={() => onStartLearning(topic.id)}
+                      onClick={() => onStartLearning(typeof topic === 'object' ? topic.id : topic)}
                       className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition-colors"
                     >
                       Start

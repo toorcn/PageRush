@@ -7,8 +7,9 @@ import { parseFlashcards, parseQuiz, parseExam } from '@/lib/parsing';
 import type { StudyFeature, PerformanceSummary } from '@/types';
 
 const FEATURE_LABELS: Record<StudyFeature, string> = {
-  examCram: 'Exam Cram',
-  studyGuide: 'Study Guide',
+  smartStudy: 'Smart Study',
+  examCram: 'Exam Cram', // Legacy
+  studyGuide: 'Study Guide', // Legacy
   flashcards: 'Flashcards',
   quiz: 'Quiz',
   exam: 'Exam',
@@ -105,8 +106,8 @@ export function useStudySession() {
         return;
       }
 
-      if (ft === 'examCram') {
-        // ExamCram handles its own content generation
+      if (ft === 'smartStudy' || ft === 'examCram' || ft === 'studyGuide') {
+        // SmartStudy handles its own content generation
         return;
       }
 

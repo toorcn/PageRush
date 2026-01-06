@@ -4,7 +4,7 @@ import { Target, BookOpen, Library, Clock, Loader, CheckCircle, RefreshCw, Alert
 import { questionBankManager } from '../utils/questionBankManager';
 import LottieLoader from './LottieLoader';
 
-export default function AdaptiveLearning({ topicBreakdown, learningProgress, onBack, onProgressUpdate, apiKey, content, skipReview = false }) {
+export default function AdaptiveLearning({ topicBreakdown, learningProgress, onBack, onProgressUpdate, apiKey, content, skipReview = false, quickQuizMode = false }) {
   const [currentTopic, setCurrentTopic] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [userAnswer, setUserAnswer] = useState('');
@@ -33,7 +33,19 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
   const [breakReminder, setBreakReminder] = useState(false);
   const [activeTab, setActiveTab] = useState('comparison'); // comparison, explanation, learning
 
+  // Quick Quiz mode - start immediately with random topic
   useEffect(() => {
+    if (quickQuizMode && topicBreakdown?.topics?.length > 0 && !currentTopic) {
+      const randomTopic = topicBreakdown.topics[Math.floor(Math.random() * topicBreakdown.topics.length)];
+      setCurrentTopic(randomTopic);
+      setCurrentMode('practice');
+      generatePracticeQuestion(randomTopic, 'medium');
+    }
+  }, [quickQuizMode, topicBreakdown]);
+
+  useEffect(() => {
+    if (quickQuizMode) return; // Skip normal flow in quick quiz mode
+    
     if (learningProgress.currentFocus && shouldAutoReview && !skipReview) {
       const topic = topicBreakdown?.topics.find(t => t.id === learningProgress.currentFocus);
       if (topic) {
@@ -65,7 +77,7 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
       });
       setShouldAutoReview(false);
     }
-  }, [learningProgress.currentFocus, topicBreakdown, shouldAutoReview, skipReview]);
+  }, [learningProgress.currentFocus, topicBreakdown, shouldAutoReview, skipReview, quickQuizMode]);
 
   // Cleanup effect to reset state when component unmounts
   useEffect(() => {
@@ -279,6 +291,18 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
   };
 
   const getNextTopic = () => {
+    // Quick Quiz mode: pick a random topic
+    if (quickQuizMode) {
+      const availableTopics = topicBreakdown.topics.filter(topic => {
+        const cacheStatus = questionBankManager.getCacheStatus()[topic.id];
+        return cacheStatus && cacheStatus.remainingQuestions > 0;
+      });
+      if (availableTopics.length > 0) {
+        return availableTopics[Math.floor(Math.random() * availableTopics.length)];
+      }
+      return null;
+    }
+    
     const currentIndex = topicBreakdown.topics.findIndex(t => t.id === currentTopic.id);
     const nextTopic = topicBreakdown.topics[currentIndex + 1];
     
@@ -508,30 +532,30 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
   };
 
   const renderTopicSelection = () => (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="text-center flex-1">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-2">
-            <Target className="w-6 h-6 text-blue-600" />
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="text-center sm:text-left flex-1">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-1 sm:mb-2 flex items-center justify-center sm:justify-start gap-2">
+            <Target className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
             Choose a Topic to Practice
           </h2>
-          <p className="text-gray-600">Select a topic to start adaptive learning</p>
+          <p className="text-gray-600 text-sm sm:text-base">Select a topic to start adaptive learning</p>
         </div>
         <button
           onClick={handleBackToOverview}
-          className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium"
+          className="flex items-center justify-center sm:justify-start space-x-2 text-blue-600 hover:text-blue-700 font-medium text-sm touch-manipulation py-1"
         >
           ← Back to Overview
         </button>
       </div>
 
       {/* Question Bank Status */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-3 flex items-center gap-2">
-          <Library className="w-5 h-5" />
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+        <h3 className="font-semibold text-blue-800 mb-2 sm:mb-3 flex items-center gap-2 text-sm sm:text-base">
+          <Library className="w-4 h-4 sm:w-5 sm:h-5" />
           Question Bank Status
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
           {topicBreakdown?.topics.map((topic) => {
             const cacheStatus = questionBankManager.getCacheStatus()[topic.id];
             const status = questionBankStatus[topic.id];
@@ -539,21 +563,21 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
             const isTrulyCompleted = isTopicTrulyCompleted(topic.id);
             
             return (
-              <div key={topic.id} className="flex items-center justify-between p-2 bg-white rounded border">
-                <span className="text-sm font-medium text-gray-700">{topic.title}</span>
-                <div className="flex items-center space-x-2">
-                  {status === 'loading' && <Loader className="w-4 h-4 text-blue-600 animate-spin" />}
-                  {isTrulyCompleted && <CheckCircle className="w-4 h-4 text-green-600" />}
-                  {isCompleted && !isTrulyCompleted && <RefreshCw className="w-4 h-4 text-yellow-600" />}
+              <div key={topic.id} className="flex items-center justify-between p-2 bg-white rounded border min-w-0">
+                <span className="text-xs sm:text-sm font-medium text-gray-700 truncate mr-2">{topic.title}</span>
+                <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+                  {status === 'loading' && <Loader className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 animate-spin" />}
+                  {isTrulyCompleted && <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />}
+                  {isCompleted && !isTrulyCompleted && <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-600" />}
                   {cacheStatus ? (
-                    <span className={`text-xs ${
+                    <span className={`text-[10px] sm:text-xs ${
                       isTrulyCompleted ? 'text-green-600' : 
                       cacheStatus.remainingQuestions > 0 ? 'text-blue-600' : 'text-gray-500'
                     }`}>
                       {cacheStatus.remainingQuestions} left
                     </span>
                   ) : (
-                    <span className="text-gray-500 text-xs">Not loaded</span>
+                    <span className="text-gray-500 text-[10px] sm:text-xs">Not loaded</span>
                   )}
                 </div>
               </div>
@@ -564,14 +588,14 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
           <button
             onClick={preloadAllQuestionBanks}
             disabled={Object.values(questionBankStatus).some(s => s === 'loading')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm touch-manipulation"
           >
             {Object.values(questionBankStatus).some(s => s === 'loading') ? 'Loading...' : 'Preload All Question Banks'}
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-3 sm:gap-4">
         {topicBreakdown?.topics.map((topic) => {
           const isCompleted = learningProgress.completedTopics.includes(topic.id);
           const isWeak = learningProgress.weakAreas.includes(topic.id);
@@ -582,70 +606,73 @@ export default function AdaptiveLearning({ topicBreakdown, learningProgress, onB
           const isTrulyCompleted = isCompleted && !hasQuestionsLeft;
           
           return (
-            <div key={topic.id} className={`border rounded-lg p-4 transition-all duration-300 ${
+            <div key={topic.id} className={`border rounded-lg p-3 sm:p-4 transition-all duration-300 ${
               isTrulyCompleted 
                 ? 'bg-green-50 border-green-200' 
                 : isWeak 
                   ? 'bg-red-50 border-red-200' 
                   : 'bg-white border-gray-200 hover:border-blue-300'
             }`}>
-              <div className="flex items-start justify-between mb-3">
-                <h3 className="font-bold text-lg text-gray-800">{topic.title}</h3>
-                <div className="flex items-center space-x-2">
-                  {isTrulyCompleted && <CheckCircle className="w-4 h-4 text-green-600" />}
-                  {isCompleted && hasQuestionsLeft && <RefreshCw className="w-4 h-4 text-yellow-600" />}
-                  {isWeak && <AlertTriangle className="w-4 h-4 text-red-600" />}
-                  {cacheStatus && (
-                    <span className="text-blue-600 text-xs bg-blue-100 px-2 py-1 rounded">
-                      {cacheStatus.remainingQuestions} questions
+              <div className="flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="font-bold text-base sm:text-lg text-gray-800">{topic.title}</h3>
+                  <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 flex-wrap justify-end">
+                    {isTrulyCompleted && <CheckCircle className="w-4 h-4 text-green-600" />}
+                    {isCompleted && hasQuestionsLeft && <RefreshCw className="w-4 h-4 text-yellow-600" />}
+                    {isWeak && <AlertTriangle className="w-4 h-4 text-red-600" />}
+                    {cacheStatus && (
+                      <span className="text-blue-600 text-[10px] sm:text-xs bg-blue-100 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
+                        {cacheStatus.remainingQuestions} Q
+                      </span>
+                    )}
+                    <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs font-medium ${
+                      topic.priority === 'high' ? 'bg-red-100 text-red-800' :
+                      topic.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-green-100 text-green-800'
+                    }`}>
+                      {topic.priority}
                     </span>
-                  )}
-                  <span className={`px-2 py-1 rounded text-xs font-medium ${
-                    topic.priority === 'high' ? 'bg-red-100 text-red-800' :
-                    topic.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-green-100 text-green-800'
-                  }`}>
-                    {topic.priority}
-                  </span>
+                  </div>
                 </div>
-              </div>
-              
-              <p className="text-gray-600 text-sm mb-3">{topic.description}</p>
-              
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-500 flex items-center gap-1">
-                  <Clock className="w-4 h-4" /> {topic.estimatedStudyTime} min • <Library className="w-4 h-4" /> {topic.keyConcepts.length} concepts
-                </div>
-                <div className="flex space-x-2">
-                  {!cacheStatus && (
+                
+                <p className="text-gray-600 text-xs sm:text-sm line-clamp-2">{topic.description}</p>
+                
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+                  <div className="text-[10px] sm:text-sm text-gray-500 flex items-center gap-2 sm:gap-3 flex-wrap">
+                    <span className="flex items-center gap-1"><Clock className="w-3 h-3 sm:w-4 sm:h-4" /> {topic.estimatedStudyTime}m</span>
+                    <span className="flex items-center gap-1"><Library className="w-3 h-3 sm:w-4 sm:h-4" /> {topic.keyConcepts.length}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    {!cacheStatus && (
+                      <button
+                        onClick={() => preloadQuestionBank(topic)}
+                        disabled={questionBankStatus[topic.id] === 'loading'}
+                        className="flex-1 sm:flex-none px-3 py-2 bg-gray-600 text-white rounded text-xs hover:bg-gray-700 active:bg-gray-800 transition-colors disabled:opacity-50 touch-manipulation"
+                      >
+                        {questionBankStatus[topic.id] === 'loading' ? 'Loading...' : 'Load'}
+                      </button>
+                    )}
                     <button
-                      onClick={() => preloadQuestionBank(topic)}
-                      disabled={questionBankStatus[topic.id] === 'loading'}
-                      className="px-3 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700 transition-colors disabled:opacity-50"
+                      onClick={() => startTopicPractice(topic)}
+                      disabled={isTrulyCompleted}
+                      className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors touch-manipulation ${
+                        isTrulyCompleted
+                          ? 'bg-green-100 text-green-700 cursor-not-allowed'
+                          : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
+                      }`}
                     >
-                      {questionBankStatus[topic.id] === 'loading' ? 'Loading...' : 'Load'}
+                      {isTrulyCompleted ? 'Done' : 'Practice'}
                     </button>
-                  )}
-                  <button
-                    onClick={() => startTopicPractice(topic)}
-                    disabled={isTrulyCompleted}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isTrulyCompleted
-                        ? 'bg-green-100 text-green-700 cursor-not-allowed'
-                        : 'bg-blue-600 text-white hover:bg-blue-700'
-                    }`}
-                  >
-                    {isTrulyCompleted ? 'Completed' : 'Practice'}
-                  </button>
-                  {isCompleted && hasQuestionsLeft && (
-                    <button
-                      onClick={() => resetTopicCompletion(topic.id)}
-                      className="px-3 py-1 bg-yellow-600 text-white rounded text-xs hover:bg-yellow-700 transition-colors"
-                      title="Reset completion status to practice remaining questions"
-                    >
-                      Reset
-                    </button>
-                  )}
+                    {isCompleted && hasQuestionsLeft && (
+                      <button
+                        onClick={() => resetTopicCompletion(topic.id)}
+                        className="px-3 py-2 bg-yellow-600 text-white rounded text-xs hover:bg-yellow-700 active:bg-yellow-800 transition-colors touch-manipulation"
+                        title="Reset completion status"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

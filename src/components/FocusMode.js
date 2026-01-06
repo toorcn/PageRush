@@ -56,13 +56,13 @@ const FocusMode = ({
   // Focus mode study tools - using existing polished components
   const studyTools = [
     {
-      key: 'studyGuide',
-      title: 'Study Guide',
+      key: 'smartStudy',
+      title: 'Smart Study',
       icon: <BookOpen className="w-8 h-8" />,
-      description: 'Organized notes and summaries',
+      description: 'Complete learning experience',
       duration: 5,
       color: 'blue',
-      feature: 'studyGuide'
+      feature: 'smartStudy'
     },
     {
       key: 'flashcards',

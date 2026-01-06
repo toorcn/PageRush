@@ -20,13 +20,12 @@ import ApiKeyModal from '@/components/ApiKeyModal';
 import FeatureSelector from '@/components/FeatureSelector';
 import DocumentManager from '@/components/DocumentManager';
 import HistoryPanel from '@/components/HistoryPanel';
-import StudyGuide from '@/components/StudyGuide';
+import SmartStudy from '@/components/SmartStudy';
 import Flashcards from '@/components/Flashcards';
 import Quiz from '@/components/Quiz';
 import Exam from '@/components/Exam';
 import QuizGenerator from '@/components/QuizGenerator';
 import ExamGenerator from '@/components/ExamGenerator';
-import ExamCramComponent from '@/components/ExamCram';
 import Insights from '@/components/Insights';
 import FocusMode from '@/components/FocusMode';
 import OnboardingGuide from '@/components/OnboardingGuide';
@@ -35,13 +34,11 @@ import StepHighlight from '@/components/StepHighlight';
 
 import type { StudyFeature, HistoryItem, PerformanceSummary } from '@/types';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const ExamCram = ExamCramComponent as any;
-
 // Feature label/icon helpers
 const FEATURE_LABELS: Record<StudyFeature, string> = {
-  examCram: 'Exam Cram',
-  studyGuide: 'Study Guide',
+  smartStudy: 'Smart Study',
+  examCram: 'Exam Cram', // Legacy support
+  studyGuide: 'Study Guide', // Legacy support
   flashcards: 'Flashcards',
   quiz: 'Quiz',
   exam: 'Exam',
@@ -301,8 +298,8 @@ export default function Home() {
       setShowExamGenerator(true);
       return;
     }
-    if (feature === 'examCram') {
-      return; // ExamCram handles its own generation
+    if (feature === 'smartStudy' || feature === 'examCram' || feature === 'studyGuide') {
+      return; // SmartStudy handles its own generation
     }
     if (activeDocuments?.length > 0 && apiKey) {
       await generateContent(feature);
@@ -713,19 +710,11 @@ export default function Home() {
               )}
 
               {/* Study Content */}
-              {feature === 'examCram' && activeDocuments?.length > 0 && (
-                <ExamCram
+              {(feature === 'smartStudy' || feature === 'examCram' || feature === 'studyGuide') && activeDocuments?.length > 0 && (
+                <SmartStudy
                   content={getActiveText()}
                   documentName={activeDocuments.map((d) => d.name).join(', ')}
                   apiKey={apiKey}
-                  onGenerateContent={generateContent as (ft: string) => void}
-                />
-              )}
-
-              {!loading && result && feature === 'studyGuide' && (
-                <StudyGuide
-                  content={result.result?.candidates?.[0]?.content?.parts?.[0]?.text || ''}
-                  onRegenerate={() => generateContent('studyGuide')}
                 />
               )}
 

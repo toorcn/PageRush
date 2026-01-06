@@ -157,6 +157,7 @@ IMPORTANT: Return ONLY a JSON array, no markdown formatting, no code blocks, no 
 Each question object should have this exact structure:
 {
   "question": "The question text here",
+  "topic": "The specific topic/concept this question tests",
   "options": ["Option A", "Option B", "Option C", "Option D"],
   "answer": "The correct option (must be one of the options)",
   "explanation": "Brief explanation of why this answer is correct"
@@ -166,6 +167,7 @@ Example format:
 [
   {
     "question": "What is the capital of France?",
+    "topic": "European Geography",
     "options": ["London", "Paris", "Berlin", "Madrid"],
     "answer": "Paris",
     "explanation": "Paris is the capital city of France."
@@ -249,6 +251,7 @@ Each question object must have this exact structure:
 {
   "question": "The question text here",
   "type": "mcq|shortAnswer|discuss|describe|fillBlanks",
+  "topic": "The specific topic/concept this question tests",
   "options": ["Option A", "Option B", "Option C", "Option D"], // Only for MCQ type
   "answer": "The correct answer or expected response",
   "explanation": "Brief explanation or assessment criteria",
@@ -275,6 +278,7 @@ Example format:
   {
     "question": "What is the capital of France?",
     "type": "mcq",
+    "topic": "European Geography",
     "options": ["London", "Paris", "Berlin", "Madrid"],
     "answer": "Paris",
     "explanation": "Paris is the capital city of France.",
@@ -284,6 +288,7 @@ Example format:
   {
     "question": "Explain the concept of photosynthesis.",
     "type": "discuss",
+    "topic": "Plant Biology",
     "answer": "Photosynthesis is the process by which plants convert sunlight, carbon dioxide, and water into glucose and oxygen. This process occurs in chloroplasts and is essential for plant growth and oxygen production.",
     "explanation": "Response should include: process description, inputs/outputs, location, importance",
     "points": 3,

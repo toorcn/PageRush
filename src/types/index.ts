@@ -29,7 +29,7 @@ export interface Notification {
 export type NotificationInput = Omit<Notification, 'id'>;
 
 // Study feature types
-export type StudyFeature = 'examCram' | 'studyGuide' | 'flashcards' | 'quiz' | 'exam' | '';
+export type StudyFeature = 'smartStudy' | 'examCram' | 'studyGuide' | 'flashcards' | 'quiz' | 'exam' | '';
 
 export interface HistoryItem {
   id: number;

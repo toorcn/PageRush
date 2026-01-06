@@ -1,22 +1,15 @@
 'use client';
-import { Rocket, BookOpen, Layers, HelpCircle, ClipboardList, Check } from 'lucide-react';
+import { Layers, HelpCircle, ClipboardList, Check, GraduationCap } from 'lucide-react';
 
 const features = [
   {
-    key: 'examCram',
-    label: 'Exam Cram',
-    Icon: Rocket,
-    description: 'Smart topic breakdown & adaptive learning',
-    color: 'red',
-    gradient: 'from-rose-500 to-rose-600'
-  },
-  {
-    key: 'studyGuide',
-    label: 'Study Guide',
-    Icon: BookOpen,
-    description: 'Get organized notes and summaries',
+    key: 'smartStudy',
+    label: 'Smart Study',
+    Icon: GraduationCap,
+    description: 'Complete learning experience with guides, topics & practice',
     color: 'blue',
-    gradient: 'from-indigo-500 to-indigo-600'
+    gradient: 'from-blue-500 to-indigo-600',
+    recommended: true
   },
   {
     key: 'flashcards',

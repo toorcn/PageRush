@@ -22,6 +22,8 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
   const observerRef = useRef(null);
   const isScrollingRef = useRef(false);
 
+  const navRef = useRef(null);
+
   // Robust scroll to question function that works well on mobile
   const scrollToQuestion = useCallback((idx) => {
     const element = questionRefs.current[idx];
@@ -35,11 +37,12 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
     const rect = element.getBoundingClientRect();
     const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
     
-    // Calculate target position (center the element with some offset for header)
-    const headerOffset = 100; // Account for any fixed headers
-    const elementCenter = rect.height / 2;
-    const viewportCenter = window.innerHeight / 2;
-    const targetPosition = scrollTop + rect.top - viewportCenter + elementCenter + headerOffset;
+    // Calculate header offset dynamically based on sticky nav height
+    const navHeight = navRef.current?.getBoundingClientRect().height || 60;
+    const extraPadding = 16; // Some breathing room
+    const headerOffset = navHeight + extraPadding;
+    
+    const targetPosition = scrollTop + rect.top - headerOffset;
 
     // Use smooth scroll with fallback
     try {
@@ -52,10 +55,10 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
       window.scrollTo(0, Math.max(0, targetPosition));
     }
 
-    // Reset scrolling flag after animation
+    // Reset scrolling flag after animation completes
     setTimeout(() => {
       isScrollingRef.current = false;
-    }, 500);
+    }, 600);
   }, []);
 
   // Handle question navigation click
@@ -121,22 +124,29 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
     if (questions.length > 0) generateSuggestions();
   }, [questions]);
 
-  // Intersection Observer to track which question is in view
+  // Intersection Observer to track which question is in view - always active
   useEffect(() => {
-    if (!chatOpen) return;
-
     observerRef.current = new IntersectionObserver(
       (entries) => {
+        // Find the most visible entry
+        let mostVisibleEntry = null;
+        let maxRatio = 0;
+        
         entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const idx = parseInt(entry.target.dataset.questionIndex, 10);
-            if (!isNaN(idx)) {
-              setActiveQuestionIndex(idx);
-            }
+          if (entry.isIntersecting && entry.intersectionRatio > maxRatio) {
+            maxRatio = entry.intersectionRatio;
+            mostVisibleEntry = entry;
           }
         });
+        
+        if (mostVisibleEntry) {
+          const idx = parseInt(mostVisibleEntry.target.dataset.questionIndex, 10);
+          if (!isNaN(idx) && idx !== activeQuestionIndex) {
+            setActiveQuestionIndex(idx);
+          }
+        }
       },
-      { threshold: 0.5, rootMargin: '-100px 0px -100px 0px' }
+      { threshold: [0.3, 0.5, 0.7], rootMargin: '-80px 0px -80px 0px' }
     );
 
     questionRefs.current.forEach((ref) => {
@@ -148,7 +158,7 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
         observerRef.current.disconnect();
       }
     };
-  }, [chatOpen, questionsWithSuggestions]);
+  }, [questionsWithSuggestions, activeQuestionIndex]);
 
   useEffect(() => {
     setTotalQuestions(questions.length);
@@ -224,6 +234,57 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
     setExpandedHints(newExpanded);
   };
 
+  // Generate performance summary with topic breakdown
+  const generatePerformanceSummary = () => {
+    if (!submitted || !questions) return null;
+    
+    const topicPerformance = {};
+    questions.forEach((q, idx) => {
+      // Use question's topic property if available
+      const questionTopic = q.topic || 'General';
+      
+      if (!topicPerformance[questionTopic]) {
+        topicPerformance[questionTopic] = { 
+          total: 0, 
+          correct: 0,
+          questions: []
+        };
+      }
+      topicPerformance[questionTopic].total++;
+      
+      // Check if answer is correct using API feedback or local comparison
+      const apiFeedback = gradingFeedback?.details?.find(d => d.questionIndex === idx);
+      const isCorrect = apiFeedback ? apiFeedback.isCorrect : (answers[idx] === q.answer);
+      
+      if (isCorrect) {
+        topicPerformance[questionTopic].correct++;
+      }
+      topicPerformance[questionTopic].questions.push({
+        index: idx,
+        isCorrect
+      });
+    });
+
+    // Calculate percentages and categorize
+    const strongTopics = [];
+    const weakTopics = [];
+    
+    Object.entries(topicPerformance).forEach(([topic, data]) => {
+      const percentage = Math.round((data.correct / data.total) * 100);
+      data.percentage = percentage;
+      
+      const topicData = { name: topic, percentage, count: data.total };
+      if (percentage >= 80) {
+        strongTopics.push(topicData);
+      } else if (percentage < 60) {
+        weakTopics.push(topicData);
+      }
+    });
+
+    return { topicPerformance, strongTopics, weakTopics };
+  };
+
+  const performanceSummary = generatePerformanceSummary();
   const numCorrect = feedback.filter(Boolean).length;
   const totalQuestions = questions.length;
   const percentCorrect = Math.round((numCorrect / totalQuestions) * 100);
@@ -241,8 +302,15 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
   const activeQuestion = questionsWithSuggestions[activeQuestionIndex];
 
   return (
-    <div className="relative">
-      <div className={`transition-all duration-300`} style={chatOpen && isLargeScreen ? { paddingRight: `${chatWidth + 16}px` } : {}}>
+    <div 
+      className={`relative transition-all duration-300`}
+      style={chatOpen && isLargeScreen ? {
+        // Break out of centered container on right side only
+        marginRight: 'calc(-50vw + 50%)',
+        paddingRight: `${chatWidth + 64}px` // Space for panel + gap
+      } : {}}
+    >
+      <div className={`transition-all duration-300`}>
         {/* Quiz Content */}
         <div className="space-y-6 lg:space-y-8">
           <div className="text-center">
@@ -253,7 +321,7 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
           </div>
 
           {/* Question Navigation */}
-          <div className="bg-white rounded-xl shadow p-4 lg:p-6 sticky top-0 z-10">
+          <div ref={navRef} className="bg-white rounded-xl shadow p-4 lg:p-6 sticky top-0 z-10">
             <div className="flex flex-wrap gap-2 lg:gap-3 justify-center">
               {questions.map((q, idx) => {
                 const apiFeedback = gradingFeedback?.details?.find(d => d.questionIndex === idx);
@@ -476,18 +544,118 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
 
             {/* Results Summary */}
             {submitted && (
-              <div className="bg-white rounded-xl shadow p-6 lg:p-8 text-center">
-                <div className="mb-4">
-                  {percentCorrect >= 80 ? <PartyPopper className="w-12 h-12 lg:w-14 lg:h-14 mx-auto text-yellow-500" /> : percentCorrect >= 60 ? <ThumbsUp className="w-12 h-12 lg:w-14 lg:h-14 mx-auto text-blue-500" /> : <BookOpen className="w-12 h-12 lg:w-14 lg:h-14 mx-auto text-gray-500" />}
+              <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl shadow-lg overflow-hidden">
+                {/* Header with Score */}
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 lg:p-8">
+                  <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+                    <div className="text-center lg:text-left">
+                      <h3 className="text-xl lg:text-2xl font-bold mb-1">Quiz Complete!</h3>
+                      <p className="text-blue-100 text-sm">Here&apos;s how you performed</p>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <div className="text-center">
+                        <div className="text-4xl lg:text-5xl font-bold">{percentCorrect}%</div>
+                        <div className="text-blue-200 text-sm mt-1">{numCorrect}/{totalQuestions} correct</div>
+                      </div>
+                      <div className={`w-16 h-16 lg:w-20 lg:h-20 rounded-full flex items-center justify-center ${
+                        percentCorrect >= 80 ? 'bg-green-400' : 
+                        percentCorrect >= 60 ? 'bg-yellow-400' : 'bg-red-400'
+                      }`}>
+                        {percentCorrect >= 80 ? (
+                          <PartyPopper className="w-8 h-8 lg:w-10 lg:h-10 text-white" />
+                        ) : percentCorrect >= 60 ? (
+                          <ThumbsUp className="w-8 h-8 lg:w-10 lg:h-10 text-white" />
+                        ) : (
+                          <BookOpen className="w-8 h-8 lg:w-10 lg:h-10 text-white" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <h3 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2">Quiz Complete!</h3>
-                <p className="text-lg lg:text-xl font-semibold text-gray-700 mb-4">
-                  You scored {numCorrect} out of {totalQuestions} ({percentCorrect}%)
-                </p>
-                <div className={`inline-block px-4 py-2 rounded-full text-sm lg:text-base font-medium ${
-                  percentCorrect >= 80 ? 'bg-green-100 text-green-700' : percentCorrect >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                }`}>
-                  {percentCorrect >= 80 ? 'Excellent!' : percentCorrect >= 60 ? 'Good job!' : 'Keep studying!'}
+
+                <div className="p-4 lg:p-6 space-y-5">
+                  {/* Performance Message */}
+                  <div className={`text-center py-3 px-4 rounded-lg ${
+                    percentCorrect >= 80 ? 'bg-green-100 text-green-700' : 
+                    percentCorrect >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                  }`}>
+                    <span className="font-medium">
+                      {percentCorrect >= 80 ? 'Excellent work! You\'ve mastered this material.' : 
+                       percentCorrect >= 60 ? 'Good job! A bit more practice will help solidify your knowledge.' : 
+                       'Keep studying! Review the topics below to improve.'}
+                    </span>
+                  </div>
+
+                  {/* Topic Performance - Only show if we have topic data */}
+                  {performanceSummary && Object.keys(performanceSummary.topicPerformance).length > 1 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-800 text-base mb-3 flex items-center gap-2">
+                        <HelpCircle className="w-5 h-5 text-blue-600" /> Performance by Topic
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {Object.entries(performanceSummary.topicPerformance).map(([topic, data]) => {
+                          const percentage = data.percentage;
+                          const bgColor = percentage >= 80 ? 'bg-green-50 border-green-200' : 
+                                          percentage >= 60 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200';
+                          const progressColor = percentage >= 80 ? 'bg-green-500' : 
+                                                percentage >= 60 ? 'bg-amber-500' : 'bg-red-500';
+                          const textColor = percentage >= 80 ? 'text-green-700' : 
+                                           percentage >= 60 ? 'text-amber-700' : 'text-red-700';
+                          
+                          return (
+                            <div key={topic} className={`rounded-lg p-3 border ${bgColor}`}>
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="font-medium text-gray-800 text-sm">{topic}</span>
+                                <span className={`font-bold ${textColor}`}>{percentage}%</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                <div className={`h-1.5 rounded-full ${progressColor}`} style={{ width: `${percentage}%` }} />
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">{data.correct}/{data.total} correct</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Quick Insights */}
+                  {performanceSummary && (performanceSummary.strongTopics.length > 0 || performanceSummary.weakTopics.length > 0) && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {performanceSummary.strongTopics.length > 0 && (
+                        <div className="bg-white rounded-lg p-4 border border-green-100">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Check className="w-4 h-4 text-green-600" />
+                            <span className="font-medium text-green-800 text-sm">Strong Areas</span>
+                          </div>
+                          <div className="space-y-1">
+                            {performanceSummary.strongTopics.slice(0, 3).map((topic, idx) => (
+                              <div key={idx} className="text-sm text-gray-600 flex justify-between">
+                                <span>{topic.name}</span>
+                                <span className="text-green-600 font-medium">{topic.percentage}%</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {performanceSummary.weakTopics.length > 0 && (
+                        <div className="bg-white rounded-lg p-4 border border-red-100">
+                          <div className="flex items-center gap-2 mb-2">
+                            <BookOpen className="w-4 h-4 text-red-600" />
+                            <span className="font-medium text-red-800 text-sm">Review These</span>
+                          </div>
+                          <div className="space-y-1">
+                            {performanceSummary.weakTopics.slice(0, 3).map((topic, idx) => (
+                              <div key={idx} className="text-sm text-gray-600 flex justify-between">
+                                <span>{topic.name}</span>
+                                <span className="text-red-600 font-medium">{topic.percentage}%</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -527,6 +695,7 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
               onClose={closeChat}
               initialMessage={initialChatMessage}
               onClearInitialMessage={() => setInitialChatMessage(null)}
+              onScrollToQuestion={scrollToQuestion}
             />
           </div>
         </>

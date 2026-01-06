@@ -327,34 +327,83 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
     const earnedPoints = feedback.reduce((sum, f) => sum + (f?.points || 0), 0);
     const percentage = Math.round((earnedPoints / totalPoints) * 100);
 
+    // Build topic performance using question's topic property first, then AI extraction as fallback
     const topicPerformance = {};
     questions.forEach((q, idx) => {
-      const topics = aiTopicExtraction[idx] || ['general knowledge'];
+      // Use question's topic property if available, otherwise fall back to AI extraction
+      const questionTopic = q.topic || (aiTopicExtraction[idx]?.[0]) || 'General';
+      const topics = [questionTopic];
+      
       topics.forEach(topic => {
         if (!topicPerformance[topic]) {
-          topicPerformance[topic] = { total: 0, earned: 0, questions: [] };
+          topicPerformance[topic] = { 
+            total: 0, 
+            earned: 0, 
+            questions: [],
+            correct: 0,
+            incorrect: 0,
+            partial: 0
+          };
         }
         topicPerformance[topic].total += q.points || 1;
         topicPerformance[topic].earned += feedback[idx]?.points || 0;
+        topicPerformance[topic].questions.push({
+          index: idx,
+          question: q.question,
+          isCorrect: feedback[idx]?.isCorrect,
+          points: feedback[idx]?.points || 0,
+          maxPoints: q.points || 1
+        });
+        
+        // Track correct/incorrect/partial counts
+        if (feedback[idx]?.isCorrect) {
+          topicPerformance[topic].correct++;
+        } else if (feedback[idx]?.points > 0) {
+          topicPerformance[topic].partial++;
+        } else {
+          topicPerformance[topic].incorrect++;
+        }
       });
     });
 
+    // Calculate insights
     const strongTopics = [];
     const weakTopics = [];
+    const improvingTopics = [];
     const recommendations = [];
 
     Object.entries(topicPerformance).forEach(([topic, data]) => {
       const topicPercentage = Math.round((data.earned / data.total) * 100);
       const topicLabel = topic.charAt(0).toUpperCase() + topic.slice(1);
+      data.percentage = topicPercentage;
+      
       if (topicPercentage >= 80) {
-        strongTopics.push(`${topicLabel} (${topicPercentage}%)`);
-      } else if (topicPercentage < 60) {
-        weakTopics.push(`${topicLabel} (${topicPercentage}%)`);
-        recommendations.push(`Focus on understanding ${topicLabel.toLowerCase()}`);
+        strongTopics.push({ name: topicLabel, percentage: topicPercentage, questionsCount: data.questions.length });
+      } else if (topicPercentage >= 50 && topicPercentage < 80) {
+        improvingTopics.push({ name: topicLabel, percentage: topicPercentage, questionsCount: data.questions.length });
+        recommendations.push(`Review ${topicLabel.toLowerCase()} concepts to strengthen understanding`);
+      } else {
+        weakTopics.push({ name: topicLabel, percentage: topicPercentage, questionsCount: data.questions.length });
+        recommendations.push(`Focus on ${topicLabel.toLowerCase()} - consider revisiting the fundamentals`);
       }
     });
 
-    return { totalQuestions, totalPoints, earnedPoints, percentage, topicPerformance, strongTopics, weakTopics, recommendations };
+    // Sort by percentage
+    strongTopics.sort((a, b) => b.percentage - a.percentage);
+    weakTopics.sort((a, b) => a.percentage - b.percentage);
+    improvingTopics.sort((a, b) => a.percentage - b.percentage);
+
+    return { 
+      totalQuestions, 
+      totalPoints, 
+      earnedPoints, 
+      percentage, 
+      topicPerformance, 
+      strongTopics, 
+      weakTopics, 
+      improvingTopics,
+      recommendations: recommendations.slice(0, 3) // Limit to top 3 recommendations
+    };
   };
 
   const getQuestionTypeIcon = (type) => {
@@ -886,72 +935,153 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
 
       {/* Performance Summary */}
       {submitted && performanceSummary && showPerformanceSummary && (
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow p-4 lg:p-6 space-y-4 lg:space-y-6">
-          <div className="text-center">
-            <h3 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-2">
-              <BarChart3 className="w-6 h-6" /> Performance Summary
-            </h3>
-            <p className="text-gray-600 text-sm lg:text-base">Your comprehensive exam results</p>
+        <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl shadow-lg overflow-hidden">
+          {/* Header with Score */}
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 lg:p-8">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+              <div className="text-center lg:text-left">
+                <h3 className="text-xl lg:text-2xl font-bold mb-1 flex items-center justify-center lg:justify-start gap-2">
+                  <BarChart3 className="w-6 h-6" /> Exam Complete
+                </h3>
+                <p className="text-blue-100 text-sm">Here&apos;s how you performed</p>
+              </div>
+              <div className="flex items-center gap-6">
+                <div className="text-center">
+                  <div className="text-4xl lg:text-5xl font-bold">{performanceSummary.percentage}%</div>
+                  <div className="text-blue-200 text-sm mt-1">{performanceSummary.earnedPoints}/{performanceSummary.totalPoints} pts</div>
+                </div>
+                <div className={`w-16 h-16 lg:w-20 lg:h-20 rounded-full flex items-center justify-center ${
+                  performanceSummary.percentage >= 80 ? 'bg-green-400' : 
+                  performanceSummary.percentage >= 60 ? 'bg-yellow-400' : 'bg-red-400'
+                }`}>
+                  {performanceSummary.percentage >= 80 ? (
+                    <ThumbsUp className="w-8 h-8 lg:w-10 lg:h-10 text-white" />
+                  ) : performanceSummary.percentage >= 60 ? (
+                    <Target className="w-8 h-8 lg:w-10 lg:h-10 text-white" />
+                  ) : (
+                    <BookOpen className="w-8 h-8 lg:w-10 lg:h-10 text-white" />
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="bg-white rounded-lg p-4 lg:p-6 space-y-4 lg:space-y-6">
-            <div className="text-center">
-              <div className="text-3xl lg:text-4xl font-bold text-blue-600 mb-2">{performanceSummary.percentage}%</div>
-              <div className="text-gray-600 text-sm lg:text-base">{performanceSummary.earnedPoints}/{performanceSummary.totalPoints} points earned</div>
-            </div>
-
-            <div className="space-y-3 lg:space-y-4">
-              <h4 className="font-semibold text-gray-800 text-sm lg:text-base">Performance by Topic:</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4">
+          <div className="p-4 lg:p-6 space-y-6">
+            {/* Topic Performance Grid */}
+            <div>
+              <h4 className="font-semibold text-gray-800 text-base lg:text-lg mb-4 flex items-center gap-2">
+                <ClipboardList className="w-5 h-5 text-blue-600" /> Performance by Topic
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {Object.entries(performanceSummary.topicPerformance).map(([topic, data]) => {
-                  const percentage = Math.round((data.earned / data.total) * 100);
-                  const colorClass = percentage >= 80 ? 'text-green-600' : percentage >= 60 ? 'text-yellow-600' : 'text-red-600';
+                  const percentage = data.percentage || Math.round((data.earned / data.total) * 100);
+                  const bgColor = percentage >= 80 ? 'bg-green-50 border-green-200' : 
+                                  percentage >= 50 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200';
+                  const textColor = percentage >= 80 ? 'text-green-700' : 
+                                   percentage >= 50 ? 'text-amber-700' : 'text-red-700';
+                  const progressColor = percentage >= 80 ? 'bg-green-500' : 
+                                        percentage >= 50 ? 'bg-amber-500' : 'bg-red-500';
+                  
                   return (
-                    <div key={topic} className="bg-gray-50 rounded-lg p-3 lg:p-4">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm lg:text-base">{topic.charAt(0).toUpperCase() + topic.slice(1)}</span>
-                        <span className={`font-bold ${colorClass} text-sm lg:text-base`}>{percentage}%</span>
+                    <div key={topic} className={`rounded-lg p-4 border ${bgColor} transition-all hover:shadow-md`}>
+                      <div className="flex items-start justify-between mb-2">
+                        <span className="font-medium text-gray-800 text-sm leading-tight flex-1 pr-2">
+                          {topic.charAt(0).toUpperCase() + topic.slice(1)}
+                        </span>
+                        <span className={`font-bold text-lg ${textColor}`}>{percentage}%</span>
                       </div>
-                      <div className="text-xs lg:text-sm text-gray-600">{data.earned}/{data.total} points</div>
+                      {/* Progress bar */}
+                      <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                        <div className={`h-2 rounded-full transition-all ${progressColor}`} style={{ width: `${percentage}%` }} />
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>{data.earned}/{data.total} pts</span>
+                        <span>{data.correct || 0}✓ {data.partial || 0}~ {data.incorrect || 0}✗</span>
+                      </div>
                     </div>
                   );
                 })}
               </div>
             </div>
 
-            {/* Strengths and Weaknesses */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
+            {/* Insights Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* Strengths */}
               {performanceSummary.strongTopics.length > 0 && (
-                <div className="bg-green-50 rounded-lg p-4 lg:p-5">
-                  <h5 className="font-semibold text-green-800 mb-2 text-sm lg:text-base flex items-center gap-1"><Check className="w-4 h-4" /> Strong Topics</h5>
-                  <ul className="text-xs lg:text-sm text-green-700 space-y-1 lg:space-y-2">
-                    {performanceSummary.strongTopics.map((strength, idx) => (
-                      <li key={idx} className="flex items-start"><span className="mr-2 mt-0.5">•</span><span>{strength}</span></li>
+                <div className="bg-white rounded-xl p-4 border border-green-100 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                      <Check className="w-4 h-4 text-green-600" />
+                    </div>
+                    <h5 className="font-semibold text-green-800">Strengths</h5>
+                  </div>
+                  <div className="space-y-2">
+                    {performanceSummary.strongTopics.map((topic, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-700">{topic.name}</span>
+                        <span className="font-medium text-green-600">{topic.percentage}%</span>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
-              {performanceSummary.weakTopics.length > 0 && (
-                <div className="bg-red-50 rounded-lg p-4 lg:p-5">
-                  <h5 className="font-semibold text-red-800 mb-2 text-sm lg:text-base flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> Weak Topics</h5>
-                  <ul className="text-xs lg:text-sm text-red-700 space-y-1 lg:space-y-2">
-                    {performanceSummary.weakTopics.map((weakness, idx) => (
-                      <li key={idx} className="flex items-start"><span className="mr-2 mt-0.5">•</span><span>{weakness}</span></li>
+
+              {/* Needs Improvement */}
+              {performanceSummary.improvingTopics && performanceSummary.improvingTopics.length > 0 && (
+                <div className="bg-white rounded-xl p-4 border border-amber-100 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
+                      <Target className="w-4 h-4 text-amber-600" />
+                    </div>
+                    <h5 className="font-semibold text-amber-800">Almost There</h5>
+                  </div>
+                  <div className="space-y-2">
+                    {performanceSummary.improvingTopics.map((topic, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-700">{topic.name}</span>
+                        <span className="font-medium text-amber-600">{topic.percentage}%</span>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
+                </div>
+              )}
+
+              {/* Weak Areas */}
+              {performanceSummary.weakTopics.length > 0 && (
+                <div className="bg-white rounded-xl p-4 border border-red-100 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                      <AlertTriangle className="w-4 h-4 text-red-600" />
+                    </div>
+                    <h5 className="font-semibold text-red-800">Focus Areas</h5>
+                  </div>
+                  <div className="space-y-2">
+                    {performanceSummary.weakTopics.map((topic, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-700">{topic.name}</span>
+                        <span className="font-medium text-red-600">{topic.percentage}%</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Study Recommendations */}
+            {/* Recommendations */}
             {performanceSummary.recommendations.length > 0 && (
-              <div className="bg-blue-50 rounded-lg p-4 lg:p-5">
-                <h5 className="font-semibold text-blue-800 mb-2 text-sm lg:text-base flex items-center gap-1"><BookOpen className="w-4 h-4" /> Study Recommendations</h5>
-                <ul className="text-xs lg:text-sm text-blue-700 space-y-1 lg:space-y-2">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 lg:p-5 border border-blue-100">
+                <div className="flex items-center gap-2 mb-3">
+                  <Lightbulb className="w-5 h-5 text-blue-600" />
+                  <h5 className="font-semibold text-blue-800">What to Focus On Next</h5>
+                </div>
+                <div className="space-y-2">
                   {performanceSummary.recommendations.map((rec, idx) => (
-                    <li key={idx} className="flex items-start"><span className="mr-2 mt-0.5">•</span><span>{rec}</span></li>
+                    <div key={idx} className="flex items-start gap-2 text-sm text-blue-700">
+                      <ChevronRight className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <span>{rec}</span>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
             )}
           </div>

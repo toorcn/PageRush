@@ -1,17 +1,19 @@
 'use client';
 import { useState } from 'react';
-import { BookOpen, Layers, HelpCircle, ClipboardList, FileText, ChevronDown, Briefcase, Lightbulb } from 'lucide-react';
+import { BookOpen, Layers, HelpCircle, ClipboardList, FileText, ChevronDown, Briefcase, Lightbulb, GraduationCap } from 'lucide-react';
 import LottieLoader from './LottieLoader';
 
 const FEATURE_CONFIG = {
   exam: { Icon: ClipboardList, color: 'amber', label: 'Exams' },
   quiz: { Icon: HelpCircle, color: 'violet', label: 'Quizzes' },
   flashcards: { Icon: Layers, color: 'emerald', label: 'Flashcards' },
-  studyGuide: { Icon: BookOpen, color: 'indigo', label: 'Study Guides' },
+  smartStudy: { Icon: GraduationCap, color: 'indigo', label: 'Smart Study' },
+  studyGuide: { Icon: BookOpen, color: 'indigo', label: 'Study Guides' }, // Legacy
+  examCram: { Icon: BookOpen, color: 'rose', label: 'Exam Cram' }, // Legacy
 };
 
 export default function HelpfulResourcesSidebar({ history, performanceSummaries, onLoadFromHistory }) {
-  const [expandedFeatures, setExpandedFeatures] = useState(new Set(['studyGuide', 'flashcards']));
+  const [expandedFeatures, setExpandedFeatures] = useState(new Set(['smartStudy', 'flashcards']));
   const [showAllResources, setShowAllResources] = useState(false);
   const [loadingItem, setLoadingItem] = useState(null);
 
@@ -19,6 +21,7 @@ export default function HelpfulResourcesSidebar({ history, performanceSummaries,
     return history.filter(item => item.feature === feature);
   };
 
+  const smartStudy = getResourcesByFeature('smartStudy');
   const studyGuides = getResourcesByFeature('studyGuide');
   const flashcards = getResourcesByFeature('flashcards');
   const quizzes = getResourcesByFeature('quiz');
@@ -189,7 +192,7 @@ export default function HelpfulResourcesSidebar({ history, performanceSummaries,
     );
   };
 
-  const totalResources = studyGuides.length + flashcards.length + quizzes.length + exams.length;
+  const totalResources = smartStudy.length + studyGuides.length + flashcards.length + quizzes.length + exams.length;
 
   return (
     <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-100 p-4">
@@ -206,6 +209,7 @@ export default function HelpfulResourcesSidebar({ history, performanceSummaries,
       </div>
       
       <div className="space-y-3">
+        {renderFeatureSection('smartStudy', smartStudy, 'Smart Study')}
         {renderFeatureSection('studyGuide', studyGuides, 'Study Guides')}
         {renderFeatureSection('flashcards', flashcards, 'Flashcards')}
         {renderFeatureSection('quiz', quizzes, 'Quizzes')}

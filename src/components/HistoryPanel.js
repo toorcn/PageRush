@@ -2,14 +2,16 @@
 import { useState, useMemo } from 'react';
 import { BookOpen, Layers, HelpCircle, ClipboardList, FileText, X, ChevronDown, ChevronRight, Target, BarChart3, Check, XCircle, Library, Search, Filter, Trash2, MoreHorizontal, TrendingUp, ThumbsUp, AlertCircle, RefreshCw } from 'lucide-react';
 
-// Order: exam, quiz, flashcards, studyGuide
-const FEATURE_ORDER = ['exam', 'quiz', 'flashcards', 'studyGuide'];
+// Order: exam, quiz, flashcards, smartStudy
+const FEATURE_ORDER = ['exam', 'quiz', 'flashcards', 'smartStudy'];
 
 const FEATURE_CONFIG = {
   exam: { Icon: ClipboardList, color: 'amber', label: 'Exams' },
   quiz: { Icon: HelpCircle, color: 'violet', label: 'Quizzes' },
   flashcards: { Icon: Layers, color: 'emerald', label: 'Flashcards' },
-  studyGuide: { Icon: BookOpen, color: 'indigo', label: 'Study Guides' },
+  smartStudy: { Icon: BookOpen, color: 'indigo', label: 'Smart Study' },
+  studyGuide: { Icon: BookOpen, color: 'indigo', label: 'Study Guides' }, // Legacy
+  examCram: { Icon: Target, color: 'rose', label: 'Exam Cram' }, // Legacy
 };
 
 export default function HistoryPanel({ history, performanceSummaries, onLoadFromHistory, onDeleteHistoryItem, onClearHistory, onClose }) {
@@ -17,7 +19,7 @@ export default function HistoryPanel({ history, performanceSummaries, onLoadFrom
   const [expandedExam, setExpandedExam] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
-  const [expandedFeatures, setExpandedFeatures] = useState(new Set(['exam', 'quiz', 'flashcards', 'studyGuide']));
+  const [expandedFeatures, setExpandedFeatures] = useState(new Set(['exam', 'quiz', 'flashcards', 'smartStudy']));
   const [fullyExpandedFeatures, setFullyExpandedFeatures] = useState(new Set());
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [showActions, setShowActions] = useState(false);
@@ -36,7 +38,9 @@ export default function HistoryPanel({ history, performanceSummaries, onLoadFrom
 
   const getFeatureColor = (feature) => {
     const colors = {
+      smartStudy: 'text-indigo-600 bg-indigo-100',
       studyGuide: 'text-indigo-600 bg-indigo-100',
+      examCram: 'text-rose-600 bg-rose-100',
       flashcards: 'text-emerald-600 bg-emerald-100',
       quiz: 'text-violet-600 bg-violet-100',
       exam: 'text-amber-600 bg-amber-100',
@@ -132,7 +136,9 @@ export default function HistoryPanel({ history, performanceSummaries, onLoadFrom
       exam: [],
       quiz: [],
       flashcards: [],
-      studyGuide: [],
+      smartStudy: [],
+      studyGuide: [], // Legacy
+      examCram: [], // Legacy
     };
     
     filteredHistory.forEach(item => {
@@ -339,7 +345,7 @@ export default function HistoryPanel({ history, performanceSummaries, onLoadFrom
                     <option value="exam">Exams</option>
                     <option value="quiz">Quizzes</option>
                     <option value="flashcards">Flashcards</option>
-                    <option value="studyGuide">Study Guides</option>
+                    <option value="smartStudy">Smart Study</option>
                   </select>
                   
                   {/* Actions dropdown */}

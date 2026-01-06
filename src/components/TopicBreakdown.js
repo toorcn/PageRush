@@ -175,44 +175,44 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2 flex items-center gap-2">
-            <ClipboardList className="w-6 h-6" /> Topic Breakdown
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-1 sm:mb-2 flex items-center gap-2">
+            <ClipboardList className="w-5 h-5 sm:w-6 sm:h-6" /> Topic Breakdown
           </h2>
-          <p className="text-gray-600">Key concepts organized by importance</p>
+          <p className="text-gray-600 text-sm sm:text-base">Key concepts organized by importance</p>
         </div>
         <button
           onClick={onBack}
-          className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium"
+          className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium text-sm sm:text-base touch-manipulation py-1"
         >
           <ChevronLeft className="w-4 h-4" /> Back to Overview
         </button>
       </div>
 
       {/* Priority Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-red-600">{priorityStats.high}</div>
-          <div className="text-sm text-red-700">High Priority</div>
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-2 sm:p-4 text-center">
+          <div className="text-xl sm:text-2xl font-bold text-red-600">{priorityStats.high}</div>
+          <div className="text-[10px] sm:text-sm text-red-700">High Priority</div>
         </div>
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-yellow-600">{priorityStats.medium}</div>
-          <div className="text-sm text-yellow-700">Medium Priority</div>
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2 sm:p-4 text-center">
+          <div className="text-xl sm:text-2xl font-bold text-yellow-600">{priorityStats.medium}</div>
+          <div className="text-[10px] sm:text-sm text-yellow-700">Medium Priority</div>
         </div>
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-green-600">{priorityStats.low}</div>
-          <div className="text-sm text-green-700">Low Priority</div>
+        <div className="bg-green-50 border border-green-200 rounded-lg p-2 sm:p-4 text-center">
+          <div className="text-xl sm:text-2xl font-bold text-green-600">{priorityStats.low}</div>
+          <div className="text-[10px] sm:text-sm text-green-700">Low Priority</div>
         </div>
       </div>
 
       {/* Content Status */}
       {content && apiKey && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-semibold text-blue-800 mb-3 flex items-center gap-1"><BookOpen className="w-4 h-4" /> Content Status</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+          <h3 className="font-semibold text-blue-800 mb-2 sm:mb-3 flex items-center gap-1 text-sm sm:text-base"><BookOpen className="w-4 h-4" /> Content Status</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
             {breakdown?.topics.map((topic) => {
               const status = topicContentStatus[topic.id];
               const isLoaded = topicContentManager.isTopicContentLoaded(topic.id);
@@ -220,13 +220,13 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
               
               return (
                 <div key={topic.id} className="flex items-center justify-between p-2 bg-white rounded border min-w-0">
-                  <span className="text-sm font-medium text-gray-700 truncate mr-2">{topic.title}</span>
-                  <div className="flex items-center space-x-2 flex-shrink-0">
-                    {status === 'loading' && <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />}
-                    {status === 'error' && <XCircle className="w-4 h-4 text-red-600" />}
-                    {(isLoaded || hasCachedContent) && !status && <Check className="w-4 h-4 text-green-600" />}
-                    {status === 'loaded' && <Check className="w-4 h-4 text-green-600" />}
-                    <span className="text-xs text-gray-500 whitespace-nowrap">
+                  <span className="text-xs sm:text-sm font-medium text-gray-700 truncate mr-2">{topic.title}</span>
+                  <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+                    {status === 'loading' && <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 animate-spin" />}
+                    {status === 'error' && <XCircle className="w-3 h-3 sm:w-4 sm:h-4 text-red-600" />}
+                    {(isLoaded || hasCachedContent) && !status && <Check className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />}
+                    {status === 'loaded' && <Check className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />}
+                    <span className="text-[10px] sm:text-xs text-gray-500 whitespace-nowrap hidden sm:inline">
                       {isLoaded || hasCachedContent ? 'Loaded' : 'Not loaded'}
                     </span>
                   </div>
@@ -239,24 +239,26 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
 
       {/* Filter Tabs */}
       <div className="border-b border-gray-200">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex flex-wrap gap-2 overflow-x-auto">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div className="flex gap-1 sm:gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
             {[
-              { key: 'all', label: 'All Topics', count: breakdown.topics.length },
-              { key: 'high', label: 'High Priority', count: priorityStats.high },
-              { key: 'medium', label: 'Medium Priority', count: priorityStats.medium },
-              { key: 'low', label: 'Low Priority', count: priorityStats.low }
+              { key: 'all', label: 'All', fullLabel: 'All Topics', count: breakdown.topics.length },
+              { key: 'high', label: 'High', fullLabel: 'High Priority', count: priorityStats.high },
+              { key: 'medium', label: 'Med', fullLabel: 'Medium Priority', count: priorityStats.medium },
+              { key: 'low', label: 'Low', fullLabel: 'Low Priority', count: priorityStats.low }
             ].map(filter => (
               <button
                 key={filter.key}
                 onClick={() => setFilterPriority(filter.key)}
-                className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                className={`px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap touch-manipulation ${
                   filterPriority === filter.key
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                {filter.label} ({filter.count})
+                <span className="sm:hidden">{filter.label}</span>
+                <span className="hidden sm:inline">{filter.fullLabel}</span>
+                {' '}({filter.count})
               </button>
             ))}
           </div>
@@ -266,10 +268,10 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
             <button
               onClick={preloadAllTopicContent}
               disabled={Object.values(topicContentStatus).some(s => s === 'loading')}
-              className={`px-3 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap flex items-center gap-1 ${
+              className={`w-full sm:w-auto px-3 py-2 rounded-lg transition-colors text-xs sm:text-sm font-medium whitespace-nowrap flex items-center justify-center gap-1 touch-manipulation ${
                 Object.values(topicContentStatus).some(s => s === 'loading')
                   ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
               }`}
             >
               {Object.values(topicContentStatus).some(s => s === 'loading') ? <><Loader2 className="w-4 h-4 animate-spin" /> Loading...</> : <><BookOpen className="w-4 h-4" /> Load Content</>}
@@ -279,81 +281,72 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
       </div>
 
       {/* Topics List */}
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {filteredTopics.map((topic, index) => {
           const isExpanded = expandedTopics.has(topic.id);
           
           return (
             <div key={topic.id} className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="bg-gray-50 p-4">
-                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                  <div className="flex items-start space-x-3 flex-1">
-                    <div className="flex-shrink-0">
+              <div className="bg-gray-50 p-3 sm:p-4">
+                <div className="flex flex-col gap-3 sm:gap-4">
+                  <div className="flex items-start space-x-2 sm:space-x-3 flex-1">
+                    <div className="flex-shrink-0 mt-0.5">
                       {getPriorityIcon(topic.priority)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <h3 className="font-bold text-lg text-gray-800 break-words">{topic.title}</h3>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(topic.priority)} whitespace-nowrap`}>
-                          {topic.priority} priority
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2">
+                        <h3 className="font-bold text-base sm:text-lg text-gray-800 break-words">{topic.title}</h3>
+                        <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium border ${getPriorityColor(topic.priority)} whitespace-nowrap`}>
+                          {topic.priority}
                         </span>
                         {content && apiKey && (topicContentManager.isTopicContentLoaded(topic.id) || topicContent.has(topic.id)) && (
-                          <span className="text-green-600 text-xs bg-green-100 px-2 py-1 rounded whitespace-nowrap flex items-center gap-1">
-                            <BookOpen className="w-3 h-3" /> Content loaded
+                          <span className="text-green-600 text-[10px] sm:text-xs bg-green-100 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded whitespace-nowrap flex items-center gap-1">
+                            <BookOpen className="w-3 h-3" /> <span className="hidden sm:inline">Content</span> loaded
                           </span>
                         )}
                       </div>
-                      <p className="text-gray-600 text-sm mb-3">{topic.description}</p>
+                      <p className="text-gray-600 text-xs sm:text-sm mb-2 sm:mb-3 line-clamp-2">{topic.description}</p>
                       
                       {/* Key Concepts Preview */}
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {topic.keyConcepts.slice(0, 3).map((concept, idx) => (
-                          <span key={idx} className="bg-white px-2 py-1 rounded text-xs text-gray-700 border">
+                      <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+                        {topic.keyConcepts.slice(0, 2).map((concept, idx) => (
+                          <span key={idx} className="bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs text-gray-700 border truncate max-w-[120px] sm:max-w-none">
                             {concept}
                           </span>
                         ))}
-                        {topic.keyConcepts.length > 3 && (
-                          <span className="text-gray-500 text-xs">
-                            +{topic.keyConcepts.length - 3} more
+                        {topic.keyConcepts.length > 2 && (
+                          <span className="text-gray-500 text-[10px] sm:text-xs">
+                            +{topic.keyConcepts.length - 2} more
                           </span>
                         )}
                       </div>
 
                       {/* Study Time Estimate */}
-                      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
-                        <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> {topic.estimatedStudyTime} min</span>
-                        <span className="flex items-center gap-1"><BookOpen className="w-4 h-4" /> {topic.keyConcepts.length} concepts</span>
-                        <span className="flex items-center gap-1"><Target className="w-4 h-4" /> {topic.difficultyLevel} difficulty</span>
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[10px] sm:text-sm text-gray-500">
+                        <span className="flex items-center gap-1"><Clock className="w-3 h-3 sm:w-4 sm:h-4" /> {topic.estimatedStudyTime}m</span>
+                        <span className="flex items-center gap-1"><BookOpen className="w-3 h-3 sm:w-4 sm:h-4" /> {topic.keyConcepts.length}</span>
+                        <span className="flex items-center gap-1 hidden sm:flex"><Target className="w-4 h-4" /> {topic.difficultyLevel}</span>
                       </div>
                     </div>
                   </div>
                   
-                  <div className="flex flex-wrap items-center gap-2 lg:flex-shrink-0">
+                  <div className="flex items-center gap-2 justify-end">
                     <button
                       onClick={() => onStartLearning(topic.id)}
-                      className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium whitespace-nowrap"
+                      className="flex-1 sm:flex-none px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors text-xs sm:text-sm font-medium whitespace-nowrap touch-manipulation"
                     >
                       Practice
                     </button>
                     <button
                       onClick={() => onViewContent(topic)}
-                      className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium whitespace-nowrap"
+                      className="flex-1 sm:flex-none px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors text-xs sm:text-sm font-medium whitespace-nowrap touch-manipulation"
                     >
                       Study
                     </button>
-                    {/* {content && apiKey && !topicContentManager.isTopicContentLoaded(topic.id) && !topicContent.has(topic.id) && (
-                      <button
-                        onClick={() => loadTopicContent(topic.id)}
-                        disabled={topicContentStatus[topic.id] === 'loading'}
-                        className="px-2 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700 transition-colors disabled:opacity-50 whitespace-nowrap"
-                      >
-                        {topicContentStatus[topic.id] === 'loading' ? 'Loading...' : 'Load'}
-                      </button>
-                    )} */}
                     <button
                       onClick={() => toggleTopic(topic.id)}
                       disabled={loadingTopics.has(topic.id)}
-                      className={`p-2 transition-colors ${
+                      className={`p-2 transition-colors touch-manipulation ${
                         loadingTopics.has(topic.id)
                           ? 'text-gray-400 cursor-not-allowed'
                           : 'text-gray-500 hover:text-gray-700'
@@ -553,29 +546,29 @@ export default function TopicBreakdown({ breakdown, onBack, onStartLearning, onV
       </div>
 
       {/* Study Recommendations */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
-        <h3 className="font-bold text-lg mb-3 text-blue-800 flex items-center gap-1"><BookOpen className="w-5 h-5" /> Study Recommendations</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 sm:p-6">
+        <h3 className="font-bold text-base sm:text-lg mb-2 sm:mb-3 text-blue-800 flex items-center gap-1"><BookOpen className="w-4 h-4 sm:w-5 sm:h-5" /> Study Recommendations</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <h4 className="font-semibold text-blue-700 mb-2">Start With:</h4>
-            <ul className="space-y-1 text-sm text-blue-600">
+            <h4 className="font-semibold text-blue-700 mb-2 text-sm sm:text-base">Start With:</h4>
+            <ul className="space-y-1 text-xs sm:text-sm text-blue-600">
               {breakdown.topics
                 .filter(t => t.priority === 'high')
                 .slice(0, 3)
                 .map((topic, idx) => (
                   <li key={idx} className="flex items-center space-x-2">
-                    <XCircle className="w-4 h-4 text-red-500" />
-                    <span>{topic.title}</span>
+                    <XCircle className="w-3 h-3 sm:w-4 sm:h-4 text-red-500 flex-shrink-0" />
+                    <span className="truncate">{topic.title}</span>
                   </li>
                 ))}
             </ul>
           </div>
           <div>
-            <h4 className="font-semibold text-blue-700 mb-2">Total Study Time:</h4>
-            <div className="text-2xl font-bold text-blue-600">
+            <h4 className="font-semibold text-blue-700 mb-2 text-sm sm:text-base">Total Study Time:</h4>
+            <div className="text-xl sm:text-2xl font-bold text-blue-600">
               {breakdown.topics.reduce((total, topic) => total + topic.estimatedStudyTime, 0)} min
             </div>
-            <p className="text-sm text-blue-600">Estimated time to master all topics</p>
+            <p className="text-xs sm:text-sm text-blue-600">Estimated time to master all topics</p>
           </div>
         </div>
       </div>
