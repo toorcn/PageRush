@@ -1,3 +1,5 @@
+import { getModelForAction, getApiUrl } from '@/lib/gemini-config';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -70,7 +72,10 @@ Example:
   ]
 }`;
 
-        const assessmentResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+        const model = getModelForAction('grade-quiz');
+        const startTime = Date.now();
+        
+        const assessmentResponse = await fetch(getApiUrl('grade-quiz'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -80,6 +85,8 @@ Example:
             contents: [{ parts: [{ text: assessmentPrompt }] }]
           }),
         });
+
+        const responseTimeMs = Date.now() - startTime;
 
         if (!assessmentResponse.ok) {
           throw new Error(`Gemini assessment API error: ${assessmentResponse.status}`);

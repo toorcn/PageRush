@@ -1,9 +1,14 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import LottieLoader from './LottieLoader';
+import AIHelpChat, { ChatFloatingButton } from './AIHelpChat';
+import { 
+  HelpCircle, Pencil, MessageSquare, FileText, Square, Check, X, 
+  ThumbsUp, Target, Lightbulb, ClipboardList, BarChart3, AlertTriangle, 
+  BookOpen, Bot, ChevronDown, ChevronRight, ChevronUp
+} from 'lucide-react';
 
 export default function Exam({ questions, onSubmit, feedback, currentQuestionIndex, setCurrentQuestionIndex, setTotalQuestions, onSaveResults, examMode = 'standard' }) {
-  // Ensure feedback is always an array to prevent React errors
   if (feedback && !Array.isArray(feedback)) {
     console.error('Exam: feedback prop is not an array', feedback);
     feedback = [];
@@ -15,26 +20,145 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
   const [aiTopicExtraction, setAiTopicExtraction] = useState({});
   const [individualFeedback, setIndividualFeedback] = useState({});
   const [isCheckingAnswer, setIsCheckingAnswer] = useState({});
-  const [structuredUnderstanding, setStructuredUnderstanding] = useState({});
-  const [isRequestingUnderstanding, setIsRequestingUnderstanding] = useState({});
-  const [currentExamMode, setCurrentExamMode] = useState(examMode); // 'standard' or 'practice'
-  const [showImmediateFeedback, setShowImmediateFeedback] = useState(false);
+  const [questionsWithSuggestions, setQuestionsWithSuggestions] = useState(questions);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
+  const [initialChatMessage, setInitialChatMessage] = useState(null);
+  const [chatWidth, setChatWidth] = useState(384);
+  const [currentExamMode, setCurrentExamMode] = useState(examMode);
+  const [isLargeScreen, setIsLargeScreen] = useState(false);
+  const [expandedHints, setExpandedHints] = useState(new Set());
+  const [navCollapsed, setNavCollapsed] = useState(false);
   const questionRefs = useRef([]);
+  const navRef = useRef(null);
+  const observerRef = useRef(null);
+  const isScrollingRef = useRef(false);
 
-  // Set total questions when component mounts
+  // Robust scroll to question function that works well on mobile
+  const scrollToQuestion = useCallback((idx) => {
+    const element = questionRefs.current[idx];
+    if (!element) return;
+
+    // Prevent scroll conflicts
+    if (isScrollingRef.current) return;
+    isScrollingRef.current = true;
+
+    // Get element position
+    const rect = element.getBoundingClientRect();
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    
+    // Calculate header offset dynamically based on sticky nav height
+    const navHeight = navRef.current?.getBoundingClientRect().height || 60;
+    const extraPadding = 16; // Some breathing room
+    const headerOffset = navHeight + extraPadding;
+    
+    const targetPosition = scrollTop + rect.top - headerOffset;
+
+    // Use smooth scroll with fallback
+    try {
+      window.scrollTo({
+        top: Math.max(0, targetPosition),
+        behavior: 'smooth'
+      });
+    } catch {
+      // Fallback for older browsers
+      window.scrollTo(0, Math.max(0, targetPosition));
+    }
+
+    // Reset scrolling flag after animation completes
+    setTimeout(() => {
+      isScrollingRef.current = false;
+    }, 600);
+  }, []);
+
+  // Handle question navigation click
+  const handleQuestionNavClick = useCallback((idx) => {
+    setCurrentQuestionIndex(idx);
+    // Small delay to ensure state is updated before scrolling
+    requestAnimationFrame(() => {
+      scrollToQuestion(idx);
+    });
+  }, [setCurrentQuestionIndex, scrollToQuestion]);
+
+  // Track screen size for responsive padding
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsLargeScreen(window.innerWidth >= 1024);
+    };
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  // Generate AI suggestions for questions
+  useEffect(() => {
+    const generateSuggestions = async () => {
+      const updatedQuestions = await Promise.all(
+        questions.map(async (q, idx) => {
+          if (q.aiSuggestions) return q;
+          try {
+            // Build context with options if MCQ
+            let questionContext = `Question: ${q.question}`;
+            if (q.options && q.options.length > 0) {
+              questionContext += `\nAnswer Choices:\n${q.options.map((opt, i) => `${String.fromCharCode(65 + i)}) ${opt}`).join('\n')}`;
+            }
+            questionContext += `\nCorrect answer: ${q.answer}`;
+            
+            const response = await fetch('/api/gemini-generate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                text: questionContext,
+                promptType: 'generateQuestionSuggestions',
+                geminiApiKey: window.geminiApiKey || localStorage.getItem('geminiApiKey')
+              }),
+            });
+            if (response.ok) {
+              const data = await response.json();
+              const aiText = data.result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+              try {
+                const suggestions = JSON.parse(aiText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim());
+                return { ...q, aiSuggestions: suggestions };
+              } catch {
+                return { ...q, aiSuggestions: ['What is this asking?', 'Explain key terms', 'Why is this important?'] };
+              }
+            }
+          } catch (error) {
+            console.log('Failed to generate suggestions', idx, error);
+          }
+          return { ...q, aiSuggestions: ['What is this asking?', 'Explain key terms', 'Why is this important?'] };
+        })
+      );
+      setQuestionsWithSuggestions(updatedQuestions);
+    };
+    if (questions.length > 0) generateSuggestions();
+  }, [questions]);
+
   useEffect(() => {
     setTotalQuestions(questions.length);
   }, [questions.length, setTotalQuestions]);
 
-  // Auto-scroll to current question
+  // Set submitted state and restore answers when feedback is received (handles component remount)
   useEffect(() => {
-    if (questionRefs.current[currentQuestionIndex]) {
-      questionRefs.current[currentQuestionIndex].scrollIntoView({
-        behavior: 'smooth',
-        block: 'center'
+    if (feedback && feedback.length > 0) {
+      setSubmitted(true);
+      setShowPerformanceSummary(true);
+      // Restore answers from feedback
+      const restoredAnswers = questions.map((_, idx) => {
+        const fb = feedback[idx];
+        return fb?.userAnswer || '';
       });
+      setAnswers(restoredAnswers);
     }
-  }, [currentQuestionIndex]);
+  }, [feedback, questions]);
+
+  // Scroll to question when currentQuestionIndex changes from external source
+  useEffect(() => {
+    // Only scroll if not triggered by our own navigation
+    if (!isScrollingRef.current && questionRefs.current[currentQuestionIndex]) {
+      scrollToQuestion(currentQuestionIndex);
+    }
+  }, [currentQuestionIndex, scrollToQuestion]);
 
   const handleSelect = (qIdx, option) => {
     if (submitted) return;
@@ -55,9 +179,7 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
       alert('Please provide an answer before checking.');
       return;
     }
-
     setIsCheckingAnswer(prev => ({ ...prev, [qIdx]: true }));
-    
     try {
       const response = await fetch('/api/grade-quiz', {
         method: 'POST',
@@ -68,13 +190,9 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
           geminiApiKey: window.geminiApiKey || localStorage.getItem('geminiApiKey')
         }),
       });
-      
       if (response.ok) {
         const data = await response.json();
-        setIndividualFeedback(prev => ({
-          ...prev,
-          [qIdx]: data.details?.[0] || data
-        }));
+        setIndividualFeedback(prev => ({ ...prev, [qIdx]: data.details?.[0] || data }));
       }
     } catch (error) {
       console.error('Error checking answer:', error);
@@ -84,109 +202,83 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
     }
   };
 
-  const handleStructuredUnderstanding = async (qIdx) => {
-    const question = questions[qIdx];
-    if (!question) return;
+  // Intersection Observer to track which question is in view - always active
+  useEffect(() => {
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        // Find the most visible entry
+        let mostVisibleEntry = null;
+        let maxRatio = 0;
+        
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.intersectionRatio > maxRatio) {
+            maxRatio = entry.intersectionRatio;
+            mostVisibleEntry = entry;
+          }
+        });
+        
+        if (mostVisibleEntry) {
+          const idx = parseInt(mostVisibleEntry.target.dataset.questionIndex, 10);
+          if (!isNaN(idx) && idx !== activeQuestionIndex) {
+            setActiveQuestionIndex(idx);
+          }
+        }
+      },
+      { threshold: [0.3, 0.5, 0.7], rootMargin: '-80px 0px -80px 0px' }
+    );
 
-    setIsRequestingUnderstanding(prev => ({ ...prev, [qIdx]: true }));
+    questionRefs.current.forEach((ref) => {
+      if (ref) observerRef.current.observe(ref);
+    });
 
-    try {
-      const userAnswer = answers[qIdx];
-      const correctAnswer = question.answer;
-
-      const text = [
-        `Question: ${question.question}`,
-        question.type ? `Type: ${question.type}` : '',
-        correctAnswer ? `Correct answer: ${correctAnswer}` : '',
-        userAnswer ? `Learner's current answer: ${userAnswer}` : ''
-      ]
-        .filter(Boolean)
-        .join('\n');
-
-      const response = await fetch('/api/gemini-generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text,
-          promptType: 'structuredUnderstanding',
-          geminiApiKey: window.geminiApiKey || localStorage.getItem('geminiApiKey')
-        }),
-      });
-
-      if (!response.ok) {
-        console.error('Failed to get structured understanding:', await response.text());
-        alert('Unable to load AI learning guide for this question. Please try again.');
-        return;
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
       }
+    };
+  }, [questionsWithSuggestions, activeQuestionIndex]);
 
-      const data = await response.json();
-      const aiText =
-        data.result?.candidates?.[0]?.content?.parts?.[0]?.text ||
-        data.result?.candidates?.[0]?.output_text ||
-        '';
+  const handleSuggestionClick = (questionIdx, suggestion) => {
+    setActiveQuestionIndex(questionIdx);
+    setInitialChatMessage(suggestion);
+    setChatOpen(true);
+    // Close the hints dropdown for this question
+    setExpandedHints(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(questionIdx);
+      return newSet;
+    });
+    // Scroll to the question after a brief delay to ensure chat is open
+    setTimeout(() => {
+      scrollToQuestion(questionIdx);
+    }, 100);
+  };
 
-      if (!aiText) {
-        alert('AI did not return an explanation. Please try again.');
-        return;
-      }
+  const closeChat = () => {
+    setChatOpen(false);
+    setInitialChatMessage(null);
+  };
 
-      setStructuredUnderstanding(prev => ({
-        ...prev,
-        [qIdx]: aiText
-      }));
-    } catch (error) {
-      console.error('Error requesting structured understanding:', error);
-      alert('Failed to contact AI. Please check your API key and try again.');
-    } finally {
-      setIsRequestingUnderstanding(prev => ({ ...prev, [qIdx]: false }));
-    }
+  const toggleHints = (questionIndex) => {
+    const newExpanded = new Set(expandedHints);
+    if (newExpanded.has(questionIndex)) newExpanded.delete(questionIndex);
+    else newExpanded.add(questionIndex);
+    setExpandedHints(newExpanded);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitted(true);
     setIsAssessing(true);
-    
-    // Extract topics using AI for better analysis
     await extractTopicsWithAI();
-    
-    // Submit answers for assessment
     await onSubmit(answers);
     setIsAssessing(false);
     setShowPerformanceSummary(true);
   };
 
-  const handleSaveResults = () => {
-    if (onSaveResults && feedback) {
-      const examResults = {
-        id: Date.now(),
-        timestamp: new Date().toISOString(),
-        questions: questions.map((q, idx) => ({
-          ...q,
-          userAnswer: answers[idx],
-          feedback: feedback[idx] || individualFeedback[idx],
-          isCorrect: feedback[idx]?.isCorrect || individualFeedback[idx]?.isCorrect || false,
-          points: feedback[idx]?.points || individualFeedback[idx]?.points || 0,
-          explanation: feedback[idx]?.explanation || individualFeedback[idx]?.explanation || ''
-        })),
-        overallFeedback: feedback,
-        individualFeedback: individualFeedback,
-        performanceSummary: generatePerformanceSummary(),
-        examMode: currentExamMode,
-        totalQuestions: questions.length,
-        answeredQuestions: answers.filter(a => a && a.trim() !== '').length
-      };
-      onSaveResults(examResults);
-    }
-  };
-
   const extractTopicsWithAI = async () => {
     try {
-      // Create a summary of all questions for AI analysis
-      const questionsSummary = questions.map((q, idx) => 
-        `Question ${idx + 1}: ${q.question} | Answer: ${q.answer}`
-      ).join('\n');
-      
+      const questionsSummary = questions.map((q, idx) => `Question ${idx + 1}: ${q.question} | Answer: ${q.answer}`).join('\n');
       const response = await fetch('/api/gemini-generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -196,17 +288,15 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
           geminiApiKey: window.geminiApiKey || localStorage.getItem('geminiApiKey')
         }),
       });
-      
       if (response.ok) {
         const data = await response.json();
         if (data.result) {
-          // Parse AI-extracted topics and map them to questions
           const aiTopics = parseTopicsFromAI(data);
           setAiTopicExtraction(aiTopics);
         }
       }
     } catch (error) {
-      console.log('AI topic extraction failed, using fallback methods:', error);
+      console.log('AI topic extraction failed:', error);
     }
   };
 
@@ -214,8 +304,6 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
     try {
       const text = aiResponse.result.candidates[0].content.parts[0].text;
       const topics = JSON.parse(text.replace(/```json\s*/g, '').replace(/```\s*/g, ''));
-      
-      // Map AI topics to questions based on content similarity
       const topicMapping = {};
       questions.forEach((q, idx) => {
         const questionText = q.question.toLowerCase();
@@ -225,7 +313,6 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
         );
         topicMapping[idx] = matchingTopics.length > 0 ? matchingTopics : ['general knowledge'];
       });
-      
       return topicMapping;
     } catch (error) {
       console.log('Failed to parse AI topics:', error);
@@ -233,329 +320,138 @@ export default function Exam({ questions, onSubmit, feedback, currentQuestionInd
     }
   };
 
-  const navigateToQuestion = (index) => {
-    setCurrentQuestionIndex(index);
-  };
-
   const generatePerformanceSummary = () => {
     if (!feedback || !questions) return null;
-
     const totalQuestions = questions.length;
     const totalPoints = questions.reduce((sum, q) => sum + (q.points || 1), 0);
-    const earnedPoints = feedback.reduce((sum, f) => sum + (f.points || 0), 0);
-    const percentage = Math.round((earnedPoints / totalPoints) * 100);
+    const earnedPoints = feedback.reduce((sum, f) => sum + (f?.points || 0), 0);
+    const percentage = Math.round((earnedPoints / totalPoints) * 1000) / 10; // Single decimal
 
-    // Extract topics/concepts from questions and analyze performance
+    // Build topic performance using question's topic property first, then AI extraction as fallback
     const topicPerformance = {};
     questions.forEach((q, idx) => {
-      // Use AI-extracted topics if available, otherwise use fallback methods
-      let topics = [];
+      // Use question's topic property if available, otherwise fall back to AI extraction
+      const questionTopic = q.topic || (aiTopicExtraction[idx]?.[0]) || 'General';
+      const topics = [questionTopic];
       
-      if (aiTopicExtraction[idx] && aiTopicExtraction[idx].length > 0) {
-        // Use AI-extracted topics
-        topics = aiTopicExtraction[idx];
-      } else {
-        // Fallback to dynamic topic extraction from question and answer content
-        const questionText = q.question.toLowerCase();
-        const answerText = q.answer.toLowerCase();
-        
-        // Strategy 1: Look for capitalized phrases (likely proper nouns/concepts)
-        const capitalizedPhrases = questionText.match(/[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*/g) || [];
-        const answerCapitalizedPhrases = answerText.match(/[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*/g) || [];
-        const allCapitalizedPhrases = [...capitalizedPhrases, ...answerCapitalizedPhrases];
-        
-        // Filter out common words and keep meaningful concepts
-        const commonWords = ['the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'up', 'down', 'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'can', 'will', 'just', 'should', 'now'];
-        
-        allCapitalizedPhrases.forEach(phrase => {
-          const words = phrase.toLowerCase().split(/\s+/);
-          if (words.length >= 1 && words.length <= 4 && !words.every(word => commonWords.includes(word))) {
-            topics.push(phrase.toLowerCase());
-          }
-        });
-        
-        // Strategy 2: Look for technical terms and academic vocabulary
-        const technicalTerms = [
-          'photosynthesis', 'respiration', 'mitosis', 'meiosis', 'evolution', 'genetics', 'dna', 'rna',
-          'cell', 'membrane', 'organelle', 'enzyme', 'protein', 'carbohydrate', 'lipid', 'nucleic acid',
-          'ecosystem', 'biodiversity', 'climate', 'energy', 'force', 'motion', 'gravity', 'electricity',
-          'magnetism', 'wave', 'light', 'sound', 'heat', 'temperature', 'pressure', 'volume', 'mass',
-          'chemical', 'reaction', 'acid', 'base', 'molecule', 'atom', 'element', 'compound', 'mixture',
-          'equation', 'formula', 'calculation', 'measurement', 'data', 'analysis', 'hypothesis', 'theory',
-          'experiment', 'observation', 'conclusion', 'variable', 'control', 'independent', 'dependent',
-          'algorithm', 'function', 'variable', 'loop', 'condition', 'array', 'object', 'class', 'method',
-          'inheritance', 'polymorphism', 'encapsulation', 'abstraction', 'interface', 'database', 'query',
-          'index', 'normalization', 'sql', 'nosql', 'api', 'rest', 'graphql', 'authentication', 'authorization',
-          'encryption', 'hashing', 'cryptography', 'blockchain', 'machine learning', 'artificial intelligence',
-          'neural network', 'deep learning', 'supervised', 'unsupervised', 'regression', 'classification',
-          'clustering', 'optimization', 'gradient descent', 'backpropagation', 'overfitting', 'underfitting',
-          'cross validation', 'feature engineering', 'data preprocessing', 'dimensionality reduction',
-          'principal component analysis', 'singular value decomposition', 'k means', 'hierarchical clustering',
-          'decision tree', 'random forest', 'support vector machine', 'naive bayes', 'logistic regression',
-          'linear regression', 'polynomial regression', 'ridge regression', 'lasso regression', 'elastic net',
-          'regularization', 'dropout', 'batch normalization', 'data augmentation', 'transfer learning',
-          'fine tuning', 'hyperparameter tuning', 'grid search', 'random search', 'bayesian optimization'
-        ];
-        
-        technicalTerms.forEach(term => {
-          if ((questionText.includes(term) || answerText.includes(term)) && !topics.includes(term)) {
-            topics.push(term);
-          }
-        });
-        
-        // Strategy 3: Extract concepts from question patterns
-        const questionPatterns = {
-          'definitions': /(what|define|definition|meaning|term)/i,
-          'processes': /(how|process|steps|procedure|method|technique)/i,
-          'concepts': /(why|explain|discuss|describe|elaborate|analyze)/i,
-          'comparisons': /(compare|difference|similar|contrast|versus|vs)/i,
-          'calculations': /(calculate|compute|solve|equation|formula|math)/i,
-          'applications': /(apply|use|implement|practice|real world|example)/i,
-          'analysis': /(analyze|examine|investigate|study|research)/i,
-          'evaluation': /(evaluate|assess|judge|critique|review)/i
-        };
-        
-        Object.entries(questionPatterns).forEach(([category, pattern]) => {
-          if (pattern.test(questionText) && !topics.includes(category)) {
-            topics.push(category);
-          }
-        });
-        
-        // Strategy 4: Extract domain-specific terms based on content analysis
-        const domainKeywords = {
-          'biology': ['cell', 'organism', 'species', 'evolution', 'genetics', 'ecosystem', 'photosynthesis'],
-          'chemistry': ['molecule', 'atom', 'reaction', 'compound', 'element', 'acid', 'base'],
-          'physics': ['force', 'energy', 'motion', 'gravity', 'wave', 'electricity', 'magnetism'],
-          'mathematics': ['equation', 'formula', 'calculation', 'function', 'variable', 'algorithm'],
-          'computer science': ['algorithm', 'program', 'code', 'function', 'variable', 'database'],
-          'psychology': ['behavior', 'cognition', 'memory', 'learning', 'emotion', 'personality'],
-          'economics': ['market', 'supply', 'demand', 'price', 'cost', 'profit', 'trade'],
-          'history': ['event', 'period', 'civilization', 'war', 'revolution', 'empire', 'culture']
-        };
-        
-        Object.entries(domainKeywords).forEach(([domain, keywords]) => {
-          const domainMatches = keywords.filter(keyword => 
-            questionText.includes(keyword) || answerText.includes(keyword)
-          );
-          if (domainMatches.length > 0 && !topics.includes(domain)) {
-            topics.push(domain);
-          }
-        });
-        
-        // Strategy 5: If still no topics found, use broader categories
-        if (topics.length === 0) {
-          // Analyze question type and content for broader categorization
-          if (q.type === 'mcq') {
-            topics.push('multiple choice concepts');
-          } else if (q.type === 'shortAnswer') {
-            topics.push('short answer skills');
-          } else if (q.type === 'discuss') {
-            topics.push('discussion topics');
-          } else if (q.type === 'describe') {
-            topics.push('descriptive knowledge');
-          } else if (q.type === 'fillBlanks') {
-            topics.push('completion skills');
-          } else {
-            topics.push('general knowledge');
-          }
-        }
-        
-        // Remove duplicates and limit to most relevant topics
-        topics = [...new Set(topics)].slice(0, 3);
-      }
-      
-      // Add performance data for each topic
       topics.forEach(topic => {
         if (!topicPerformance[topic]) {
-          topicPerformance[topic] = { total: 0, earned: 0, questions: [] };
+          topicPerformance[topic] = { 
+            total: 0, 
+            earned: 0, 
+            questions: [],
+            correct: 0,
+            incorrect: 0,
+            partial: 0
+          };
         }
         topicPerformance[topic].total += q.points || 1;
         topicPerformance[topic].earned += feedback[idx]?.points || 0;
         topicPerformance[topic].questions.push({
+          index: idx,
           question: q.question,
-          userAnswer: answers[idx],
-          points: q.points || 1
+          isCorrect: feedback[idx]?.isCorrect,
+          points: feedback[idx]?.points || 0,
+          maxPoints: q.points || 1
         });
+        
+        // Track correct/incorrect/partial counts
+        if (feedback[idx]?.isCorrect) {
+          topicPerformance[topic].correct++;
+        } else if (feedback[idx]?.points > 0) {
+          topicPerformance[topic].partial++;
+        } else {
+          topicPerformance[topic].incorrect++;
+        }
       });
     });
 
-    // Identify strong and weak topics
+    // Calculate insights
     const strongTopics = [];
     const weakTopics = [];
+    const improvingTopics = [];
     const recommendations = [];
 
     Object.entries(topicPerformance).forEach(([topic, data]) => {
-      const topicPercentage = Math.round((data.earned / data.total) * 100);
+      const topicPercentage = Math.round((data.earned / data.total) * 1000) / 10; // Single decimal
       const topicLabel = topic.charAt(0).toUpperCase() + topic.slice(1);
+      data.percentage = topicPercentage;
       
       if (topicPercentage >= 80) {
-        strongTopics.push(`${topicLabel} (${topicPercentage}%)`);
-      } else if (topicPercentage < 60) {
-        weakTopics.push(`${topicLabel} (${topicPercentage}%)`);
-        recommendations.push(`Focus on understanding ${topicLabel.toLowerCase()}`);
+        strongTopics.push({ name: topicLabel, percentage: topicPercentage, questionsCount: data.questions.length });
+      } else if (topicPercentage >= 50 && topicPercentage < 80) {
+        improvingTopics.push({ name: topicLabel, percentage: topicPercentage, questionsCount: data.questions.length });
+        recommendations.push(`Review ${topicLabel.toLowerCase()} concepts to strengthen understanding`);
+      } else {
+        weakTopics.push({ name: topicLabel, percentage: topicPercentage, questionsCount: data.questions.length });
+        recommendations.push(`Focus on ${topicLabel.toLowerCase()} - consider revisiting the fundamentals`);
       }
     });
 
-    // Generate study recommendations
-    const overallRecommendations = [];
-    if (percentage < 70) {
-      overallRecommendations.push("Review fundamental concepts thoroughly");
-    }
-    if (weakTopics.length > 0) {
-      overallRecommendations.push(`Prioritize study of: ${weakTopics.map(t => t.split(' (')[0]).join(', ')}`);
-    }
-    if (strongTopics.length > 0) {
-      overallRecommendations.push(`Maintain understanding of: ${strongTopics.map(t => t.split(' (')[0]).join(', ')}`);
-    }
+    // Sort by percentage
+    strongTopics.sort((a, b) => b.percentage - a.percentage);
+    weakTopics.sort((a, b) => a.percentage - b.percentage);
+    improvingTopics.sort((a, b) => a.percentage - b.percentage);
 
-    return {
-      totalQuestions,
-      totalPoints,
-      earnedPoints,
-      percentage,
-      topicPerformance,
-      strongTopics,
-      weakTopics,
-      recommendations: [...overallRecommendations, ...recommendations]
+    return { 
+      totalQuestions, 
+      totalPoints, 
+      earnedPoints, 
+      percentage, 
+      topicPerformance, 
+      strongTopics, 
+      weakTopics, 
+      improvingTopics,
+      recommendations: recommendations.slice(0, 3) // Limit to top 3 recommendations
     };
   };
 
-  const copyPerformanceSummary = () => {
-    const summary = generatePerformanceSummary();
-    if (!summary) return;
-
-    const summaryText = `STUDENT PERFORMANCE ANALYSIS
-
-Overall Score: ${summary.percentage}% (${summary.earnedPoints}/${summary.totalPoints} points)
-
-TOPIC PERFORMANCE:
-${Object.entries(summary.topicPerformance).map(([topic, data]) => {
-  const percentage = Math.round((data.earned / data.total) * 100);
-  return `- ${topic.charAt(0).toUpperCase() + topic.slice(1)}: ${percentage}% (${data.earned}/${data.total} points)`;
-}).join('\n')}
-
-STRONG TOPICS: ${summary.strongTopics.length > 0 ? summary.strongTopics.map(t => t.split(' (')[0]).join(', ') : 'None identified'}
-
-WEAK TOPICS: ${summary.weakTopics.length > 0 ? summary.weakTopics.map(t => t.split(' (')[0]).join(', ') : 'None identified'}
-
-STUDY FOCUS AREAS:
-${summary.recommendations.map(rec => `- ${rec}`).join('\n')}
-
-INSTRUCTION FOR GEMINI:
-"Based on this student's exam performance, create targeted study materials focusing on their weak topics: ${summary.weakTopics.map(t => t.split(' (')[0]).join(', ')}. The student shows strength in: ${summary.strongTopics.map(t => t.split(' (')[0]).join(', ')}. Provide practice questions, explanations, and learning resources to help improve understanding in the identified weak areas."`;
-
-    navigator.clipboard.writeText(summaryText).then(() => {
-      alert('Performance summary copied to clipboard! You can now paste this into Gemini for personalized study guidance.');
-    }).catch(() => {
-      // Fallback for browsers that don't support clipboard API
-      const textArea = document.createElement('textarea');
-      textArea.value = summaryText;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      alert('Performance summary copied to clipboard! You can now paste this into Gemini for personalized study guidance.');
-    });
-  };
-
   const getQuestionTypeIcon = (type) => {
-    switch (type) {
-      case 'mcq': return '❓';
-      case 'shortAnswer': return '✏️';
-      case 'discuss': return '💭';
-      case 'describe': return '📝';
-      case 'fillBlanks': return '⬜';
-      default: return '❓';
-    }
+    const icons = { 
+      mcq: <HelpCircle className="w-4 h-4" />,
+      'multiple-choice': <HelpCircle className="w-4 h-4" />,
+      shortAnswer: <Pencil className="w-4 h-4" />,
+      'short-answer': <Pencil className="w-4 h-4" />,
+      discuss: <MessageSquare className="w-4 h-4" />,
+      essay: <MessageSquare className="w-4 h-4" />,
+      describe: <FileText className="w-4 h-4" />, 
+      fillBlanks: <Square className="w-4 h-4" /> 
+    };
+    return icons[type] || <HelpCircle className="w-4 h-4" />;
   };
 
   const getQuestionTypeLabel = (type) => {
-    switch (type) {
-      case 'mcq': return 'Multiple Choice';
-      case 'shortAnswer': return 'Short Answer';
-      case 'discuss': return 'Discuss';
-      case 'describe': return 'Describe';
-      case 'fillBlanks': return 'Fill in the Blanks';
-      default: return 'Question';
-    }
+    const labels = { 
+      mcq: 'Multiple Choice', 
+      'multiple-choice': 'Multiple Choice',
+      shortAnswer: 'Short Answer', 
+      'short-answer': 'Short Answer',
+      discuss: 'Discuss', 
+      essay: 'Discuss',
+      describe: 'Describe', 
+      fillBlanks: 'Fill in the Blanks' 
+    };
+    return labels[type] || 'Question';
   };
 
   const getQuestionTypeColor = (type) => {
-    switch (type) {
-      case 'mcq': return 'bg-purple-100 text-purple-700';
-      case 'shortAnswer': return 'bg-blue-100 text-blue-700';
-      case 'discuss': return 'bg-green-100 text-green-700';
-      case 'describe': return 'bg-orange-100 text-orange-700';
-      case 'fillBlanks': return 'bg-yellow-100 text-yellow-700';
-      default: return 'bg-gray-100 text-gray-700';
-    }
-  };
-
-  // Render markdown-formatted text
-  const renderMarkdown = (text) => {
-    if (!text || !text.trim()) return null;
-    
-    return text
-      .split('\n')
-      .map((line, index) => {
-        const trimmedLine = line.trim();
-        
-        // Handle headers
-        if (trimmedLine.startsWith('##')) {
-          const content = trimmedLine.replace(/^##+\s*/, '');
-          return (
-            <h3 key={index} className="text-lg font-semibold text-indigo-900 mt-4 mb-2 first:mt-0">
-              {content}
-            </h3>
-          );
-        }
-        
-        // Handle bullet points
-        if (trimmedLine.match(/^[-*]\s/)) {
-          const content = trimmedLine.replace(/^[-*]\s/, '');
-          // Handle bold text in bullets
-          const parts = content.split(/(\*\*.*?\*\*)/);
-          return (
-            <li key={index} className="ml-6 mb-1.5 text-indigo-800 leading-relaxed list-disc">
-              {parts.map((part, partIndex) => {
-                if (part.startsWith('**') && part.endsWith('**')) {
-                  return <strong key={partIndex} className="font-semibold">{part.slice(2, -2)}</strong>;
-                }
-                return <span key={partIndex}>{part}</span>;
-              })}
-            </li>
-          );
-        }
-        
-        // Handle bold text in regular paragraphs
-        if (trimmedLine.includes('**')) {
-          const parts = trimmedLine.split(/(\*\*.*?\*\*)/);
-          return (
-            <p key={index} className="mb-2 text-indigo-800 leading-relaxed">
-              {parts.map((part, partIndex) => {
-                if (part.startsWith('**') && part.endsWith('**')) {
-                  return <strong key={partIndex} className="font-semibold">{part.slice(2, -2)}</strong>;
-                }
-                return <span key={partIndex}>{part}</span>;
-              })}
-            </p>
-          );
-        }
-        
-        // Regular text (skip empty lines)
-        if (trimmedLine) {
-          return <p key={index} className="mb-2 text-indigo-800 leading-relaxed">{trimmedLine}</p>;
-        }
-        
-        return null;
-      })
-      .filter(Boolean);
+    const colors = { 
+      mcq: 'bg-purple-100 text-purple-700', 
+      'multiple-choice': 'bg-purple-100 text-purple-700',
+      shortAnswer: 'bg-blue-100 text-blue-700', 
+      'short-answer': 'bg-blue-100 text-blue-700',
+      discuss: 'bg-green-100 text-green-700', 
+      essay: 'bg-green-100 text-green-700',
+      describe: 'bg-orange-100 text-orange-700', 
+      fillBlanks: 'bg-yellow-100 text-yellow-700' 
+    };
+    return colors[type] || 'bg-gray-100 text-gray-700';
   };
 
   if (!questions || !questions.length) {
     return (
       <div className="bg-white rounded-xl shadow p-6 text-center">
-        <div className="text-4xl mb-4">📝</div>
+        <ClipboardList className="w-12 h-12 mx-auto mb-4 text-gray-400" />
         <h2 className="text-xl font-bold text-gray-800 mb-2">No Exam Available</h2>
         <p className="text-gray-600">Try generating an exam from your study materials</p>
       </div>
@@ -563,13 +459,44 @@ INSTRUCTION FOR GEMINI:
   }
 
   const performanceSummary = generatePerformanceSummary();
+  const activeQuestion = questionsWithSuggestions[activeQuestionIndex];
 
   return (
-    <div className="space-y-6 lg:space-y-8">
-      <div className="text-center">
-        <h2 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2">📝 Practice Exam</h2>
-        <p className="text-gray-600 text-sm lg:text-base">Complete exam with mixed question types</p>
-      </div>
+    <div 
+      className={`relative transition-all duration-300`}
+      style={chatOpen && isLargeScreen ? {
+        // Break out of centered container on right side only
+        // This extends content from its current right edge to near the viewport edge
+        marginRight: 'calc(-50vw + 50%)',
+        paddingRight: `${chatWidth + 64}px` // Space for panel + gap (16px gap)
+      } : {}}
+    >
+      {/* Questions container */}
+      <div className={`transition-all duration-300`}>
+        {/* Exam Content */}
+        <div className="space-y-6 lg:space-y-8 transition-all duration-300">
+          <div className="text-center">
+            <h2 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-2">
+              <ClipboardList className="w-6 h-6" /> Practice Exam
+            </h2>
+            <p className="text-gray-600 text-sm lg:text-base">Complete exam with mixed question types</p>
+          </div>
+
+      {/* Re-test Questions Summary */}
+      {!submitted && questions.some(q => q.isRetestQuestion) && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 lg:p-5">
+          <div className="flex items-start gap-3">
+            <Target className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-amber-800 mb-1">Personalized Review Exam</h3>
+              <p className="text-sm text-amber-700">
+                This exam includes <strong>{questions.filter(q => q.isRetestQuestion).length} re-test questions</strong> based on concepts you previously struggled with, 
+                plus <strong>{questions.filter(q => !q.isRetestQuestion).length} new questions</strong> to expand your understanding.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Exam Mode Selector */}
       {!submitted && (
@@ -580,142 +507,235 @@ INSTRUCTION FOR GEMINI:
               <p className="text-sm text-gray-600">Choose how you want to take this exam</p>
             </div>
             <div className="flex space-x-2">
-                              <button
-                  type="button"
-                  onClick={() => setCurrentExamMode('standard')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    currentExamMode === 'standard'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  📝 Standard Mode
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCurrentExamMode('practice')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    currentExamMode === 'practice'
-                      ? 'bg-green-600 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  🎯 Practice Mode
-                </button>
-              </div>
+              <button type="button" onClick={() => setCurrentExamMode('standard')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${currentExamMode === 'standard' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>
+                <ClipboardList className="w-4 h-4" /> Standard Mode
+              </button>
+              <button type="button" onClick={() => setCurrentExamMode('practice')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${currentExamMode === 'practice' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>
+                <Target className="w-4 h-4" /> Practice Mode
+              </button>
             </div>
-            {currentExamMode === 'practice' && (
+          </div>
+          {currentExamMode === 'practice' && (
             <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm text-green-700">
-                💡 <strong>Practice Mode:</strong> Get immediate feedback on each question as you answer them. 
-                Perfect for learning and understanding your mistakes in real-time.
-              </p>
+              <p className="text-sm text-green-700 flex items-center gap-1"><Lightbulb className="w-4 h-4" /> <strong>Practice Mode:</strong> Get immediate feedback on each question.</p>
             </div>
           )}
         </div>
       )}
 
       {/* Question Navigation */}
-      <div className="bg-white rounded-xl shadow p-4 lg:p-6">
-        <div className="flex flex-wrap gap-2 lg:gap-3 justify-center">
-          {questions.map((q, idx) => (
-            <button
-              key={idx}
-              onClick={() => navigateToQuestion(idx)}
-              className={`
-                w-10 h-10 lg:w-12 lg:h-12 rounded-lg text-sm lg:text-base font-medium transition-all duration-200 flex items-center justify-center
-                ${currentQuestionIndex === idx 
-                  ? 'bg-blue-500 text-white shadow-lg' 
-                  : answers[idx] 
-                    ? 'bg-green-100 text-green-700 border border-green-300' 
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+      <div ref={navRef} className="bg-white rounded-xl shadow sticky top-0 z-10 overflow-hidden">
+        {/* Collapse Header */}
+        <button
+          type="button"
+          onClick={() => setNavCollapsed(!navCollapsed)}
+          className="w-full px-4 lg:px-6 py-3 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white hover:from-gray-100 hover:to-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">Question Navigator</span>
+            {!submitted && (
+              <span className="text-xs text-gray-500">
+                ({answers.filter(a => a && a.trim()).length}/{questions.length} answered)
+              </span>
+            )}
+          </div>
+          {navCollapsed ? (
+            <ChevronDown className="w-5 h-5 text-gray-500" />
+          ) : (
+            <ChevronUp className="w-5 h-5 text-gray-500" />
+          )}
+        </button>
+        
+        {/* Collapsible Content */}
+        <div className={`transition-all duration-300 ease-in-out ${navCollapsed ? 'max-h-0 opacity-0' : 'max-h-[500px] opacity-100'}`}>
+          <div className="px-4 lg:px-6 pb-4 lg:pb-6">
+            {/* Question Type Summary */}
+            <div className="flex gap-2 text-xs mb-3 justify-center flex-wrap">
+              {(() => {
+                const mcqCount = questions.filter(q => q.type === 'mcq' || q.type === 'multiple-choice').length;
+                const shortCount = questions.filter(q => q.type === 'shortAnswer' || q.type === 'short-answer').length;
+                const essayCount = questions.filter(q => q.type === 'discuss' || q.type === 'essay').length;
+                const describeCount = questions.filter(q => q.type === 'describe').length;
+                const fillCount = questions.filter(q => q.type === 'fillBlanks').length;
+                return (
+                  <>
+                    {mcqCount > 0 && <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full font-medium">{mcqCount} MCQ</span>}
+                    {shortCount > 0 && <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-medium">{shortCount} Short</span>}
+                    {essayCount > 0 && <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full font-medium">{essayCount} Essay</span>}
+                    {describeCount > 0 && <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full font-medium">{describeCount} Describe</span>}
+                    {fillCount > 0 && <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full font-medium">{fillCount} Fill-in</span>}
+                  </>
+                );
+              })()}
+            </div>
+            
+            {/* Question Type Legend */}
+            <div className="flex gap-3 text-xs text-gray-500 mb-3 justify-center flex-wrap">
+              <span className="flex items-center gap-1"><HelpCircle className="w-3 h-3 text-purple-500" /> MCQ</span>
+              <span className="flex items-center gap-1"><Pencil className="w-3 h-3 text-blue-500" /> Short</span>
+              <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3 text-green-500" /> Essay</span>
+              <span className="flex items-center gap-1"><FileText className="w-3 h-3 text-orange-500" /> Describe</span>
+              <span className="flex items-center gap-1"><Square className="w-3 h-3 text-yellow-600" /> Fill-in</span>
+            </div>
+            
+            <div className="flex flex-wrap gap-2 lg:gap-3 justify-center">
+              {questions.map((q, idx) => {
+                const questionFeedback = feedback && feedback[idx];
+                const isSubmittedCorrect = submitted && questionFeedback?.isCorrect;
+                const isSubmittedPartial = submitted && !questionFeedback?.isCorrect && questionFeedback?.points > 0;
+                const isSubmittedWrong = submitted && questionFeedback && !questionFeedback.isCorrect && questionFeedback.points === 0;
+                
+                // Get border color based on question type
+                const typeBorderColor = {
+                  'mcq': 'border-l-purple-500',
+                  'multiple-choice': 'border-l-purple-500',
+                  'shortAnswer': 'border-l-blue-500',
+                  'short-answer': 'border-l-blue-500',
+                  'discuss': 'border-l-green-500',
+                  'essay': 'border-l-green-500',
+                  'describe': 'border-l-orange-500',
+                  'fillBlanks': 'border-l-yellow-500'
+                }[q.type] || 'border-l-gray-400';
+                
+                let navButtonClass = 'bg-gray-100 text-gray-600 hover:bg-gray-200'; // default unanswered
+                if (currentQuestionIndex === idx && !submitted) {
+                  navButtonClass = 'bg-blue-500 text-white shadow-lg';
+                } else if (isSubmittedCorrect) {
+                  navButtonClass = 'bg-green-500 text-white';
+                } else if (isSubmittedPartial) {
+                  navButtonClass = 'bg-yellow-400 text-yellow-900';
+                } else if (isSubmittedWrong) {
+                  navButtonClass = 'bg-red-400 text-white';
+                } else if (answers[idx]) {
+                  navButtonClass = 'bg-green-100 text-green-700 border border-green-300';
                 }
-                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-                active:scale-95
-              `}
-              title={`${idx + 1}. ${getQuestionTypeLabel(q.type)}`}
-            >
-              {getQuestionTypeIcon(q.type)}
-            </button>
-          ))}
+                
+                return (
+                  <button key={idx} onClick={() => handleQuestionNavClick(idx)}
+                    className={`w-10 h-10 lg:w-12 lg:h-12 rounded-lg text-sm lg:text-base font-medium transition-colors duration-200 flex items-center justify-center border-l-4 touch-manipulation ${typeBorderColor}
+                      ${navButtonClass}
+                      ${currentQuestionIndex === idx && submitted ? 'ring-2 ring-blue-500 ring-offset-2' : ''}
+                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                    title={`${idx + 1}. ${getQuestionTypeLabel(q.type)}`}>
+                    {idx + 1}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6 lg:space-y-8">
-        {questions.map((q, idx) => {
-          const isSelected = answers[idx];
+            {questionsWithSuggestions.map((q, idx) => {
           const questionFeedback = feedback && feedback[idx];
           const isCorrect = submitted && questionFeedback?.isCorrect;
-          const isWrong = submitted && isSelected && questionFeedback && !questionFeedback.isCorrect;
           const currentIndividualFeedback = individualFeedback[idx];
-          const currentUnderstanding = structuredUnderstanding[idx];
+          const isCurrentQuestion = currentQuestionIndex === idx;
+          const isActiveInChat = chatOpen && activeQuestionIndex === idx;
 
           return (
-            <div 
-              key={idx} 
-              ref={el => questionRefs.current[idx] = el}
-              className={`bg-white rounded-xl shadow p-4 lg:p-6 space-y-4 lg:space-y-6 transition-all duration-300 ${
-                currentQuestionIndex === idx ? 'ring-2 ring-blue-500' : ''
-              }`}
-            >
-              {/* Question Header */}
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-3 lg:space-y-0">
-                <div className="font-semibold text-base lg:text-lg text-gray-800 leading-relaxed flex-1 min-w-0">
-                  {idx + 1}. {q.question}
+            <div key={idx} ref={el => questionRefs.current[idx] = el}
+              data-question-index={idx}
+              className={`bg-white rounded-xl shadow p-4 lg:p-6 space-y-4 lg:space-y-6 transition-all duration-300 
+                ${isCurrentQuestion ? 'ring-2 ring-blue-500' : ''} 
+                ${isActiveInChat ? 'ring-2 ring-indigo-500 bg-indigo-50/30' : ''}`}>
+              
+              {/* Re-test Question Indicator */}
+              {q.isRetestQuestion && (
+                <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-xs lg:text-sm text-amber-700 flex items-center gap-2">
+                    <Target className="w-4 h-4 flex-shrink-0" />
+                    <span><strong>Re-test Question:</strong> This tests a concept you previously struggled with</span>
+                  </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 lg:gap-3 flex-shrink-0">
-                  <span className={`px-2 lg:px-3 py-1 lg:py-2 rounded-full text-xs lg:text-sm font-medium ${getQuestionTypeColor(q.type)}`}>
+              )}
+              
+              {/* Question Header */}
+              <div className="space-y-2">
+                {/* Type and metadata row */}
+                <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+                  <span className={`px-2 py-1 rounded-full font-medium inline-flex items-center gap-1 ${getQuestionTypeColor(q.type)}`}>
                     {getQuestionTypeIcon(q.type)} {getQuestionTypeLabel(q.type)}
                   </span>
-                  <span className="px-2 lg:px-3 py-1 lg:py-2 bg-gray-100 text-gray-600 rounded text-xs lg:text-sm font-medium">
-                    {q.points || 1} pt{q.points !== 1 ? 's' : ''}
-                  </span>
+                  <span className="text-gray-300">•</span>
+                  <span className="font-medium">{q.points || 1} pt{q.points !== 1 ? 's' : ''}</span>
+                  {q.isRetestQuestion && (
+                    <>
+                      <span className="text-gray-300">•</span>
+                      <span className="px-2 py-1 rounded-full font-medium bg-amber-100 text-amber-700 inline-flex items-center gap-1">
+                        <Target className="w-3 h-3" /> Re-test
+                      </span>
+                    </>
+                  )}
+                </div>
+                {/* Question text */}
+                <div className="font-semibold text-base lg:text-lg text-gray-800 leading-relaxed">
+                  {idx + 1}. {q.question}
                 </div>
               </div>
 
-              {/* AI Learning Guide Button - Separate Section */}
-              <div className="flex justify-start border-t border-gray-200 pt-4">
-                <button
-                  type="button"
-                  onClick={() => handleStructuredUnderstanding(idx)}
-                  disabled={isRequestingUnderstanding[idx]}
-                  className="px-4 py-2 lg:px-5 lg:py-2.5 bg-indigo-600 text-white rounded-lg text-sm lg:text-base font-medium hover:bg-indigo-700 disabled:opacity-70 disabled:cursor-not-allowed transition-colors shadow-sm hover:shadow-md flex items-center gap-2"
-                >
-                  <span>🤖</span>
-                  <span>{isRequestingUnderstanding[idx] ? 'Asking AI…' : 'Get AI Learning Guide'}</span>
-                </button>
-              </div>
+              {/* AI Help Suggestions - Expandable */}
+              {q.aiSuggestions && q.aiSuggestions.length > 0 && (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleHints(idx)}
+                    className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 transition-colors"
+                  >
+                    {expandedHints.has(idx) ? (
+                      <ChevronDown className="w-4 h-4" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4" />
+                    )}
+                    <Lightbulb className="w-4 h-4" />
+                    <span className="font-medium">
+                      {expandedHints.has(idx) ? 'Hide hints' : 'Need a hint?'}
+                    </span>
+                  </button>
+                  {expandedHints.has(idx) && (
+                    <div className="flex flex-wrap items-center gap-2 pl-6 animate-in fade-in slide-in-from-top-1 duration-200">
+                      {q.aiSuggestions.map((suggestion, sIdx) => (
+                        <button key={sIdx} type="button" onClick={() => handleSuggestionClick(idx, suggestion)}
+                          className="px-3 py-1.5 rounded-full text-xs transition-colors flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300">
+                          <Bot className="w-3.5 h-3.5" />
+                          <span>{suggestion}</span>
+                        </button>
+                      ))}
+                      <span className="text-gray-300 mx-1">|</span>
+                      <button
+                        type="button"
+                        onClick={() => { setActiveQuestionIndex(idx); setChatOpen(true); }}
+                        className="text-xs text-gray-500 hover:text-indigo-600 transition-colors flex items-center gap-1 hover:underline"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>Ask freely</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Answer Options for MCQ */}
-              {q.type === 'mcq' && q.options && (
+              {(q.type === 'mcq' || q.type === 'multiple-choice') && q.options && q.options.length > 0 && (
                 <div className="grid grid-cols-1 gap-3 lg:gap-4">
                   {q.options.map((opt, oidx) => {
                     const isSelectedOption = answers[idx] === opt;
                     const isCorrectOption = submitted && opt === q.answer;
                     const isWrongOption = submitted && isSelectedOption && !isCorrectOption;
-
                     return (
-                      <button
-                        type="button"
-                        key={oidx}
-                        onClick={() => handleSelect(idx, opt)}
-                        disabled={submitted}
-                        className={`
-                          p-4 lg:p-5 rounded-lg border-2 text-left transition-all duration-200
-                          min-h-[60px] lg:min-h-[70px] flex items-center
+                      <button type="button" key={oidx} onClick={() => handleSelect(idx, opt)} disabled={submitted}
+                        className={`p-4 lg:p-5 rounded-lg border-2 text-left transition-all duration-200 min-h-[60px] lg:min-h-[70px] flex items-center
                           ${isSelectedOption ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-gray-50'}
                           ${isCorrectOption ? 'border-green-500 bg-green-50 text-green-700 font-semibold' : ''}
                           ${isWrongOption ? 'border-red-500 bg-red-50 text-red-700 font-semibold' : ''}
-                          hover:border-blue-400 hover:bg-blue-100 disabled:cursor-default
-                          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-                          active:scale-98
-                        `}
-                        aria-pressed={isSelectedOption}
-                      >
+                          hover:border-blue-400 hover:bg-blue-100 disabled:cursor-default focus:outline-none focus:ring-2 focus:ring-blue-500`}>
                         <div className="flex items-center justify-between w-full">
                           <span className="text-sm lg:text-base leading-relaxed">{opt}</span>
-                          {isCorrectOption && <span className="text-2xl lg:text-3xl flex-shrink-0">✅</span>}
-                          {isWrongOption && <span className="text-2xl lg:text-3xl flex-shrink-0">❌</span>}
+                          {isCorrectOption && <Check className="w-6 h-6 lg:w-8 lg:h-8 text-green-600 flex-shrink-0" />}
+                          {isWrongOption && <X className="w-6 h-6 lg:w-8 lg:h-8 text-red-600 flex-shrink-0" />}
                         </div>
                       </button>
                     );
@@ -723,40 +743,55 @@ INSTRUCTION FOR GEMINI:
                 </div>
               )}
 
-              {/* Text Input for other question types */}
-              {q.type !== 'mcq' && (
+              {/* Text Input for other question types (or MCQ without options as fallback) */}
+              {((q.type !== 'mcq' && q.type !== 'multiple-choice') || !q.options || q.options.length === 0) && (
                 <div className="space-y-2">
-                  <textarea
-                    value={answers[idx] || ''}
-                    onChange={(e) => handleTextChange(idx, e.target.value)}
-                    disabled={submitted}
-                    rows={q.type === 'discuss' || q.type === 'describe' ? 4 : 2}
-                    className={`w-full px-4 py-3 lg:py-4 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition resize-none text-sm lg:text-base ${
-                      submitted && isCorrect ? 'border-green-500 bg-green-50' : 
-                      submitted && questionFeedback && questionFeedback.points > 0 ? 'border-blue-500 bg-blue-50' :
-                      submitted && isWrong ? 'border-red-500 bg-red-50' : 
-                      'border-gray-300'
-                    }`}
+                  {/* Response length hint */}
+                  {(q.type === 'discuss' || q.type === 'essay') && (
+                    <div className="text-xs text-gray-400 flex items-center gap-1">
+                      <MessageSquare className="w-3 h-3" />
+                      Extended response expected (2-3 paragraphs)
+                    </div>
+                  )}
+                  {(q.type === 'shortAnswer' || q.type === 'short-answer') && (
+                    <div className="text-xs text-gray-400 flex items-center gap-1">
+                      <Pencil className="w-3 h-3" />
+                      Brief answer (1-2 sentences)
+                    </div>
+                  )}
+                  {q.type === 'describe' && (
+                    <div className="text-xs text-gray-400 flex items-center gap-1">
+                      <FileText className="w-3 h-3" />
+                      Descriptive response (1-2 paragraphs)
+                    </div>
+                  )}
+                  {q.type === 'fillBlanks' && (
+                    <div className="text-xs text-gray-400 flex items-center gap-1">
+                      <Square className="w-3 h-3" />
+                      Fill in the missing word(s)
+                    </div>
+                  )}
+                  <textarea value={answers[idx] || ''} onChange={(e) => handleTextChange(idx, e.target.value)} disabled={submitted}
+                    rows={q.type === 'discuss' || q.type === 'essay' ? 5 : q.type === 'describe' ? 4 : q.type === 'fillBlanks' ? 1 : 2}
+                    className={`w-full px-4 py-3 lg:py-4 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition resize-none text-sm lg:text-base
+                      ${submitted && isCorrect ? 'border-green-500 bg-green-50' : submitted && questionFeedback?.points > 0 ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}`}
                     placeholder={
-                      q.type === 'shortAnswer' ? 'Type your brief answer here...' :
-                      q.type === 'discuss' ? 'Discuss the topic in detail...' :
-                      q.type === 'describe' ? 'Provide a detailed description...' :
-                      q.type === 'fillBlanks' ? 'Fill in the missing words...' :
+                      q.type === 'shortAnswer' || q.type === 'short-answer' ? 'Type your brief answer here...' : 
+                      q.type === 'discuss' || q.type === 'essay' ? 'Discuss the topic in detail...' : 
+                      q.type === 'describe' ? 'Describe in your own words...' :
+                      q.type === 'fillBlanks' ? 'Enter the missing word(s)...' :
                       'Type your answer here...'
                     }
                   />
                 </div>
               )}
 
-              {/* Check Answer Button */}
+              {/* Check Answer Button (Practice Mode) */}
               {!submitted && currentExamMode === 'practice' && (
                 <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => handleCheckAnswer(idx)}
+                  <button type="button" onClick={() => handleCheckAnswer(idx)}
                     disabled={isCheckingAnswer[idx] || !answers[idx] || answers[idx].trim() === ''}
-                    className="px-4 py-2 lg:px-6 lg:py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors text-sm lg:text-base"
-                  >
+                    className="px-4 py-2 lg:px-6 lg:py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors text-sm lg:text-base">
                     {isCheckingAnswer[idx] ? 'Checking...' : 'Check Answer'}
                   </button>
                 </div>
@@ -764,65 +799,87 @@ INSTRUCTION FOR GEMINI:
 
               {/* Immediate Feedback for Practice Mode */}
               {!submitted && currentExamMode === 'practice' && currentIndividualFeedback && (
-                <div className={`mt-3 p-4 lg:p-5 rounded-lg ${
-                  currentIndividualFeedback.isCorrect ? 'bg-green-50 text-green-700' : 
-                  (currentIndividualFeedback.points > 0) ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-700'
-                }`}>
+                <div className={`mt-3 p-4 lg:p-5 rounded-lg ${currentIndividualFeedback.isCorrect ? 'bg-green-50 text-green-700' : currentIndividualFeedback.points > 0 ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-700'}`}>
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 lg:mb-3 space-y-2 sm:space-y-0">
-                    <div className="flex items-center font-medium text-sm lg:text-base">
-                      <span className="mr-2">{currentIndividualFeedback.isCorrect ? '✅' : (currentIndividualFeedback.points > 0) ? '👍' : '❌'}</span>
-                      {currentIndividualFeedback.isCorrect ? 'Correct!' : (currentIndividualFeedback.points > 0) ? 'Partial credit!' : 'Incorrect'}
+                    <div className="flex items-center font-medium text-sm lg:text-base gap-2">
+                      {currentIndividualFeedback.isCorrect ? <Check className="w-5 h-5" /> : currentIndividualFeedback.points > 0 ? <ThumbsUp className="w-5 h-5" /> : <X className="w-5 h-5" />}
+                      {currentIndividualFeedback.isCorrect ? 'Correct!' : currentIndividualFeedback.points > 0 ? 'Partial credit!' : 'Incorrect'}
                     </div>
-                    <div className="text-sm lg:text-base font-semibold">
-                      {currentIndividualFeedback.points}/{currentIndividualFeedback.maxPoints || 1} points
-                    </div>
+                    <div className="text-sm lg:text-base font-semibold">{currentIndividualFeedback.points}/{currentIndividualFeedback.maxPoints || 1} points</div>
                   </div>
-                  
                   <div className="text-sm lg:text-base mb-3 lg:mb-4 leading-relaxed">
-                    {typeof currentIndividualFeedback.feedback === 'string'
-                      ? currentIndividualFeedback.feedback
-                      : currentIndividualFeedback.explanation || 'Feedback available'}
+                    {typeof currentIndividualFeedback.feedback === 'string' ? currentIndividualFeedback.feedback : currentIndividualFeedback.explanation || 'Feedback available'}
                   </div>
-
-                  {/* Expected Answer (for reference) */}
                   {!currentIndividualFeedback.isCorrect && (
                     <div className="mt-3 lg:mt-4 pt-3 lg:pt-4 border-t border-current border-opacity-20">
-                      <div className="font-semibold mb-1 text-sm lg:text-base">📋 Expected answer:</div>
+                      <div className="font-semibold mb-1 text-sm lg:text-base flex items-center gap-1"><FileText className="w-4 h-4" /> Expected answer:</div>
                       <div className="text-sm lg:text-base opacity-80 leading-relaxed">{q.answer}</div>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Feedback */}
-              {submitted && (
-                <div className={`mt-3 p-4 lg:p-5 rounded-lg ${
-                  questionFeedback?.isCorrect ? 'bg-green-50 text-green-700' : 
-                  (questionFeedback?.points > 0) ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-700'
-                }`}>
+              {/* Submitted Feedback */}
+              {submitted && questionFeedback && (
+                <div className={`mt-3 p-4 lg:p-5 rounded-lg ${questionFeedback.isCorrect ? 'bg-green-50 text-green-700' : questionFeedback.points > 0 ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-700'}`}>
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 lg:mb-3 space-y-2 sm:space-y-0">
-                    <div className="flex items-center font-medium text-sm lg:text-base">
-                      <span className="mr-2">{questionFeedback?.isCorrect ? '✅' : (questionFeedback?.points > 0) ? '👍' : '❌'}</span>
-                      {questionFeedback?.isCorrect ? 'Great work!' : (questionFeedback?.points > 0) ? 'Partial credit!' : 'Room for improvement'}
+                    <div className="flex items-center font-medium text-sm lg:text-base gap-2">
+                      {questionFeedback.isCorrect ? <Check className="w-5 h-5" /> : questionFeedback.points > 0 ? <ThumbsUp className="w-5 h-5" /> : <X className="w-5 h-5" />}
+                      {questionFeedback.isCorrect ? 'Great work!' : questionFeedback.points > 0 ? 'Partial credit!' : 'Room for improvement'}
                     </div>
-                    <div className="text-sm lg:text-base font-semibold">
-                      {questionFeedback?.points}/{questionFeedback?.maxPoints} points
-                    </div>
+                    <div className="text-sm lg:text-base font-semibold">{questionFeedback.points}/{questionFeedback.maxPoints} points</div>
+                  </div>
+                  
+                  {/* Show user's answer */}
+                  <div className="text-sm mb-2 opacity-90">
+                    <span className="font-medium">Your answer:</span> {questionFeedback.userAnswer || answers[idx] || 'No answer provided'}
                   </div>
                   
                   <div className="text-sm lg:text-base mb-3 lg:mb-4 leading-relaxed">
-                    {typeof questionFeedback?.feedback === 'string'
-                      ? questionFeedback?.feedback
-                      : JSON.stringify(questionFeedback?.feedback)}
+                    {typeof questionFeedback.feedback === 'string' ? questionFeedback.feedback : JSON.stringify(questionFeedback.feedback)}
                   </div>
-
-                  {/* Personalized Suggestions */}
-                  {questionFeedback?.suggestions && questionFeedback?.suggestions.length > 0 && (
+                  {!questionFeedback.isCorrect && (
                     <div className="mt-3 lg:mt-4 pt-3 lg:pt-4 border-t border-current border-opacity-20">
-                      <div className="font-semibold mb-2 text-sm lg:text-base">💡 Suggestions for improvement:</div>
-                      <ul className="text-sm lg:text-base space-y-1 lg:space-y-2">
-                        {questionFeedback?.suggestions.map((suggestion, suggestionIdx) => (
-                          <li key={suggestionIdx} className="flex items-start">
+                      <div className="font-semibold mb-1 text-sm lg:text-base flex items-center gap-1"><FileText className="w-4 h-4" /> Expected answer:</div>
+                      <div className="text-sm lg:text-base opacity-80 leading-relaxed">{q.answer}</div>
+                    </div>
+                  )}
+                  
+                  {/* Keep in Mind - for correct answers */}
+                  {questionFeedback.isCorrect && questionFeedback.keepInMind && (
+                    <div className="mt-3 lg:mt-4 pt-3 lg:pt-4 border-t border-current border-opacity-20">
+                      <div className="font-semibold mb-2 text-sm lg:text-base flex items-center gap-1">
+                        <Lightbulb className="w-4 h-4" /> Keep in mind:
+                      </div>
+                      <div className="text-sm lg:text-base opacity-90 leading-relaxed">
+                        {typeof questionFeedback.keepInMind === 'string' 
+                          ? questionFeedback.keepInMind 
+                          : Array.isArray(questionFeedback.keepInMind) 
+                            ? (
+                              <ul className="space-y-1">
+                                {questionFeedback.keepInMind.map((tip, tIdx) => (
+                                  <li key={tIdx} className="flex items-start">
+                                    <span className="mr-2 mt-0.5">•</span>
+                                    <span>{tip}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )
+                            : null
+                        }
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Personalized Suggestions - for incorrect/partial answers */}
+                  {!questionFeedback.isCorrect && questionFeedback.suggestions && questionFeedback.suggestions.length > 0 && (
+                    <div className="mt-3 lg:mt-4 pt-3 lg:pt-4 border-t border-current border-opacity-20">
+                      <div className="font-semibold mb-2 text-sm lg:text-base flex items-center gap-1">
+                        <Lightbulb className="w-4 h-4" /> Suggestions to improve:
+                      </div>
+                      <ul className="text-sm lg:text-base opacity-90 space-y-1">
+                        {questionFeedback.suggestions.map((suggestion, sIdx) => (
+                          <li key={sIdx} className="flex items-start">
                             <span className="mr-2 mt-0.5">•</span>
                             <span>{suggestion}</span>
                           </li>
@@ -830,28 +887,28 @@ INSTRUCTION FOR GEMINI:
                       </ul>
                     </div>
                   )}
-
-                  {/* Expected Answer (for reference) */}
-                  {!questionFeedback?.isCorrect && (
+                  
+                  {/* AI Help Button for deeper understanding */}
+                  {!questionFeedback.isCorrect && q.aiSuggestions && q.aiSuggestions.length > 0 && (
                     <div className="mt-3 lg:mt-4 pt-3 lg:pt-4 border-t border-current border-opacity-20">
-                      <div className="font-semibold mb-1 text-sm lg:text-base">📋 Expected answer:</div>
-                      <div className="text-sm lg:text-base opacity-80 leading-relaxed">{q.answer}</div>
+                      <div className="font-semibold mb-2 text-sm lg:text-base flex items-center gap-1">
+                        <Bot className="w-4 h-4" /> Need more help?
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {q.aiSuggestions.slice(0, 3).map((suggestion, sIdx) => (
+                          <button
+                            key={sIdx}
+                            type="button"
+                            onClick={() => handleSuggestionClick(idx, suggestion)}
+                            className="px-3 py-1.5 rounded-full text-xs bg-white/50 border border-current border-opacity-30 hover:bg-white/80 transition-colors flex items-center gap-1.5"
+                          >
+                            <Bot className="w-3.5 h-3.5" />
+                            <span>{suggestion}</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
-                </div>
-              )}
-
-              {/* AI Structured Understanding */}
-              {/* AI Structured Understanding Display */}
-              {currentUnderstanding && (
-                <div className="mt-4 lg:mt-5 p-4 lg:p-5 rounded-lg bg-indigo-50 border border-indigo-200">
-                  <div className="font-semibold text-base lg:text-lg text-indigo-900 mb-3 lg:mb-4 flex items-center gap-2">
-                    <span>🤖</span>
-                    <span>AI Learning Guide</span>
-                  </div>
-                  <div className="text-sm lg:text-base">
-                    {renderMarkdown(currentUnderstanding)}
-                  </div>
                 </div>
               )}
             </div>
@@ -861,10 +918,7 @@ INSTRUCTION FOR GEMINI:
         {/* Submit Button */}
         {!submitted && (
           <div className="flex justify-center">
-            <button
-              type="submit"
-              className="w-full sm:w-auto px-8 py-4 lg:px-12 lg:py-5 bg-blue-600 text-white rounded-xl font-bold text-base lg:text-lg hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl"
-            >
+            <button type="submit" className="w-full sm:w-auto px-8 py-4 lg:px-12 lg:py-5 bg-blue-600 text-white rounded-xl font-bold text-base lg:text-lg hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl">
               Submit Exam
             </button>
           </div>
@@ -873,10 +927,7 @@ INSTRUCTION FOR GEMINI:
         {/* Assessment Loading */}
         {isAssessing && (
           <div className="text-center py-8 lg:py-12">
-            <LottieLoader 
-              text="Assessing your answers with AI..." 
-              size="large"
-            />
+            <LottieLoader text="Assessing your answers with AI..." size="large" />
             <p className="text-sm lg:text-base text-gray-500 mt-2">This may take a moment for open-ended questions</p>
           </div>
         )}
@@ -884,40 +935,68 @@ INSTRUCTION FOR GEMINI:
 
       {/* Performance Summary */}
       {submitted && performanceSummary && showPerformanceSummary && (
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow p-4 lg:p-6 space-y-4 lg:space-y-6">
-          <div className="text-center">
-            <h3 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2">📊 Performance Summary</h3>
-            <p className="text-gray-600 text-sm lg:text-base">Your comprehensive exam results and study recommendations</p>
-          </div>
-
-          {/* Overall Performance */}
-          <div className="bg-white rounded-lg p-4 lg:p-6 space-y-4 lg:space-y-6">
-            <div className="text-center">
-              <div className="text-3xl lg:text-4xl font-bold text-blue-600 mb-2">
-                {performanceSummary.percentage}%
+        <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl shadow-lg overflow-hidden">
+          {/* Header with Score */}
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 lg:p-8">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+              <div className="text-center lg:text-left">
+                <h3 className="text-xl lg:text-2xl font-bold mb-1 flex items-center justify-center lg:justify-start gap-2">
+                  <BarChart3 className="w-6 h-6" /> Exam Complete
+                </h3>
+                <p className="text-blue-100 text-sm">Here&apos;s how you performed</p>
               </div>
-              <div className="text-gray-600 text-sm lg:text-base">
-                {performanceSummary.earnedPoints}/{performanceSummary.totalPoints} points earned
+              <div className="flex items-center gap-6">
+                <div className="text-center">
+                  <div className="text-4xl lg:text-5xl font-bold">{performanceSummary.percentage}%</div>
+                  <div className="text-blue-200 text-sm mt-1">{performanceSummary.earnedPoints}/{performanceSummary.totalPoints} pts</div>
+                </div>
+                <div className={`w-16 h-16 lg:w-20 lg:h-20 rounded-full flex items-center justify-center ${
+                  performanceSummary.percentage >= 80 ? 'bg-green-400' : 
+                  performanceSummary.percentage >= 60 ? 'bg-yellow-400' : 'bg-red-400'
+                }`}>
+                  {performanceSummary.percentage >= 80 ? (
+                    <ThumbsUp className="w-8 h-8 lg:w-10 lg:h-10 text-white" />
+                  ) : performanceSummary.percentage >= 60 ? (
+                    <Target className="w-8 h-8 lg:w-10 lg:h-10 text-white" />
+                  ) : (
+                    <BookOpen className="w-8 h-8 lg:w-10 lg:h-10 text-white" />
+                  )}
+                </div>
               </div>
             </div>
+          </div>
 
-            {/* Performance by Question Type */}
-            <div className="space-y-3 lg:space-y-4">
-              <h4 className="font-semibold text-gray-800 text-sm lg:text-base">Performance by Topic:</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4">
+          <div className="p-4 lg:p-6 space-y-6">
+            {/* Topic Performance Grid */}
+            <div>
+              <h4 className="font-semibold text-gray-800 text-base lg:text-lg mb-4 flex items-center gap-2">
+                <ClipboardList className="w-5 h-5 text-blue-600" /> Performance by Topic
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {Object.entries(performanceSummary.topicPerformance).map(([topic, data]) => {
-                  const percentage = Math.round((data.earned / data.total) * 100);
-                  const colorClass = percentage >= 80 ? 'text-green-600' : 
-                                   percentage >= 60 ? 'text-yellow-600' : 'text-red-600';
+                  const percentage = data.percentage || Math.round((data.earned / data.total) * 1000) / 10;
+                  const bgColor = percentage >= 80 ? 'bg-green-50 border-green-200' : 
+                                  percentage >= 50 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200';
+                  const textColor = percentage >= 80 ? 'text-green-700' : 
+                                   percentage >= 50 ? 'text-amber-700' : 'text-red-700';
+                  const progressColor = percentage >= 80 ? 'bg-green-500' : 
+                                        percentage >= 50 ? 'bg-amber-500' : 'bg-red-500';
                   
                   return (
-                    <div key={topic} className="bg-gray-50 rounded-lg p-3 lg:p-4">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm lg:text-base">{topic.charAt(0).toUpperCase() + topic.slice(1)}</span>
-                        <span className={`font-bold ${colorClass} text-sm lg:text-base`}>{percentage}%</span>
+                    <div key={topic} className={`rounded-lg p-4 border ${bgColor} transition-all hover:shadow-md`}>
+                      <div className="flex items-start justify-between mb-2">
+                        <span className="font-medium text-gray-800 text-sm leading-tight flex-1 pr-2">
+                          {topic.charAt(0).toUpperCase() + topic.slice(1)}
+                        </span>
+                        <span className={`font-bold text-lg ${textColor}`}>{percentage}%</span>
                       </div>
-                      <div className="text-xs lg:text-sm text-gray-600">
-                        {data.earned}/{data.total} points
+                      {/* Progress bar */}
+                      <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                        <div className={`h-2 rounded-full transition-all ${progressColor}`} style={{ width: `${percentage}%` }} />
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>{data.earned}/{data.total} pts</span>
+                        <span>{data.correct || 0}✓ {data.partial || 0}~ {data.incorrect || 0}✗</span>
                       </div>
                     </div>
                   );
@@ -925,65 +1004,132 @@ INSTRUCTION FOR GEMINI:
               </div>
             </div>
 
-            {/* Strengths and Weaknesses */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
+            {/* Insights Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* Strengths */}
               {performanceSummary.strongTopics.length > 0 && (
-                <div className="bg-green-50 rounded-lg p-4 lg:p-5">
-                  <h5 className="font-semibold text-green-800 mb-2 text-sm lg:text-base">✅ Strong Topics</h5>
-                  <ul className="text-xs lg:text-sm text-green-700 space-y-1 lg:space-y-2">
-                    {performanceSummary.strongTopics.map((strength, idx) => (
-                      <li key={idx} className="flex items-start">
-                        <span className="mr-2 mt-0.5">•</span>
-                        <span>{strength}</span>
-                      </li>
+                <div className="bg-white rounded-xl p-4 border border-green-100 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                      <Check className="w-4 h-4 text-green-600" />
+                    </div>
+                    <h5 className="font-semibold text-green-800">Strengths</h5>
+                  </div>
+                  <div className="space-y-2">
+                    {performanceSummary.strongTopics.map((topic, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-700">{topic.name}</span>
+                        <span className="font-medium text-green-600">{topic.percentage}%</span>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
 
+              {/* Needs Improvement */}
+              {performanceSummary.improvingTopics && performanceSummary.improvingTopics.length > 0 && (
+                <div className="bg-white rounded-xl p-4 border border-amber-100 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
+                      <Target className="w-4 h-4 text-amber-600" />
+                    </div>
+                    <h5 className="font-semibold text-amber-800">Almost There</h5>
+                  </div>
+                  <div className="space-y-2">
+                    {performanceSummary.improvingTopics.map((topic, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-700">{topic.name}</span>
+                        <span className="font-medium text-amber-600">{topic.percentage}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Weak Areas */}
               {performanceSummary.weakTopics.length > 0 && (
-                <div className="bg-red-50 rounded-lg p-4 lg:p-5">
-                  <h5 className="font-semibold text-red-800 mb-2 text-sm lg:text-base">⚠️ Weak Topics</h5>
-                  <ul className="text-xs lg:text-sm text-red-700 space-y-1 lg:space-y-2">
-                    {performanceSummary.weakTopics.map((weakness, idx) => (
-                      <li key={idx} className="flex items-start">
-                        <span className="mr-2 mt-0.5">•</span>
-                        <span>{weakness}</span>
-                      </li>
+                <div className="bg-white rounded-xl p-4 border border-red-100 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                      <AlertTriangle className="w-4 h-4 text-red-600" />
+                    </div>
+                    <h5 className="font-semibold text-red-800">Focus Areas</h5>
+                  </div>
+                  <div className="space-y-2">
+                    {performanceSummary.weakTopics.map((topic, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-700">{topic.name}</span>
+                        <span className="font-medium text-red-600">{topic.percentage}%</span>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Study Recommendations */}
-            <div className="bg-blue-50 rounded-lg p-4 lg:p-5">
-              <h5 className="font-semibold text-blue-800 mb-2 text-sm lg:text-base">📚 Study Recommendations</h5>
-              <ul className="text-xs lg:text-sm text-blue-700 space-y-1 lg:space-y-2">
-                {performanceSummary.recommendations.map((rec, idx) => (
-                  <li key={idx} className="flex items-start">
-                    <span className="mr-2 mt-0.5">•</span>
-                    <span>{rec}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Copy Summary Button */}
-            <div className="text-center">
-              <button
-                onClick={copyPerformanceSummary}
-                className="w-full sm:w-auto px-6 py-3 lg:px-8 lg:py-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors text-sm lg:text-base"
-              >
-                📋 Copy Summary for Gemini
-              </button>
-              <p className="text-xs lg:text-sm text-gray-500 mt-2">
-                Copy this summary to get personalized study guidance from Gemini
-              </p>
-            </div>
+            {/* Recommendations */}
+            {performanceSummary.recommendations.length > 0 && (
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 lg:p-5 border border-blue-100">
+                <div className="flex items-center gap-2 mb-3">
+                  <Lightbulb className="w-5 h-5 text-blue-600" />
+                  <h5 className="font-semibold text-blue-800">What to Focus On Next</h5>
+                </div>
+                <div className="space-y-2">
+                  {performanceSummary.recommendations.map((rec, idx) => (
+                    <div key={idx} className="flex items-start gap-2 text-sm text-blue-700">
+                      <ChevronRight className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <span>{rec}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
+        </div>
+      </div>
+
+      {/* AI Chat Panel - Desktop: Fixed Position on Right, Mobile: Handled by AIHelpChat */}
+      {chatOpen && (
+        <>
+          {/* Desktop - Fixed position but content area adjusts via margin */}
+          <div 
+            className="fixed top-4 right-4 bottom-4 z-40 hidden lg:block"
+            style={{ width: `${chatWidth}px` }}
+          >
+            <AIHelpChat
+              question={activeQuestion}
+              questionIndex={activeQuestionIndex}
+              userAnswer={answers[activeQuestionIndex]}
+              correctAnswer={activeQuestion?.answer}
+              onClose={closeChat}
+              initialMessage={initialChatMessage}
+              onClearInitialMessage={() => setInitialChatMessage(null)}
+              panelWidth={chatWidth}
+              onWidthChange={setChatWidth}
+              minWidth={320}
+              maxWidth={600}
+            />
+          </div>
+          {/* Mobile - AIHelpChat handles its own overlay */}
+          <div className="lg:hidden">
+            <AIHelpChat
+              question={activeQuestion}
+              questionIndex={activeQuestionIndex}
+              userAnswer={answers[activeQuestionIndex]}
+              correctAnswer={activeQuestion?.answer}
+              onClose={closeChat}
+              initialMessage={initialChatMessage}
+              onClearInitialMessage={() => setInitialChatMessage(null)}
+              onScrollToQuestion={scrollToQuestion}
+            />
+          </div>
+        </>
+      )}
+
+      {/* Floating chat button for mobile when chat is closed but available */}
+      {/* Removed - chat is now opened from within the hints dropdown */}
     </div>
   );
-} 
+}

@@ -1,5 +1,6 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
 import { useNotification } from './NotificationProvider';
 
 export default function Notification() {
@@ -48,7 +49,7 @@ export default function Notification() {
         >
           <div className="flex-1 min-w-0">
             <div className="font-semibold mb-1 lg:mb-2 text-gray-800 flex items-center text-sm lg:text-base">
-              {n.icon && <span className="mr-2 text-lg lg:text-xl flex-shrink-0">{n.icon}</span>}
+              {n.icon && <span className="mr-2 flex-shrink-0">{n.icon}</span>}
               <span className="truncate">{n.title}</span>
             </div>
             <div className="text-gray-600 text-xs lg:text-sm mb-2 lg:mb-3 leading-relaxed">{n.message}</div>
@@ -77,10 +78,10 @@ export default function Notification() {
           </div>
           <button
             onClick={() => removeNotification(n.id)}
-            className="ml-3 text-gray-400 hover:text-gray-700 text-xl lg:text-2xl font-bold absolute top-2 lg:top-3 right-2 lg:right-3 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+            className="ml-3 text-gray-400 hover:text-gray-700 absolute top-2 lg:top-3 right-2 lg:right-3 p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
             aria-label="Close notification"
           >
-            ×
+            <X className="w-4 h-4 lg:w-5 lg:h-5" />
           </button>
         </div>
       ))}

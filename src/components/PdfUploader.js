@@ -1,14 +1,12 @@
 'use client';
 import { useRef, useState, useCallback } from 'react';
+import { Upload, FileText, X, CheckCircle, Loader2, FolderOpen } from 'lucide-react';
 import LottieLoader from './LottieLoader';
 
 // Dynamic import for PDF.js to avoid SSR issues
 const loadPdfJs = async () => {
   const pdfjs = await import('pdfjs-dist');
-  // Use unpkg CDN which always has the latest versions
-  // Or use legacy build for better compatibility
   const version = pdfjs.version;
-  // Try unpkg first, which typically has newer versions faster
   pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
   return pdfjs;
 };
@@ -21,7 +19,6 @@ export default function PdfUploader({ onExtracted }) {
   const [processingStatus, setProcessingStatus] = useState('');
   const [progress, setProgress] = useState({ current: 0, total: 0, pages: 0, totalPages: 0 });
 
-  // Extract text from a single PDF file using PDF.js (client-side)
   const extractTextFromPdf = useCallback(async (file, pdfjs) => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
@@ -81,11 +78,9 @@ export default function PdfUploader({ onExtracted }) {
     setProgress({ current: 0, total: files.length, pages: 0, totalPages: 0 });
     
     try {
-      // Load PDF.js dynamically
       setProcessingStatus('Loading PDF processor...');
       const pdfjs = await loadPdfJs();
       
-      // Process each file individually using client-side extraction
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         setProgress(prev => ({ ...prev, current: i + 1 }));
@@ -113,39 +108,50 @@ export default function PdfUploader({ onExtracted }) {
       setIsProcessing(false);
       setProcessingStatus('');
       setProgress({ current: 0, total: 0, pages: 0, totalPages: 0 });
-      setFiles([]); // Clear files after processing
+      setFiles([]);
     }
   };
 
   return (
-    <div className="space-y-4 lg:space-y-6" data-upload-area>
+    <div className="space-y-5" data-upload-area>
       <div className="text-center">
-        <h2 className="text-xl lg:text-2xl font-bold text-gray-800 mb-2">📄 Upload Your Study Materials</h2>
-        <p className="text-gray-600 text-sm lg:text-base">Upload one or more PDF files to get started</p>
-        <p className="text-green-600 text-xs mt-1">✓ PDFs are processed locally in your browser - no file size limits!</p>
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <Upload className="w-6 h-6 text-indigo-600" />
+          <h2 className="text-xl lg:text-2xl font-semibold text-gray-900">Upload Study Materials</h2>
+        </div>
+        <p className="text-gray-500 text-sm">Upload one or more PDF files to get started</p>
+        <div className="flex items-center justify-center gap-1.5 mt-2 text-emerald-600 text-xs">
+          <CheckCircle className="w-3.5 h-3.5" />
+          <span>PDFs are processed locally in your browser</span>
+        </div>
       </div>
 
       {/* Drag & Drop Area */}
-      <div
-        className={`border-2 border-dashed rounded-xl p-6 lg:p-8 text-center transition-colors min-h-[200px] lg:min-h-[250px] flex flex-col items-center justify-center cursor-pointer ${
-          isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50/50'
+      <button
+        type="button"
+        className={`w-full border-2 border-dashed rounded-xl p-6 lg:p-8 text-center transition-all min-h-[200px] lg:min-h-[220px] flex flex-col items-center justify-center cursor-pointer ${
+          isDragging 
+            ? 'border-indigo-500 bg-indigo-50' 
+            : 'border-gray-200 bg-gray-50/50 hover:border-indigo-400 hover:bg-indigo-50/50'
         }`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onClick={() => fileInput.current?.click()}
       >
-        <div className="text-4xl lg:text-5xl mb-4">📁</div>
-        <p className="text-base lg:text-lg font-medium text-gray-700 mb-2">
+        <div className={`w-14 h-14 rounded-xl flex items-center justify-center mb-4 transition-colors ${
+          isDragging ? 'bg-indigo-100' : 'bg-gray-100'
+        }`}>
+          <FolderOpen className={`w-7 h-7 ${isDragging ? 'text-indigo-600' : 'text-gray-400'}`} />
+        </div>
+        <p className="text-base font-medium text-gray-700 mb-1">
           {isDragging ? 'Drop your PDFs here' : 'Drag & drop PDFs here'}
         </p>
-        <p className="text-gray-500 text-sm lg:text-base mb-4">or tap to browse files</p>
-        <button
-          type="button"
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors text-sm lg:text-base"
-          onClick={() => fileInput.current?.click()}
-        >
+        <p className="text-gray-400 text-sm mb-4">or click to browse files</p>
+        <div className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors text-sm inline-flex items-center gap-2">
+          <Upload className="w-4 h-4" />
           Choose Files
-        </button>
+        </div>
         <input
           ref={fileInput}
           type="file"
@@ -154,29 +160,31 @@ export default function PdfUploader({ onExtracted }) {
           onChange={handleFileSelect}
           className="hidden"
         />
-      </div>
+      </button>
 
       {/* File List */}
       {files.length > 0 && (
-        <div className="bg-white rounded-xl shadow p-4 lg:p-6">
-          <h3 className="font-semibold text-base lg:text-lg mb-4">Selected Files ({files.length})</h3>
-          <div className="space-y-3">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 lg:p-5">
+          <h3 className="font-medium text-gray-700 text-sm mb-3">Selected Files ({files.length})</h3>
+          <div className="space-y-2">
             {files.map((file) => (
-              <div key={file.name + file.size} className="flex items-center justify-between p-3 lg:p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center space-x-3 min-w-0 flex-1">
-                  <span className="text-2xl lg:text-3xl flex-shrink-0">📄</span>
+              <div key={file.name + file.size} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <FileText className="w-5 h-5 text-indigo-600" />
+                  </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-gray-800 text-sm lg:text-base truncate">{file.name}</p>
-                    <p className="text-xs lg:text-sm text-gray-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                    <p className="font-medium text-gray-800 text-sm truncate">{file.name}</p>
+                    <p className="text-xs text-gray-400">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => removeFile(files.indexOf(file))}
-                  className="text-red-500 hover:text-red-700 p-2 lg:p-3 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0"
+                  onClick={(e) => { e.stopPropagation(); removeFile(files.indexOf(file)); }}
+                  className="text-gray-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0"
                   aria-label={`Remove ${file.name}`}
                 >
-                  <span className="text-lg lg:text-xl">✕</span>
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             ))}
@@ -186,22 +194,25 @@ export default function PdfUploader({ onExtracted }) {
 
       {/* Processing Progress */}
       {isProcessing && (
-        <div className="bg-blue-50 rounded-xl p-4 lg:p-6 border border-blue-200">
+        <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-blue-800">{processingStatus}</span>
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" />
+              <span className="text-sm font-medium text-indigo-800">{processingStatus}</span>
+            </div>
             {progress.total > 1 && (
-              <span className="text-sm text-blue-600">File {progress.current} of {progress.total}</span>
+              <span className="text-sm text-indigo-600">File {progress.current} of {progress.total}</span>
             )}
           </div>
           {progress.totalPages > 0 && (
             <div className="mt-2">
-              <div className="flex items-center justify-between text-xs text-blue-600 mb-1">
+              <div className="flex items-center justify-between text-xs text-indigo-600 mb-1">
                 <span>Page progress</span>
                 <span>{progress.pages} / {progress.totalPages}</span>
               </div>
-              <div className="w-full bg-blue-200 rounded-full h-2">
+              <div className="w-full bg-indigo-200 rounded-full h-1.5">
                 <div 
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  className="bg-indigo-600 h-1.5 rounded-full transition-all duration-300"
                   style={{ width: `${(progress.pages / progress.totalPages) * 100}%` }}
                 />
               </div>
@@ -215,15 +226,18 @@ export default function PdfUploader({ onExtracted }) {
         <button
           onClick={handleSubmit}
           disabled={isProcessing}
-          className="w-full py-4 lg:py-5 bg-blue-600 text-white rounded-xl font-bold text-base lg:text-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+          className="w-full py-3.5 bg-indigo-600 text-white rounded-xl font-medium text-base hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg flex items-center justify-center gap-2"
         >
           {isProcessing ? (
-            <span className="flex items-center justify-center">
-              <LottieLoader size="small" text="" />
-              <span className="ml-2">Processing PDFs...</span>
-            </span>
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Processing PDFs...
+            </>
           ) : (
-            'Extract Text & Continue'
+            <>
+              <CheckCircle className="w-5 h-5" />
+              Extract Text & Continue
+            </>
           )}
         </button>
       )}

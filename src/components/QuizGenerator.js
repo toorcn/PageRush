@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
+import { Target, Library, ClipboardList, Check, AlertTriangle, RefreshCw, HardDrive, Zap } from 'lucide-react';
 import LottieLoader from './LottieLoader';
 import { parseTopics } from '../utils/parseGeminiResponse';
 import { saveTopicsToCache, getTopicsFromCache, clearTopicCache } from '../utils/topicCache';
@@ -332,7 +333,10 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
   return (
     <div className="bg-white rounded-xl shadow p-6 space-y-6">
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">🎯 Quiz Generator</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-2">
+          <Target className="w-6 h-6 text-blue-600" />
+          Quiz Generator
+        </h2>
         <p className="text-gray-600">Customize your quiz by selecting topics and question count</p>
       </div>
 
@@ -352,8 +356,28 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
 
       {/* Topic Selection */}
       <div className="space-y-4">
-        <h3 className="font-semibold text-lg text-gray-800">📚 Select Topics</h3>
-        <p className="text-sm text-gray-600">Choose which topics to include in your quiz:</p>
+        <h3 className="font-semibold text-lg text-gray-800 flex items-center gap-2">
+          <Library className="w-5 h-5 text-blue-600" />
+          Select Topics
+        </h3>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-gray-600">Choose which topics to include in your quiz:</p>
+          {topics.length > 0 && !isExtractingTopics && (
+            <button
+              onClick={() => {
+                if (selectedTopics.length === topics.length) {
+                  setSelectedTopics([]);
+                } else {
+                  setSelectedTopics([...topics]);
+                }
+              }}
+              className="text-sm px-3 py-1.5 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors flex items-center gap-1.5"
+            >
+              <Check className="w-4 h-4" />
+              {selectedTopics.length === topics.length ? 'Deselect All' : 'Select All'}
+            </button>
+          )}
+        </div>
         
         {cacheStatus && (
           <div className={`border rounded-lg p-3 ${
@@ -366,7 +390,7 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <span className={cacheStatus === 'cached' ? 'text-green-600' : cacheStatus === 'generated' ? 'text-blue-600' : 'text-yellow-600'}>
-                  {cacheStatus === 'cached' ? '💾' : cacheStatus === 'generated' ? '⚡' : '⚠️'}
+                  {cacheStatus === 'cached' ? <HardDrive className="w-4 h-4" /> : cacheStatus === 'generated' ? <Zap className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
                 </span>
                 <p className={`text-sm ${
                   cacheStatus === 'cached' ? 'text-green-800' : cacheStatus === 'generated' ? 'text-blue-800' : 'text-yellow-800'
@@ -415,7 +439,7 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">{topic}</span>
                     {selectedTopics.includes(topic) && (
-                      <span className="text-blue-600">✓</span>
+                      <Check className="w-4 h-4 text-blue-600" />
                     )}
                   </div>
                 </button>
@@ -425,14 +449,14 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
             {/* Debug/Retry button */}
             {topics.length === 0 && !isExtractingTopics && (
               <div className="text-center">
-                <p className="text-yellow-600 text-sm mb-2">
-                  ⚠️ No topics found. You can try extracting topics again.
+                <p className="text-yellow-600 text-sm mb-2 flex items-center justify-center gap-1">
+                  <AlertTriangle className="w-4 h-4" /> No topics found. You can try extracting topics again.
                 </p>
                 <button
                   onClick={resetTopicExtraction}
-                  className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+                  className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors flex items-center gap-1 mx-auto"
                 >
-                  🔄 Retry Topic Extraction
+                  <RefreshCw className="w-4 h-4" /> Retry Topic Extraction
                 </button>
               </div>
             )}
@@ -440,8 +464,8 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
         )}
 
         {selectedTopics.length === 0 && !isExtractingTopics && (
-          <p className="text-yellow-600 text-sm">
-            ⚠️ Please select at least one topic to generate a quiz
+          <p className="text-yellow-600 text-sm flex items-center gap-1">
+            <AlertTriangle className="w-4 h-4" /> Please select at least one topic to generate a quiz
           </p>
         )}
       </div>
@@ -508,7 +532,9 @@ export default function QuizGenerator({ onGenerate, extractedText, apiKey }) {
       {/* Summary */}
       {selectedTopics.length > 0 && (
         <div className="bg-blue-50 rounded-lg p-4">
-          <h4 className="font-semibold text-blue-800 mb-2">📋 Quiz Summary</h4>
+          <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-1">
+            <ClipboardList className="w-4 h-4" /> Quiz Summary
+          </h4>
           <ul className="text-sm text-blue-700 space-y-1">
             <li>• Topics: {selectedTopics.join(', ')}</li>
             <li>• Questions: {customCount || questionCount}</li>

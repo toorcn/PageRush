@@ -3,6 +3,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { parseTopics } from '../utils/parseGeminiResponse';
 import { saveTopicsToCache, getTopicsFromCache, clearTopicCache } from '../utils/topicCache';
 import LottieLoader from './LottieLoader';
+import { 
+  ClipboardList, Target, Lightbulb, BookOpen, Check, HelpCircle, 
+  Pencil, MessageSquare, Square, Bot, BarChart3, Save, Zap, AlertTriangle,
+  ChevronRight, Loader2
+} from 'lucide-react';
 
 export default function ExamGenerator({ onGenerate, extractedText, apiKey, performanceSummaries }) {
   const [selectedTopics, setSelectedTopics] = useState([]);
@@ -26,6 +31,8 @@ export default function ExamGenerator({ onGenerate, extractedText, apiKey, perfo
     describe: { enabled: false, count: 2 },
     fillBlanks: { enabled: false, count: 2 }
   });
+  const [isAnalyzingQuestionTypes, setIsAnalyzingQuestionTypes] = useState(false);
+  const [questionTypeSuggestionsGenerated, setQuestionTypeSuggestionsGenerated] = useState(false);
   
   // Use refs to track extraction state and prevent multiple calls
   const hasExtractedTopics = useRef(false);
@@ -610,31 +617,130 @@ export default function ExamGenerator({ onGenerate, extractedText, apiKey, perfo
     }, 500);
   };
 
+  // AI-powered question type analysis
+  const analyzeQuestionTypesWithAI = async () => {
+    if (selectedTopics.length === 0) {
+      alert('Please select at least one topic first');
+      return;
+    }
+
+    setIsAnalyzingQuestionTypes(true);
+    setQuestionTypeSuggestionsGenerated(false);
+
+    try {
+      const topicsContext = selectedTopics.join(', ');
+      const documentContext = extractedText ? extractedText.substring(0, 2000) : '';
+      
+      const contextText = `Topics to cover: ${topicsContext}
+
+${documentContext ? `Document context (excerpt): ${documentContext}` : ''}
+
+${performanceSummary ? `Previous performance data: ${performanceSummary.substring(0, 500)}` : ''}`;
+
+      const response = await fetch('/api/gemini-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: contextText,
+          promptType: 'analyzeQuestionTypes',
+          geminiApiKey: apiKey,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to analyze question types');
+      }
+
+      const data = await response.json();
+      const aiText = data.result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      
+      // Parse the JSON response
+      const cleanedText = aiText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      const suggestions = JSON.parse(cleanedText);
+      
+      // Apply the suggestions
+      const newQuestionTypes = {
+        mcq: { enabled: suggestions.mcq?.enabled ?? true, count: suggestions.mcq?.count ?? 5 },
+        shortAnswer: { enabled: suggestions.shortAnswer?.enabled ?? true, count: suggestions.shortAnswer?.count ?? 3 },
+        discuss: { enabled: suggestions.discuss?.enabled ?? false, count: suggestions.discuss?.count ?? 2 },
+        describe: { enabled: suggestions.describe?.enabled ?? false, count: suggestions.describe?.count ?? 2 },
+        fillBlanks: { enabled: suggestions.fillBlanks?.enabled ?? false, count: suggestions.fillBlanks?.count ?? 2 }
+      };
+      
+      setQuestionTypes(newQuestionTypes);
+      setQuestionTypeAutoSelection(suggestions.reason || 'AI analyzed your topics and suggested this distribution');
+      setQuestionTypeSuggestionsGenerated(true);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setQuestionTypeSuggestionsGenerated(false);
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error analyzing question types:', error);
+      // Fall back to local analysis
+      const suggestions = generateQuestionTypeSuggestions(topics, selectedTopics);
+      setQuestionTypes(prev => ({
+        ...prev,
+        ...suggestions.config
+      }));
+      setQuestionTypeAutoSelection(suggestions.reason + ' (local analysis)');
+    } finally {
+      setIsAnalyzingQuestionTypes(false);
+    }
+  };
+
   const createPerformanceSummary = (summary) => {
     const weakQuestions = summary.details?.filter(d => !d.isCorrect) || [];
+    const partialQuestions = summary.details?.filter(d => !d.isCorrect && d.points > 0) || [];
     const strongQuestions = summary.details?.filter(d => d.isCorrect) || [];
     
-    let summaryText = `EXAM PERFORMANCE SUMMARY:
+    let summaryText = `PREVIOUS EXAM PERFORMANCE SUMMARY:
 Overall Score: ${summary.percentage}% (${summary.score}/${summary.total} points)
 Date: ${new Date(summary.timestamp).toLocaleDateString()}
+Topics Covered: ${summary.topics?.join(', ') || 'Various topics'}
 
-WEAK AREAS (${weakQuestions.length} questions):
+=== QUESTIONS THE STUDENT GOT WRONG (MUST RE-TEST THESE CONCEPTS) ===
+The following ${weakQuestions.length} questions were answered incorrectly. Generate similar questions to re-test these specific concepts:
+
 `;
     
     weakQuestions.forEach((detail, idx) => {
-      summaryText += `${idx + 1}. ${detail.question}\n`;
-      if (detail.feedback) {
-        summaryText += `   Feedback: ${detail.feedback}\n`;
-      }
-      summaryText += `   Expected: ${detail.correctAnswer}\n\n`;
+      summaryText += `WRONG QUESTION ${idx + 1}:
+Question: ${detail.question}
+Student's Wrong Answer: ${detail.userAnswer || 'No answer provided'}
+Correct Answer: ${detail.correctAnswer}
+${detail.feedback ? `Feedback: ${detail.feedback}` : ''}
+${detail.explanation ? `Explanation: ${detail.explanation}` : ''}
+
+`;
     });
     
-    if (strongQuestions.length > 0) {
-      summaryText += `STRONG AREAS (${strongQuestions.length} questions):\n`;
-      strongQuestions.forEach((detail, idx) => {
-        summaryText += `${idx + 1}. ${detail.question}\n`;
+    if (partialQuestions.length > 0) {
+      summaryText += `\n=== PARTIAL CREDIT QUESTIONS (NEEDS REINFORCEMENT) ===\n`;
+      partialQuestions.forEach((detail, idx) => {
+        summaryText += `${idx + 1}. ${detail.question}
+   Student's Answer: ${detail.userAnswer}
+   Expected: ${detail.correctAnswer}
+   
+`;
       });
     }
+    
+    if (strongQuestions.length > 0) {
+      summaryText += `\n=== QUESTIONS ANSWERED CORRECTLY (FOR CONTEXT) ===\n`;
+      strongQuestions.forEach((detail, idx) => {
+        summaryText += `${idx + 1}. ${detail.question} ✓\n`;
+      });
+    }
+    
+    summaryText += `
+=== GENERATION INSTRUCTIONS ===
+1. MUST include questions that re-test the SAME CONCEPTS from the wrong questions above (rephrase them, don't copy exactly)
+2. Add NEW questions on related topics to expand understanding
+3. Focus on the weak areas identified above
+4. Ensure comprehensive coverage of the material
+`;
     
     return summaryText;
   };
@@ -651,17 +757,19 @@ WEAK AREAS (${weakQuestions.length} questions):
   };
 
   const questionTypeConfigs = [
-    { key: 'mcq', label: 'Multiple Choice', icon: '❓', description: 'Choose the best answer from options' },
-    { key: 'shortAnswer', label: 'Short Answer', icon: '✏️', description: 'Brief written responses' },
-    { key: 'discuss', label: 'Discuss', icon: '💭', description: 'Explain concepts in detail' },
-    { key: 'describe', label: 'Describe', icon: '📝', description: 'Provide detailed descriptions' },
-    { key: 'fillBlanks', label: 'Fill in the Blanks', icon: '⬜', description: 'Complete missing words/phrases' }
+    { key: 'mcq', label: 'Multiple Choice', icon: <HelpCircle className="w-5 h-5" />, description: 'Choose the best answer from options' },
+    { key: 'shortAnswer', label: 'Short Answer', icon: <Pencil className="w-5 h-5" />, description: 'Brief written responses' },
+    { key: 'discuss', label: 'Discuss', icon: <MessageSquare className="w-5 h-5" />, description: 'Explain concepts in detail' },
+    { key: 'describe', label: 'Describe', icon: <ClipboardList className="w-5 h-5" />, description: 'Provide detailed descriptions' },
+    { key: 'fillBlanks', label: 'Fill in the Blanks', icon: <Square className="w-5 h-5" />, description: 'Complete missing words/phrases' }
   ];
 
   return (
     <div className="bg-white rounded-xl shadow p-6 space-y-6">
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">📝 Exam Generator</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-2">
+          <ClipboardList className="w-6 h-6" /> Exam Generator
+        </h2>
         <p className="text-gray-600">Create a comprehensive exam with mixed question types</p>
       </div>
 
@@ -688,9 +796,9 @@ WEAK AREAS (${weakQuestions.length} questions):
           {performanceSummaries.length > 0 && (
             <button
               onClick={() => setShowPerformanceHistory(!showPerformanceHistory)}
-              className="text-sm text-blue-600 hover:text-blue-700"
+              className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
             >
-              📊 Load from History ({performanceSummaries.length})
+              <BarChart3 className="w-4 h-4" /> Load from History ({performanceSummaries.length})
             </button>
           )}
         </div>
@@ -701,14 +809,33 @@ WEAK AREAS (${weakQuestions.length} questions):
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="Paste a previous performance summary here to tailor the exam to your weak areas..."
         />
-        <p className="text-xs text-gray-500">
-          This will help create questions that focus on areas where you need improvement
-        </p>
+        
+        {/* Enhanced explanation of what performance summary does */}
+        {performanceSummary ? (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <div className="flex items-start gap-2">
+              <Target className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="text-xs text-amber-700">
+                <strong className="block mb-1">Personalized Exam Mode Active</strong>
+                <p>Your next exam will include:</p>
+                <ul className="mt-1 space-y-0.5 list-disc list-inside">
+                  <li>Re-test questions on concepts you got wrong</li>
+                  <li>New questions to expand your understanding</li>
+                  <li>Focus on your weak areas for improvement</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500">
+            Load a previous performance summary to create a personalized exam that re-tests concepts you struggled with
+          </p>
+        )}
         
         {/* Topic Suggestions Button */}
         {performanceSummary && topics.length > 0 && (
           <div className="space-y-2">
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2">
               <button
                 onClick={triggerTopicSuggestions}
                 disabled={isGeneratingSuggestions}
@@ -718,7 +845,7 @@ WEAK AREAS (${weakQuestions.length} questions):
                     : 'bg-green-600 text-white hover:bg-green-700'
                 }`}
               >
-                <span>{isGeneratingSuggestions ? '⏳' : '🎯'}</span>
+                {isGeneratingSuggestions ? <Loader2 className="w-4 h-4 animate-spin" /> : <Target className="w-4 h-4" />}
                 <span>{isGeneratingSuggestions ? 'Generating...' : 'Generate Topic Suggestions'}</span>
               </button>
               <p className="text-xs text-gray-500">
@@ -730,7 +857,7 @@ WEAK AREAS (${weakQuestions.length} questions):
             {suggestionsGenerated && (
               <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                 <div className="flex items-center space-x-2">
-                  <span className="text-green-600">✅</span>
+                  <Check className="w-4 h-4 text-green-600" />
                   <p className="text-sm text-green-800">
                     <strong>Topic suggestions generated!</strong> Topics have been automatically selected based on your performance summary.
                   </p>
@@ -757,7 +884,7 @@ WEAK AREAS (${weakQuestions.length} questions):
                     <div className="font-medium">Exam {idx + 1} - {new Date(summary.timestamp).toLocaleDateString()}</div>
                     <div className="text-sm text-gray-500">{summary.percentage}% ({summary.score}/{summary.total} points)</div>
                   </div>
-                  <span className="text-blue-600">→</span>
+                  <span className="text-blue-600"><ChevronRight className="w-4 h-4" /></span>
                 </div>
               </button>
             ))}
@@ -768,7 +895,9 @@ WEAK AREAS (${weakQuestions.length} questions):
       {/* Topic Selection */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-lg text-gray-800">📚 Select Topics</h3>
+          <h3 className="font-semibold text-lg text-gray-800 flex items-center gap-2">
+            <BookOpen className="w-5 h-5" /> Select Topics
+          </h3>
           {selectedTopics.length > 0 && (
             <>
             <button
@@ -796,7 +925,7 @@ WEAK AREAS (${weakQuestions.length} questions):
         {autoSelectionReason && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <div className="flex items-center space-x-2">
-              <span className="text-blue-600">🤖</span>
+              <Bot className="w-4 h-4 text-blue-600" />
               <p className="text-sm text-blue-800">
                 <strong>Auto-selected:</strong> {autoSelectionReason}
               </p>
@@ -815,7 +944,7 @@ WEAK AREAS (${weakQuestions.length} questions):
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <span className={cacheStatus === 'cached' ? 'text-green-600' : cacheStatus === 'generated' ? 'text-blue-600' : 'text-yellow-600'}>
-                  {cacheStatus === 'cached' ? '💾' : cacheStatus === 'generated' ? '⚡' : '⚠️'}
+                  {cacheStatus === 'cached' ? <Save className="w-4 h-4" /> : cacheStatus === 'generated' ? <Zap className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
                 </span>
                 <p className={`text-sm ${
                   cacheStatus === 'cached' ? 'text-green-800' : cacheStatus === 'generated' ? 'text-blue-800' : 'text-yellow-800'
@@ -865,7 +994,7 @@ WEAK AREAS (${weakQuestions.length} questions):
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">{topic}</span>
                   {selectedTopics.includes(topic) && (
-                    <span className="text-blue-600">✓</span>
+                    <Check className="w-4 h-4 text-blue-600" />
                   )}
                 </div>
               </button>
@@ -874,8 +1003,8 @@ WEAK AREAS (${weakQuestions.length} questions):
         )}
 
         {selectedTopics.length === 0 && !isExtractingTopics && (
-          <p className="text-yellow-600 text-sm">
-            ⚠️ Please select at least one topic to generate an exam
+          <p className="text-yellow-600 text-sm flex items-center gap-1">
+            <AlertTriangle className="w-4 h-4" /> Please select at least one topic to generate an exam
           </p>
         )}
       </div>
@@ -883,32 +1012,66 @@ WEAK AREAS (${weakQuestions.length} questions):
       {/* Question Types Selection */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-lg text-gray-800">🎯 Question Types</h3>
-          {questionTypeAutoSelection && (
+          <h3 className="font-semibold text-lg text-gray-800 flex items-center gap-2">
+            <Target className="w-5 h-5" /> Question Types
+          </h3>
+          <div className="flex items-center gap-2">
+            {/* AI Suggest Button */}
             <button
-              onClick={() => {
-                setQuestionTypes({
-                  mcq: { enabled: true, count: 5 },
-                  shortAnswer: { enabled: true, count: 3 },
-                  discuss: { enabled: false, count: 2 },
-                  describe: { enabled: false, count: 2 },
-                  fillBlanks: { enabled: false, count: 2 }
-                });
-                setQuestionTypeAutoSelection('');
-              }}
-              className="text-sm text-red-600 hover:text-red-700 px-2 py-1 rounded border border-red-200 hover:bg-red-50"
+              onClick={analyzeQuestionTypesWithAI}
+              disabled={isAnalyzingQuestionTypes || selectedTopics.length === 0}
+              className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg transition-colors text-sm font-medium ${
+                isAnalyzingQuestionTypes || selectedTopics.length === 0
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-indigo-600 text-white hover:bg-indigo-700'
+              }`}
+              title={selectedTopics.length === 0 ? 'Select topics first' : 'Let AI suggest question type distribution'}
             >
-              Reset to Default
+              {isAnalyzingQuestionTypes ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Bot className="w-4 h-4" />
+              )}
+              <span>{isAnalyzingQuestionTypes ? 'Analyzing...' : 'AI Suggest'}</span>
             </button>
-          )}
+            {questionTypeAutoSelection && (
+              <button
+                onClick={() => {
+                  setQuestionTypes({
+                    mcq: { enabled: true, count: 5 },
+                    shortAnswer: { enabled: true, count: 3 },
+                    discuss: { enabled: false, count: 2 },
+                    describe: { enabled: false, count: 2 },
+                    fillBlanks: { enabled: false, count: 2 }
+                  });
+                  setQuestionTypeAutoSelection('');
+                }}
+                className="text-sm text-red-600 hover:text-red-700 px-2 py-1 rounded border border-red-200 hover:bg-red-50"
+              >
+                Reset to Default
+              </button>
+            )}
+          </div>
         </div>
         
         <p className="text-sm text-gray-600">Select question types and set counts for each:</p>
         
+        {/* AI Suggestions Success Message */}
+        {questionTypeSuggestionsGenerated && (
+          <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+            <div className="flex items-center space-x-2">
+              <Check className="w-4 h-4 text-indigo-600" />
+              <p className="text-sm text-indigo-800">
+                <strong>AI suggestions applied!</strong> Question types have been optimized based on your selected topics.
+              </p>
+            </div>
+          </div>
+        )}
+        
         {questionTypeAutoSelection && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-3">
             <div className="flex items-center space-x-2">
-              <span className="text-green-600">🎯</span>
+              <Target className="w-4 h-4 text-green-600" />
               <p className="text-sm text-green-800">
                 <strong>Auto-selected:</strong> {questionTypeAutoSelection}
               </p>
@@ -929,7 +1092,7 @@ WEAK AREAS (${weakQuestions.length} questions):
                         : 'border-gray-300 bg-white'
                     }`}
                   >
-                    {questionTypes[key].enabled && '✓'}
+                    {questionTypes[key].enabled && <Check className="w-4 h-4" />}
                   </button>
                   <div>
                     <div className="flex items-center space-x-2">
@@ -978,7 +1141,9 @@ WEAK AREAS (${weakQuestions.length} questions):
       {/* Summary */}
       {selectedTopics.length > 0 && getTotalQuestions() > 0 && (
         <div className="bg-blue-50 rounded-lg p-4">
-          <h4 className="font-semibold text-blue-800 mb-2">📋 Exam Summary</h4>
+          <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
+            <ClipboardList className="w-4 h-4" /> Exam Summary
+          </h4>
           <ul className="text-sm text-blue-700 space-y-1">
             <li>• Topics: {selectedTopics.join(', ')}</li>
             <li>• Total Questions: {getTotalQuestions()}</li>

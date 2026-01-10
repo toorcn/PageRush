@@ -1,6 +1,11 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import LessonContent from './LessonContent';
+import { 
+  BookOpen, Layers, HelpCircle, ClipboardList, Pause, Play, 
+  ChevronLeft, Target, Sparkles, Trophy, ThumbsUp, Rocket, Zap, Star, Flame,
+  PartyPopper
+} from 'lucide-react';
 
 const FocusMode = ({ 
   activeDocument, 
@@ -36,33 +41,33 @@ const FocusMode = ({
 
   // Encouragement messages for dopamine boost
   const encouragementMessages = [
-    "🎉 Amazing progress! You're crushing it!",
-    "💪 Your dedication is inspiring!",
-    "🚀 You're building unstoppable momentum!",
-    "⭐ Every lesson makes you stronger!",
-    "🔥 You're on fire today!",
-    "🎯 Laser focus! You're unstoppable!",
-    "💎 You're turning knowledge into power!",
-    "🌟 Your future self thanks you!",
-    "⚡ You're learning at lightning speed!",
-    "🏆 You're becoming an expert!"
+    { icon: <PartyPopper className="w-5 h-5" />, text: "Amazing progress! You're crushing it!" },
+    { icon: <Flame className="w-5 h-5" />, text: "Your dedication is inspiring!" },
+    { icon: <Rocket className="w-5 h-5" />, text: "You're building unstoppable momentum!" },
+    { icon: <Star className="w-5 h-5" />, text: "Every lesson makes you stronger!" },
+    { icon: <Flame className="w-5 h-5" />, text: "You're on fire today!" },
+    { icon: <Target className="w-5 h-5" />, text: "Laser focus! You're unstoppable!" },
+    { icon: <Sparkles className="w-5 h-5" />, text: "You're turning knowledge into power!" },
+    { icon: <Star className="w-5 h-5" />, text: "Your future self thanks you!" },
+    { icon: <Zap className="w-5 h-5" />, text: "You're learning at lightning speed!" },
+    { icon: <Trophy className="w-5 h-5" />, text: "You're becoming an expert!" }
   ];
 
   // Focus mode study tools - using existing polished components
   const studyTools = [
     {
-      key: 'studyGuide',
-      title: 'Study Guide',
-      icon: '📚',
-      description: 'Organized notes and summaries',
+      key: 'smartStudy',
+      title: 'Smart Study',
+      icon: <BookOpen className="w-8 h-8" />,
+      description: 'Complete learning experience',
       duration: 5,
       color: 'blue',
-      feature: 'studyGuide'
+      feature: 'smartStudy'
     },
     {
       key: 'flashcards',
       title: 'Flashcards',
-      icon: '🃏',
+      icon: <Layers className="w-8 h-8" />,
       description: 'Interactive study cards',
       duration: 3,
       color: 'green',
@@ -71,7 +76,7 @@ const FocusMode = ({
     {
       key: 'quiz',
       title: 'Quick Quiz',
-      icon: '❓',
+      icon: <HelpCircle className="w-8 h-8" />,
       description: 'Test your knowledge',
       duration: 4,
       color: 'purple',
@@ -80,7 +85,7 @@ const FocusMode = ({
     {
       key: 'exam',
       title: 'Practice Exam',
-      icon: '📝',
+      icon: <ClipboardList className="w-8 h-8" />,
       description: 'Full practice test',
       duration: 6,
       color: 'orange',
@@ -182,7 +187,7 @@ const FocusMode = ({
 
     // Show encouragement
     const randomMessage = encouragementMessages[Math.floor(Math.random() * encouragementMessages.length)];
-    setEncouragementMessage(randomMessage);
+    setEncouragementMessage(randomMessage.text);
     setShowEncouragement(true);
 
     // Increase streak
@@ -239,7 +244,7 @@ const FocusMode = ({
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center">
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 text-center">
-          <div className="text-6xl mb-4">🎉</div>
+          <PartyPopper className="w-16 h-16 mx-auto mb-4 text-yellow-500" />
           <h2 className="text-2xl font-bold text-gray-800 mb-4">Great Job!</h2>
           <p className="text-gray-600 mb-6">
             You've completed {sessionGoal} lessons! Time for a well-deserved break.
@@ -290,9 +295,9 @@ const FocusMode = ({
           <div className="flex items-center space-x-4">
             <button
               onClick={onExit}
-              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-1"
             >
-              ← Exit Focus
+              <ChevronLeft className="w-4 h-4" /> Exit Focus
             </button>
             <div>
               <h1 className="text-xl font-bold">Focus Mode</h1>
@@ -313,7 +318,7 @@ const FocusMode = ({
               onClick={togglePause}
               className="p-2 hover:bg-white/20 rounded-lg transition-colors"
             >
-              {isPaused ? '▶️' : '⏸️'}
+              {isPaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
             </button>
           </div>
         </div>
@@ -333,9 +338,9 @@ const FocusMode = ({
           <div className="text-center space-y-8">
             {/* Session Overview */}
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-8">
-              <h2 className="text-3xl font-bold text-gray-800 mb-4">
-                Ready to Focus? 🎯
-              </h2>
+              <h2 className="text-3xl font-bold text-gray-800 mb-4 flex items-center justify-center gap-2">
+              Ready to Focus? <Target className="w-8 h-8" />
+            </h2>
               <p className="text-gray-600 mb-6">
                 Complete {sessionGoal} bite-sized lessons to build momentum
               </p>
@@ -347,7 +352,7 @@ const FocusMode = ({
                      onClick={() => startLesson(tool)}
                      className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 border-2 border-transparent hover:border-blue-200"
                    >
-                     <div className="text-3xl mb-2">{tool.icon}</div>
+                     <div className="mb-2 flex justify-center text-blue-600">{tool.icon}</div>
                      <div className="font-semibold text-gray-800 text-sm">{tool.title}</div>
                      <div className="text-xs text-gray-500">{tool.duration} min</div>
                    </button>
@@ -377,7 +382,7 @@ const FocusMode = ({
                 <div className="space-y-3">
                                      {completedLessons.slice(-3).map((lesson) => (
                      <div key={lesson.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                       <div className="text-2xl">
+                       <div className="text-blue-600">
                          {studyTools.find(st => st.key === lesson.type)?.icon}
                        </div>
                        <div className="flex-1">
@@ -402,7 +407,7 @@ const FocusMode = ({
             {/* Lesson Header */}
             <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-blue-500">
               <div className="flex items-center space-x-4">
-                <div className="text-4xl">{currentLesson.icon}</div>
+                <div className="text-blue-600">{currentLesson.icon}</div>
                 <div>
                   <h2 className="text-2xl font-bold text-gray-800">{currentLesson.title}</h2>
                   <p className="text-gray-600">{currentLesson.description}</p>
@@ -426,8 +431,8 @@ const FocusMode = ({
       {/* Encouragement Overlay */}
       {showEncouragement && (
         <div className="fixed inset-0 bg-gray-900/75 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-8 max-w-md mx-4 text-center animate-bounce">
-            <div className="text-6xl mb-4">🎉</div>
+          <div className="bg-white rounded-2xl p-8 max-w-md mx-4 text-center animate-slideUp">
+            <PartyPopper className="w-16 h-16 mx-auto mb-4 text-yellow-500" />
             <h3 className="text-xl font-bold text-gray-800 mb-2">Excellent!</h3>
             <p className="text-gray-600">{encouragementMessage}</p>
           </div>

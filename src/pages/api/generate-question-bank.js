@@ -1,3 +1,5 @@
+import { getModelForAction, getApiUrl } from '@/lib/gemini-config';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -82,8 +84,9 @@ Original content: ${content}`;
   try {
     console.log(`[${requestId}] Making Gemini API request for Question Bank generation`);
     const startTime = Date.now();
+    const model = getModelForAction('generate-question-bank');
     
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+    const response = await fetch(getApiUrl('generate-question-bank'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -94,8 +97,8 @@ Original content: ${content}`;
       }),
     });
 
-    const endTime = Date.now();
-    console.log(`[${requestId}] Gemini API response time:`, endTime - startTime, 'ms');
+    const responseTimeMs = Date.now() - startTime;
+    console.log(`[${requestId}] Gemini API response time:`, responseTimeMs, 'ms');
 
     if (!response.ok) {
       const errorData = await response.text();
@@ -126,7 +129,13 @@ Original content: ${content}`;
     }
 
     console.log(`[${requestId}] Successfully generated question bank with ${parsedResponse.questionBank?.length || 0} questions`);
-    return res.status(200).json({ questionBank: parsedResponse.questionBank });
+    return res.status(200).json({ 
+      questionBank: parsedResponse.questionBank,
+      usageMetadata: data.usageMetadata || null,
+      responseTimeMs,
+      model,
+      promptType: 'generateQuestionBank'
+    });
 
   } catch (error) {
     console.error(`[${requestId}] Generate Question Bank API request error:`, error);

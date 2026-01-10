@@ -1,890 +1,580 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, ReactElement } from 'react';
-import PdfUploader from '../components/PdfUploader';
-import ApiKeyInput from '../components/ApiKeyInput';
-import FeatureSelector from '../components/FeatureSelector';
-import StudyGuide from '../components/StudyGuide';
-import Flashcards from '../components/Flashcards';
-import Quiz from '../components/Quiz';
-import QuizGenerator from '../components/QuizGenerator';
-import ExamGenerator from '../components/ExamGenerator';
-import Exam from '../components/Exam';
-import ExamCramComponent from '../components/ExamCram.js';
-const ExamCram = ExamCramComponent as React.ComponentType<any>;
-import Insights from '../components/Insights';
-import HistoryPanel from '../components/HistoryPanel';
-import DocumentManager from '../components/DocumentManager';
-import HelpfulResourcesSidebar from '../components/HelpfulResourcesSidebar';
-import FocusMode from '../components/FocusMode';
-import FocusModeStats from '../components/FocusModeStats';
-import { parseFlashcards, parseQuiz, parseExam } from '../utils/parseGeminiResponse';
-import NotificationProvider, { useNotification } from '../components/NotificationProvider';
-import Notification from '../components/Notification';
-import { LoadingProvider, useLoading } from '../components/LoadingProvider';
-import LottieLoader from '../components/LottieLoader';
-import OnboardingGuide, { useOnboardingGuide } from '../components/OnboardingGuide';
-import StepHighlight from '../components/StepHighlight';
-import ProgressIndicator from '../components/ProgressIndicator';
-import PdfUploaderModal from '../components/PdfUploaderModal';
+import { useEffect, useMemo, useCallback } from 'react';
+import { useDocumentStore, useStudyStore, useUIStore, useNotify, useMetricsStore } from '@/stores';
+import { useOnboardingStep } from '@/hooks';
+import { parseFlashcards, parseQuiz, parseExam } from '@/lib/parsing';
+import { geminiApi, setMetricsCallback } from '@/lib/api';
+import { Sparkles, FileText, Upload, Target, Lightbulb } from 'lucide-react';
 
-// Define notification interface
-interface NotificationItem {
-  id: number;
-  type: 'success' | 'error' | 'info';
-  icon?: string;
-  title: string;
-  message: string;
-  action?: {
-    label: string;
-    onClick: () => void;
-  };
-  autoDismiss?: boolean;
+// Layout components
+import { Header, Footer } from '@/components/layout';
+import { NotificationToast } from '@/components/notifications';
+import { FullPageLoader } from '@/components/loading';
+import { ProgressIndicator } from '@/components/progress';
+import { Card, Button } from '@/components/ui';
+
+// Feature components
+import PdfUploaderModal from '@/components/PdfUploaderModal';
+import ApiKeyModal from '@/components/ApiKeyModal';
+import FeatureSelector from '@/components/FeatureSelector';
+import DocumentManager from '@/components/DocumentManager';
+import HistoryPanel from '@/components/HistoryPanel';
+import SmartStudy from '@/components/SmartStudy';
+import Flashcards from '@/components/Flashcards';
+import Quiz from '@/components/Quiz';
+import Exam from '@/components/Exam';
+import QuizGenerator from '@/components/QuizGenerator';
+import ExamGenerator from '@/components/ExamGenerator';
+import Insights from '@/components/Insights';
+import FocusMode from '@/components/FocusMode';
+import OnboardingGuide from '@/components/OnboardingGuide';
+import Onboarding from '@/components/Onboarding';
+import StepHighlight from '@/components/StepHighlight';
+
+import type { StudyFeature, HistoryItem, PerformanceSummary } from '@/types';
+
+// Feature label/icon helpers
+const FEATURE_LABELS: Record<StudyFeature, string> = {
+  smartStudy: 'Smart Study',
+  examCram: 'Exam Cram', // Legacy support
+  studyGuide: 'Study Guide', // Legacy support
+  flashcards: 'Flashcards',
+  quiz: 'Quiz',
+  exam: 'Exam',
+  '': 'Study Tools',
+};
+
+function getFeatureLabel(ft: StudyFeature): string {
+  return FEATURE_LABELS[ft];
 }
 
-// Define notification input interface (without id)
-interface NotificationInput {
-  type: 'success' | 'error' | 'info';
-  icon?: string;
-  title: string;
-  message: string;
-  action?: {
-    label: string;
-    onClick: () => void;
-  };
-  autoDismiss?: boolean;
+// Calculate current step for UI
+function calculateStep(hasDocuments: boolean, hasApiKey: boolean, hasResult: boolean): number {
+  if (!hasDocuments) return 0;
+  if (!hasApiKey) return 1;
+  if (!hasResult) return 2;
+  return 3;
 }
 
-interface Document {
-  id: number;
-  name: string;
-  text: string;
-  timestamp: string;
-}
+export default function Home() {
+  // Document store
+  const documents = useDocumentStore((s) => s.documents);
+  const activeDocuments = useDocumentStore((s) => s.activeDocuments);
+  const addDocument = useDocumentStore((s) => s.addDocument);
+  const removeDocument = useDocumentStore((s) => s.removeDocument);
+  const setActiveDocuments = useDocumentStore((s) => s.setActiveDocuments);
+  const getActiveText = useDocumentStore((s) => s.getActiveText);
 
-interface HistoryItem {
-  id: number;
-  timestamp: string;
-  feature: string;
-  documentName: string;
-  text: string;
-  result: any;
-  topics?: any;
-  questionCount?: any;
-  knowledgeType?: any;
-  questionTypes?: any;
-}
+  // Study store
+  const apiKey = useStudyStore((s) => s.apiKey);
+  const setApiKey = useStudyStore((s) => s.setApiKey);
+  const feature = useStudyStore((s) => s.feature);
+  const setFeature = useStudyStore((s) => s.setFeature);
+  const result = useStudyStore((s) => s.result);
+  const setResult = useStudyStore((s) => s.setResult);
+  const loading = useStudyStore((s) => s.loading);
+  const setLoading = useStudyStore((s) => s.setLoading);
+  const history = useStudyStore((s) => s.history);
+  const performanceSummaries = useStudyStore((s) => s.performanceSummaries);
+  const addHistoryItem = useStudyStore((s) => s.addHistoryItem);
+  const addPerformanceSummary = useStudyStore((s) => s.addPerformanceSummary);
+  const deleteHistoryItem = useStudyStore((s) => s.deleteHistoryItem);
+  const clearHistory = useStudyStore((s) => s.clearHistory);
+  const currentQuestionIndex = useStudyStore((s) => s.currentQuestionIndex);
+  const totalQuestions = useStudyStore((s) => s.totalQuestions);
+  const setQuestionProgress = useStudyStore((s) => s.setQuestionProgress);
+  const quizScore = useStudyStore((s) => s.quizScore);
+  const setQuizScore = useStudyStore((s) => s.setQuizScore);
+  const examFeedback = useStudyStore((s) => s.examFeedback);
+  const setExamFeedback = useStudyStore((s) => s.setExamFeedback);
+  const showQuizGenerator = useStudyStore((s) => s.showQuizGenerator);
+  const setShowQuizGenerator = useStudyStore((s) => s.setShowQuizGenerator);
+  const showExamGenerator = useStudyStore((s) => s.showExamGenerator);
+  const setShowExamGenerator = useStudyStore((s) => s.setShowExamGenerator);
 
-interface ExamResult {
-  id: number;
-  timestamp: string;
-  questions: Array<{
-    question: string;
-    answer: string;
-    type: string;
-    options?: string[];
-    maxPoints?: number;
-    userAnswer: string;
-    feedback: any;
-    isCorrect: boolean;
-    earnedPoints: number;
-    explanation: string;
-  }>;
-  overallFeedback: any[];
-  individualFeedback: any;
-  performanceSummary: any;
-  examMode: string;
-  totalQuestions: number;
-  answeredQuestions: number;
-}
+  // UI store
+  const showUploadModal = useUIStore((s) => s.showUploadModal);
+  const setShowUploadModal = useUIStore((s) => s.setShowUploadModal);
+  const showApiKeyModal = useUIStore((s) => s.showApiKeyModal);
+  const setShowApiKeyModal = useUIStore((s) => s.setShowApiKeyModal);
+  const showDocumentManager = useUIStore((s) => s.showDocumentManager);
+  const setShowDocumentManager = useUIStore((s) => s.setShowDocumentManager);
+  const showHistory = useUIStore((s) => s.showHistory);
+  const setShowHistory = useUIStore((s) => s.setShowHistory);
+  const showApiKeyInput = useUIStore((s) => s.showApiKeyInput);
+  const setShowApiKeyInput = useUIStore((s) => s.setShowApiKeyInput);
+  const showFeatureSelector = useUIStore((s) => s.showFeatureSelector);
+  const focusMode = useUIStore((s) => s.focusMode);
+  const setFocusMode = useUIStore((s) => s.setFocusMode);
+  const showOnboardingGuide = useUIStore((s) => s.showOnboardingGuide);
+  const showOnboardingFullScreen = useUIStore((s) => s.showOnboardingFullScreen);
+  const setShowOnboardingFullScreen = useUIStore((s) => s.setShowOnboardingFullScreen);
+  const completeOnboarding = useUIStore((s) => s.completeOnboarding);
+  const highlightFeatures = useUIStore((s) => s.highlightFeatures);
+  const highlightStep = useUIStore((s) => s.highlightStep);
 
-function HomeContent() {
-  const { startLoading, stopLoading } = useLoading();
-  const { showGuide, completeOnboarding, resetOnboarding } = useOnboardingGuide();
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [activeDocuments, setActiveDocuments] = useState<Document[]>([]);
-  const [apiKey, setApiKey] = useState('');
-  const [feature, setFeature] = useState('');
-  const [loading, setLoading] = useState(false);
+  const notify = useNotify();
+  const { currentStepIndex, labels } = useOnboardingStep();
   
-  // Highlight states for onboarding focus
-  const [highlightUpload, setHighlightUpload] = useState(false);
-  const [highlightApiKey, setHighlightApiKey] = useState(false);
-  const [highlightFeatures, setHighlightFeatures] = useState(false);
-  
-  // Upload modal state - can be triggered from anywhere
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  
-  // Helper functions
-  const getFeatureLabel = (feature: string) => {
-    switch (feature) {
-      case 'examCram':
-        return 'Exam Cram';
-      case 'studyGuide':
-        return 'Study Guide';
-      case 'flashcards':
-        return 'Flashcards';
-      case 'quiz':
-        return 'Quiz';
-      case 'exam':
-        return 'Exam';
-      default:
-        return 'Study Tools';
-    }
-  };
+  // Metrics store
+  const addMetric = useMetricsStore((s) => s.addMetric);
 
-  const getFeatureIcon = (feature: string) => {
-    switch (feature) {
-      case 'examCram':
-        return '🚀';
-      case 'studyGuide':
-        return '📚';
-      case 'flashcards':
-        return '📝';
-      case 'quiz':
-        return '🎓';
-      case 'exam':
-        return '📊';
-      default:
-        return '✨';
-    }
-  };
-  const [result, setResult] = useState<any>(null);
-  const [quizAnswers, setQuizAnswers] = useState<any[]>([]);
-  const [quizScore, setQuizScore] = useState<any>(null);
-  const [focusMode, setFocusMode] = useState(false);
-  const [showQuizGenerator, setShowQuizGenerator] = useState(false);
-  const [showExamGenerator, setShowExamGenerator] = useState(false);
-  const [examFeedback, setExamFeedback] = useState<any>(null);
-  const [showHistory, setShowHistory] = useState(false);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [performanceSummaries, setPerformanceSummaries] = useState<any[]>([]);
-  const [dataLoaded, setDataLoaded] = useState(false);
-  const [showDocumentManager, setShowDocumentManager] = useState(false);
-  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
-  const [showFeatureSelector, setShowFeatureSelector] = useState(false);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [totalQuestions, setTotalQuestions] = useState(0);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-
-  // Helper to add a notification
-  const addNotification = (notification: NotificationInput) => {
-    const newNotification: NotificationItem = { 
-      id: Date.now(), 
-      ...notification,
-      autoDismiss: notification.autoDismiss !== false // Default to true unless explicitly set to false
-    };
-    setNotifications((prev) => [...prev, newNotification]);
-  };
-  const removeNotification = (id: number) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-  };
-
-  // Auto-dismiss notifications after 5 seconds
+  // Setup metrics callback for API calls
   useEffect(() => {
-    const timeouts: NodeJS.Timeout[] = [];
-    
-    notifications.forEach((notification) => {
-      if (notification.autoDismiss) {
-        const timeout = setTimeout(() => {
-          removeNotification(notification.id);
-        }, 5000); // 5 seconds
-        timeouts.push(timeout);
-      }
+    setMetricsCallback((metrics) => {
+      addMetric(metrics);
     });
+    return () => setMetricsCallback(null);
+  }, [addMetric]);
 
-    // Cleanup timeouts when component unmounts or notifications change
-    return () => {
-      timeouts.forEach(clearTimeout);
-    };
-  }, [notifications]);
-
-  // Memoize parsed flashcards to prevent unnecessary re-parsing
-  const parsedFlashcards = useMemo(() => {
-    if (feature === 'flashcards' && result) {
-      console.log('Memoizing flashcards with result:', result);
-      const cards = parseFlashcards(result);
-      console.log('Memoized cards result:', cards);
-      return cards;
-    }
-    return [];
-  }, [feature, result]);
-
-  // Debug useEffect to track result changes for flashcards
+  // Migrate old localStorage data to new stores on first load
   useEffect(() => {
-    if (feature === 'flashcards' && result) {
-      console.log('Flashcards result changed:', result);
-      const parsedCards = parseFlashcards(result);
-      console.log('Parsed cards on result change:', parsedCards);
-    }
-  }, [result, feature]);
+    const migrated = localStorage.getItem('pagerush-migrated');
+    if (migrated) return;
 
-  // Load saved data on component mount
-  useEffect(() => {
-    const savedApiKey = localStorage.getItem('geminiApiKey');
-    if (savedApiKey) {
-      setApiKey(savedApiKey);
+    // Migrate API key
+    const oldApiKey = localStorage.getItem('geminiApiKey');
+    if (oldApiKey && !apiKey) {
+      setApiKey(oldApiKey);
     }
 
-    const savedDocuments = localStorage.getItem('savedDocuments');
-    if (savedDocuments) {
-      const parsedDocs = JSON.parse(savedDocuments);
-      setDocuments(parsedDocs);
-      
-      // Load active documents from localStorage
-      const savedActiveDocuments = localStorage.getItem('activeDocuments');
-      if (savedActiveDocuments && parsedDocs.length > 0) {
-        const parsedActiveDocs = JSON.parse(savedActiveDocuments);
-        // Filter to only include documents that still exist
-        const validActiveDocs = parsedActiveDocs.filter((activeDoc: Document) => 
-          parsedDocs.some((doc: Document) => doc.id === activeDoc.id)
-        );
-        if (validActiveDocs.length > 0) {
-          setActiveDocuments(validActiveDocs);
-        } else if (parsedDocs.length > 0) {
-          // Fallback to first document if no valid active documents
-          setActiveDocuments([parsedDocs[0]]);
+    // Migrate documents
+    const oldDocs = localStorage.getItem('savedDocuments');
+    if (oldDocs && documents.length === 0) {
+      try {
+        const parsed = JSON.parse(oldDocs);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((doc: { text: string; name?: string }) => {
+            addDocument(doc.text, doc.name);
+          });
         }
-      } else if (parsedDocs.length > 0) {
-        // Fallback to first document if no saved active documents
-        setActiveDocuments([parsedDocs[0]]);
+      } catch (e) {
+        console.error('Failed to migrate documents:', e);
       }
     }
 
-    const savedHistory = localStorage.getItem('studyHistory');
-    if (savedHistory) {
-      setHistory(JSON.parse(savedHistory));
+    // Migrate history
+    const oldHistory = localStorage.getItem('studyHistory');
+    if (oldHistory && history.length === 0) {
+      try {
+        const parsed = JSON.parse(oldHistory);
+        if (Array.isArray(parsed)) {
+          useStudyStore.setState({ history: parsed });
+        }
+      } catch (e) {
+        console.error('Failed to migrate history:', e);
+      }
     }
 
-    const savedPerformanceSummaries = localStorage.getItem('performanceSummaries');
-    if (savedPerformanceSummaries) {
-      setPerformanceSummaries(JSON.parse(savedPerformanceSummaries));
+    // Migrate performance summaries
+    const oldPerf = localStorage.getItem('performanceSummaries');
+    if (oldPerf && performanceSummaries.length === 0) {
+      try {
+        const parsed = JSON.parse(oldPerf);
+        if (Array.isArray(parsed)) {
+          useStudyStore.setState({ performanceSummaries: parsed });
+        }
+      } catch (e) {
+        console.error('Failed to migrate performance summaries:', e);
+      }
     }
 
-    setDataLoaded(true);
+    localStorage.setItem('pagerush-migrated', 'true');
   }, []);
 
-  // Save API key when it changes
-  useEffect(() => {
-    if (apiKey) {
-      localStorage.setItem('geminiApiKey', apiKey);
+  // Derived state
+  const step = calculateStep(activeDocuments?.length > 0, !!apiKey, !!result);
+
+  // Parsed content (memoized)
+  const parsedFlashcards = useMemo(() => {
+    return feature === 'flashcards' && result ? parseFlashcards(result) : [];
+  }, [feature, result]);
+
+  const parsedQuizQuestions = useMemo(() => {
+    return feature === 'quiz' && result ? parseQuiz(result) : [];
+  }, [feature, result]);
+
+  const parsedExamQuestions = useMemo(() => {
+    return feature === 'exam' && result ? parseExam(result) : [];
+  }, [feature, result]);
+
+  // Stable callbacks for Quiz/Exam components to prevent infinite loops
+  const handleSetCurrentQuestionIndex = useCallback((idx: number) => {
+    setQuestionProgress(idx, totalQuestions);
+  }, [setQuestionProgress, totalQuestions]);
+
+  const handleSetTotalQuestions = useCallback((total: number) => {
+    if (total !== totalQuestions) {
+      setQuestionProgress(currentQuestionIndex, total);
     }
-  }, [apiKey]);
-
-  // Save documents when they change
-  useEffect(() => {
-    localStorage.setItem('savedDocuments', JSON.stringify(documents));
-  }, [documents]);
-
-  // Save history when it changes
-  useEffect(() => {
-    localStorage.setItem('studyHistory', JSON.stringify(history));
-  }, [history]);
-
-  // Save performance summaries when they change
-  useEffect(() => {
-    localStorage.setItem('performanceSummaries', JSON.stringify(performanceSummaries));
-  }, [performanceSummaries]);
-
-  // Save active documents when they change
-  useEffect(() => {
-    if (activeDocuments.length > 0) {
-      localStorage.setItem('activeDocuments', JSON.stringify(activeDocuments));
-    } else {
-      localStorage.removeItem('activeDocuments');
-    }
-  }, [activeDocuments]);
-
-  const handleExtracted = (text: string, fileName?: string) => {
-    const newDocument = {
-      id: Date.now(),
-      name: fileName || `Document ${documents.length + 1}`,
-      text: text,
-      timestamp: new Date().toISOString()
-    };
-    
-    setDocuments(prev => [...prev, newDocument]);
-    setActiveDocuments([newDocument]);
-    setResult(null);
-    setQuizScore(null);
-    setShowQuizGenerator(false);
-    setShowExamGenerator(false);
-    setExamFeedback(null);
-    
-    addNotification({
-      type: 'success',
-      icon: '📄',
-      title: 'Document Uploaded',
-      message: `${fileName || 'Document'} has been successfully uploaded and is ready for study.`
-    });
-  };
-
-  const handleFeature = async (ft: string) => {
-    setFeature(ft);
-    setResult(null);
-    setQuizScore(null);
-    setShowQuizGenerator(false);
-    setShowExamGenerator(false);
-    setExamFeedback(null);
-    
-    if (ft === 'quiz') {
-      setShowQuizGenerator(true);
-      return;
-    }
-    
-    if (ft === 'exam') {
-      setShowExamGenerator(true);
-      return;
-    }
-    
-    if (ft === 'examCram') {
-      // For Exam Cram, we don't need to generate content initially
-      // The ExamCram component will handle its own content generation
-      return;
-    }
-    
-    if (!activeDocuments.length || !apiKey) return;
-    
-    // Check if we have a previous result for this feature and document
-    const previousResult = history.find(item => 
-      item.feature === ft && 
-      activeDocuments.some(doc => doc.name === item.documentName)
-    );
-    
-    if (previousResult) {
-      // Load the previous result
-      setResult(previousResult.result);
-      addNotification({
-        type: 'info',
-        icon: '📚',
-        title: 'Previous Content Loaded',
-        message: `Showing your last generated ${getFeatureLabel(ft)}. You can regenerate if needed.`,
-        action: {
-          label: 'Regenerate',
-          onClick: () => generateContent(ft)
-        }
-      });
-    } else {
-      // Generate new content
-      await generateContent(ft);
-    }
-  };
-
-  const generateContent = async (ft: string, topics: any = null, questionCount: any = null, knowledgeType: any = null, questionTypes: any = null, performanceSummary: any = null) => {
-    setLoading(true);
-    startLoading('global', `Generating ${getFeatureLabel(ft)}...`);
-    try {
-      const res = await fetch('/api/gemini-generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          text: activeDocuments.map(doc => doc.text).join('\n\n---\n\n'), 
-          promptType: ft, 
-          geminiApiKey: apiKey,
-          topics,
-          questionCount,
-          knowledgeType,
-          questionTypes,
-          performanceSummary
-        }),
-      });
-      const data = await res.json();
-      console.log({data});
-      setLoading(false);
-      stopLoading('global');
-      setResult(data);
-      
-      // Save to history
-      const historyItem = {
-        id: Date.now(),
-        timestamp: new Date().toISOString(),
-        feature: ft,
-        documentName: activeDocuments.map(doc => doc.name).join(', '),
-        text: (activeDocuments.map(doc => doc.text).join('\n\n---\n\n')).substring(0, 100) + '...',
-        result: data,
-        topics,
-        questionCount,
-        knowledgeType,
-        questionTypes
-      };
-      setHistory(prev => [historyItem, ...prev]);
-      
-      addNotification({
-        type: 'success',
-        icon: '✨',
-        title: 'Content Generated',
-        message: `Your ${getFeatureLabel(ft)} has been successfully created!`,
-        action: {
-          label: 'View',
-          onClick: () => {
-            // The content is already displayed, just scroll to it
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }
-        }
-      });
-    } catch (error) {
-      console.error('Generation error:', error);
-      setLoading(false);
-      stopLoading('global');
-      
-      addNotification({
-        type: 'error',
-        icon: '❌',
-        title: 'Generation Failed',
-        message: 'There was an error generating your content. Please try again.',
-        action: {
-          label: 'Retry',
-          onClick: () => generateContent(ft, topics, questionCount, knowledgeType, questionTypes, performanceSummary)
-        }
-      });
-    }
-  };
-
-  const handleQuizGenerate = async (topics: any, questionCount: any, knowledgeType: any) => {
-    setShowQuizGenerator(false);
-    await generateContent('quiz', topics, questionCount, knowledgeType);
-  };
-
-  const handleExamGenerate = async (topics: any, questionTypes: any, knowledgeType: any, performanceSummary: any = null) => {
-    setShowExamGenerator(false);
-    await generateContent('exam', topics, null, knowledgeType, questionTypes, performanceSummary);
-  };
-
-  const handleQuizSubmit = async (answers: any) => {
-    setQuizAnswers(answers);
-    startLoading('global', 'Grading your quiz...');
-    
-    try {
-      // Parse the quiz questions from the result
-      const quizQuestions = parseQuiz(result);
-      console.log('Quiz questions for grading:', quizQuestions);
-      console.log('User answers for grading:', answers);
-      
-      const res = await fetch('/api/grade-quiz', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          userAnswers: answers.answers || answers, 
-          quiz: quizQuestions,
-          geminiApiKey: apiKey
-        }),
-      });
-      const data = await res.json();
-      console.log('Grading result:', data);
-            setQuizScore(data);
-      stopLoading('global');
-      
-      addNotification({
-        type: 'success',
-        icon: '📊',
-        title: 'Quiz Completed',
-        message: `You scored ${data.score}/${data.total} (${Math.round((data.score/data.total)*100)}%)`,
-        action: {
-          label: 'View Results',
-          onClick: () => {
-            // Scroll to results
-            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-          }
-        }
-      });
-    } catch (error) {
-      console.error('Quiz grading error:', error);
-      stopLoading('global');
-      
-      addNotification({
-        type: 'error',
-        icon: '❌',
-        title: 'Grading Failed',
-        message: 'There was an error grading your quiz. Please try again.',
-      });
-    }
-  };
-
-  const handleExamSubmit = async (answers: any) => {
-    setQuizAnswers(answers);
-    startLoading('global', 'Grading your exam...');
-    
-    try {
-      const res = await fetch('/api/grade-quiz', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          userAnswers: answers, 
-          quiz: parseExam(result),
-          geminiApiKey: apiKey
-        }),
-      });
-      const data = await res.json();
-      setQuizScore(data);
-      setExamFeedback(data.details || null);
-      stopLoading('global');
-    
-    // Save performance summary
-    if (data.details) {
-      const performanceSummary = {
-        id: Date.now(),
-        timestamp: new Date().toISOString(),
-        examId: result?.id || Date.now(),
-        documentName: activeDocuments.map(doc => doc.name).join(', '),
-        score: data.score,
-        total: data.total,
-        percentage: data.percentage,
-        details: data.details,
-        topics: result?.topics || [],
-        questionTypes: result?.questionTypes || []
-      };
-      setPerformanceSummaries(prev => [performanceSummary, ...prev]);
-      
-      addNotification({
-        type: 'success',
-        icon: '📝',
-        title: 'Exam Completed',
-        message: `You scored ${data.score}/${data.total} (${Math.round((data.score/data.total)*100)}%)`,
-        action: {
-          label: 'View Analysis',
-          onClick: () => {
-            // Scroll to performance summary
-            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-          }
-        }
-      });
-    }
-  } catch (error) {
-    console.error('Exam grading error:', error);
-    stopLoading('global');
-    
-    addNotification({
-      type: 'error',
-      icon: '❌',
-      title: 'Grading Failed',
-      message: 'There was an error grading your exam. Please try again.',
-    });
-  }
-  };
-
-  const loadFromHistory = (historyItem: HistoryItem) => {
-    // console.log('Loading from history:', historyItem);
-    
-    // Find or create document from history
-    const existingDoc = documents.find(doc => doc.name === historyItem.documentName);
-    if (existingDoc) {
-      setActiveDocuments([existingDoc]);
-    } else {
-      const newDoc = {
-        id: Date.now(),
-        name: historyItem.documentName,
-        text: historyItem.text,
-        timestamp: historyItem.timestamp
-      };
-      setDocuments(prev => [...prev, newDoc]);
-              setActiveDocuments([newDoc]);
-    }
-    
-    // Set the result and feature
-    setResult(historyItem.result);
-    setFeature(historyItem.feature);
-    setShowQuizGenerator(false);
-    setShowExamGenerator(false);
-    
-    // Add notification for successful load
-    addNotification({
-      type: 'success',
-      icon: getFeatureIcon(historyItem.feature),
-      title: `${getFeatureLabel(historyItem.feature)} Loaded`,
-      message: `Successfully loaded ${historyItem.documentName} from history.`,
-      action: {
-        label: 'View',
-        onClick: () => {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-      }
-    });
-  };
-
-  const clearHistory = () => {
-    setHistory([]);
-    setPerformanceSummaries([]);
-    setDocuments([]);
-    setActiveDocuments([]);
-    setApiKey('');
-    localStorage.removeItem('studyHistory');
-    localStorage.removeItem('performanceSummaries');
-    localStorage.removeItem('savedDocuments');
-    localStorage.removeItem('geminiApiKey');
-  };
-
-  const removeDocument = (documentId: number) => {
-    setDocuments(prev => prev.filter(doc => doc.id !== documentId));
-    if (activeDocuments.some(doc => doc.id === documentId)) {
-      const remainingDocs = documents.filter(doc => doc.id !== documentId);
-      const updatedActiveDocs = activeDocuments.filter(doc => doc.id !== documentId);
-      setActiveDocuments(updatedActiveDocs.length > 0 ? updatedActiveDocs : remainingDocs.length > 0 ? [remainingDocs[0]] : []);
-    }
-  };
-
-  // Onboarding step calculation (0-3)
-  // 0 = Upload, 1 = API Key, 2 = Select Tool, 3 = Complete
-  const getOnboardingStep = () => {
-    if (!documents.length) return 0;
-    if (!apiKey) return 1;
-    if (!feature) return 2;
-    return 3;
-  };
-  const onboardingStep = getOnboardingStep();
-  
-  // Progress indicator uses same step (0-3)
-  const progressStep = onboardingStep;
-  
-  // Step logic for UI layout
-  const step = !activeDocuments.length ? 0 : !apiKey ? 1 : !result ? 2 : 3;
-
-  // Handle focus from onboarding guide
-  const handleFocusStep = (stepId: string) => {
-    switch (stepId) {
-      case 'upload':
-        // First try to scroll to upload area if visible
-        const uploadEl = document.querySelector('[data-upload-area]');
-        if (uploadEl) {
-          setHighlightUpload(true);
-          uploadEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          setTimeout(() => setHighlightUpload(false), 2500);
-        } else {
-          // If upload area not visible, open the modal
-          setShowUploadModal(true);
-        }
-        break;
-      case 'apiKey':
-        setHighlightApiKey(true);
-        setShowApiKeyInput(true);
-        setTimeout(() => {
-          setHighlightApiKey(false);
-          const apiKeyEl = document.querySelector('[data-api-key-section]');
-          apiKeyEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 100);
-        break;
-      case 'selectTool':
-        setHighlightFeatures(true);
-        setTimeout(() => setHighlightFeatures(false), 2500);
-        const featureEl = document.querySelector('[data-feature-selector]');
-        featureEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        break;
-    }
-  };
-  
-  // Open upload modal directly (for onboarding guide button)
-  const handleOpenUploadModal = () => {
-    setShowUploadModal(true);
-  };
+  }, [setQuestionProgress, currentQuestionIndex, totalQuestions]);
 
   // Auto-expand sections when they become relevant
   useEffect(() => {
     if (step >= 1 && !apiKey) {
       setShowApiKeyInput(true);
     }
-    if (step >= 2 && apiKey && !feature) {
-      setShowFeatureSelector(true);
-    }
-  }, [step, apiKey, feature]);
+  }, [step, apiKey, setShowApiKeyInput]);
 
-  // Auto-collapse sections when they're completed
+  // Auto-collapse API key section when configured
   useEffect(() => {
     if (apiKey && showApiKeyInput) {
-      setTimeout(() => setShowApiKeyInput(false), 2000);
+      const timer = setTimeout(() => setShowApiKeyInput(false), 2000);
+      return () => clearTimeout(timer);
     }
-  }, [apiKey, showApiKeyInput]);
+  }, [apiKey, showApiKeyInput, setShowApiKeyInput]);
 
-  // If focus mode is active, render the FocusMode component
+  // Content generation handler
+  const generateContent = async (
+    ft: StudyFeature,
+    options?: {
+      topics?: string[];
+      questionCount?: number;
+      knowledgeType?: string;
+      questionTypes?: string[];
+      performanceSummary?: PerformanceSummary;
+    }
+  ) => {
+    const text = getActiveText();
+    if (!text || !apiKey) return;
+
+    setLoading(true, `Generating ${getFeatureLabel(ft)}...`);
+
+    try {
+      const data = await geminiApi.generate({
+        text,
+        promptType: ft,
+        apiKey,
+        ...options,
+      });
+
+      setResult(data);
+      setLoading(false);
+
+      addHistoryItem({
+        feature: ft,
+        documentName: activeDocuments.map((d) => d.name).join(', '),
+        text: text.substring(0, 100) + '...',
+        result: data,
+        topics: options?.topics,
+        questionCount: options?.questionCount,
+        knowledgeType: options?.knowledgeType,
+        questionTypes: options?.questionTypes,
+      });
+
+      notify.success('Content Generated', `Your ${getFeatureLabel(ft)} has been created!`);
+    } catch (error) {
+      console.error('Generation error:', error);
+      setLoading(false);
+      notify.error('Generation Failed', 'There was an error generating your content.');
+    }
+  };
+
+  // Document extraction handler
+  const handleExtracted = (text: string, fileName?: string) => {
+    const newDoc = addDocument(text, fileName);
+    setResult(null);
+    setQuizScore(null);
+    setShowQuizGenerator(false);
+    setShowExamGenerator(false);
+    setExamFeedback(null);
+    notify.success('Document Uploaded', `${newDoc.name} has been successfully uploaded.`);
+  };
+
+  // Feature selection handler
+  const handleFeature = async (ft: string) => {
+    const feature = ft as StudyFeature;
+    setFeature(feature);
+    setResult(null);
+    setQuizScore(null);
+    setExamFeedback(null);
+
+    if (feature === 'quiz') {
+      setShowQuizGenerator(true);
+      return;
+    }
+    if (feature === 'exam') {
+      setShowExamGenerator(true);
+      return;
+    }
+    if (feature === 'smartStudy' || feature === 'examCram' || feature === 'studyGuide') {
+      return; // SmartStudy handles its own generation
+    }
+    if (activeDocuments?.length > 0 && apiKey) {
+      await generateContent(feature);
+    }
+  };
+
+  // Quiz generation handler
+  const handleQuizGenerate = async (topics: string[], questionCount: number, knowledgeType: string) => {
+    setShowQuizGenerator(false);
+    await generateContent('quiz', { topics, questionCount, knowledgeType });
+  };
+
+  // Exam generation handler
+  const handleExamGenerate = async (
+    topics: string[],
+    questionTypes: string[],
+    knowledgeType: string,
+    performanceSummary?: PerformanceSummary
+  ) => {
+    setShowExamGenerator(false);
+    await generateContent('exam', { topics, questionTypes, knowledgeType, performanceSummary });
+  };
+
+  // Quiz submission handler
+  const handleQuizSubmit = async (answers: Record<number, string> | string[]) => {
+    if (!result) return;
+    setLoading(true, 'Grading your quiz...');
+
+    try {
+      const quizQuestions = parseQuiz(result);
+      const data = await geminiApi.gradeQuiz({
+        userAnswers: answers,
+        quiz: quizQuestions,
+        apiKey,
+      });
+      setQuizScore(data);
+      setLoading(false);
+      notify.success('Quiz Completed', `You scored ${data.score}/${data.total} (${Math.round((data.score / data.total) * 100)}%)`);
+    } catch (error) {
+      console.error('Quiz grading error:', error);
+      setLoading(false);
+      notify.error('Grading Failed', 'There was an error grading your quiz.');
+    }
+  };
+
+  // Exam submission handler
+  const handleExamSubmit = async (answers: Record<number, string> | string[]) => {
+    if (!result) return;
+    setLoading(true, 'Grading your exam...');
+
+    try {
+      const examQuestions = parseExam(result);
+      const data = await geminiApi.gradeQuiz({
+        userAnswers: answers,
+        quiz: examQuestions.map((q) => ({
+          question: q.question,
+          options: q.options || [],
+          answer: q.answer,
+        })),
+        apiKey,
+      });
+      setQuizScore(data);
+      setExamFeedback(data.details || null);
+      setLoading(false);
+
+      if (data.details) {
+        addPerformanceSummary({
+          examId: Date.now(),
+          documentName: activeDocuments.map((d) => d.name).join(', '),
+          score: data.score,
+          total: data.total,
+          percentage: data.percentage,
+          details: data.details,
+          topics: [],
+          questionTypes: [],
+        });
+      }
+      notify.success('Exam Completed', `You scored ${data.score}/${data.total} (${Math.round((data.score / data.total) * 100)}%)`);
+    } catch (error) {
+      console.error('Exam grading error:', error);
+      setLoading(false);
+      notify.error('Grading Failed', 'There was an error grading your exam.');
+    }
+  };
+
+  // History loading handler
+  const loadFromHistory = (historyItem: HistoryItem) => {
+    const existingDoc = documents.find((doc) => doc.name === historyItem.documentName);
+    if (existingDoc) {
+      setActiveDocuments([existingDoc]);
+    } else {
+      addDocument(historyItem.text, historyItem.documentName);
+    }
+    
+    // Important: Set feature first (which resets result), then set result
+    // We need to bypass the setFeature reset behavior
+    useStudyStore.setState({
+      feature: historyItem.feature,
+      result: historyItem.result,
+      showQuizGenerator: false,
+      showExamGenerator: false,
+      quizScore: null,
+      examFeedback: null,
+    });
+    
+    setShowHistory(false);
+    notify.success(`${getFeatureLabel(historyItem.feature)} Loaded`, `Loaded ${historyItem.documentName} from history.`);
+  };
+
+  // Clear history handler
+  const handleClearHistory = () => {
+    clearHistory();
+    notify.info('History Cleared', 'All study history has been cleared.');
+  };
+
+  // Onboarding focus handler
+  const handleFocusStep = (stepId: string) => {
+    if (stepId === 'upload') {
+      const uploadEl = document.querySelector('[data-upload-area]');
+      if (uploadEl) {
+        highlightStep('upload');
+        uploadEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        setShowUploadModal(true);
+      }
+    } else if (stepId === 'apiKey') {
+      highlightStep('apiKey');
+      setShowApiKeyInput(true);
+      setTimeout(() => {
+        document.querySelector('[data-api-key-section]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    } else if (stepId === 'selectTool') {
+      highlightStep('features');
+      document.querySelector('[data-feature-selector]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  // Focus mode render
   if (focusMode) {
     return (
-      <NotificationProvider notifications={notifications} removeNotification={removeNotification}>
+      <>
+        <NotificationToast />
         <FocusMode
           activeDocument={activeDocuments}
           apiKey={apiKey}
           onExit={() => setFocusMode(false)}
-          currentProgress={typeof currentQuestionIndex === 'number' ? undefined : null}
+          currentProgress={undefined}
         />
-      </NotificationProvider>
+      </>
     );
   }
 
   return (
-    <NotificationProvider notifications={notifications} removeNotification={removeNotification}>
+    <>
+      <NotificationToast />
+      {loading && <FullPageLoader />}
+
       <div className="font-sans min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        {/* Onboarding Guide - Non-blocking floating panel */}
-        {showGuide && (
+        {/* Onboarding Guide (Floating Card) - Hide from Select Tool step onwards */}
+        {showOnboardingGuide && !showOnboardingFullScreen && currentStepIndex < 2 && (
           <OnboardingGuide
-            currentStep={onboardingStep}
+            currentStep={currentStepIndex}
             onComplete={() => {
               completeOnboarding();
-              addNotification({
-                type: 'success',
-                icon: '🎉',
-                title: 'Welcome!',
-                message: 'You\'re all set! Enjoy your study session.',
-                autoDismiss: true
-              });
+              notify.success('Welcome!', "You're all set! Enjoy your study session.");
             }}
-            onSkip={completeOnboarding}
             onFocusStep={handleFocusStep}
-            onOpenUploadModal={handleOpenUploadModal}
+            onOpenUploadModal={() => setShowUploadModal(true)}
+            onOpenApiKeyModal={() => setShowApiKeyModal(true)}
+            onOpenFullScreen={() => setShowOnboardingFullScreen(true)}
+            onSaveApiKey={(key: string) => {
+              setApiKey(key);
+              notify.success('API Key Saved', 'Your Gemini API key has been configured.');
+            }}
+            currentApiKey={apiKey}
+            hasApiKey={!!apiKey}
           />
         )}
-        
-        {/* PDF Upload Modal - Can be triggered from anywhere */}
+
+        {/* Onboarding Full Screen Modal */}
+        {showOnboardingFullScreen && (
+          <Onboarding
+            isOpen={showOnboardingFullScreen}
+            onClose={() => setShowOnboardingFullScreen(false)}
+            onMinimize={() => setShowOnboardingFullScreen(false)}
+            onComplete={() => {
+              completeOnboarding();
+              notify.success('Welcome!', "You're all set! Enjoy your study session.");
+            }}
+            documentsCount={documents.length}
+            hasApiKey={!!apiKey}
+            hasSelectedFeature={!!feature}
+            onOpenApiKeyModal={() => setShowApiKeyModal(true)}
+            onSaveApiKey={(key: string) => {
+              setApiKey(key);
+              notify.success('API Key Saved', 'Your Gemini API key has been configured.');
+            }}
+            currentApiKey={apiKey}
+            onFocusFeatureSelector={() => {
+              highlightStep('features');
+              document.querySelector('[data-feature-selector]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }}
+            onExtractedText={handleExtracted}
+          />
+        )}
+
+        {/* API Key Modal */}
+        <ApiKeyModal
+          isOpen={showApiKeyModal}
+          onClose={() => setShowApiKeyModal(false)}
+          onSave={(key: string) => {
+            setApiKey(key);
+            notify.success('API Key Saved', 'Your Gemini API key has been configured.');
+          }}
+          currentKey={apiKey}
+        />
+
+        {/* Upload Modal */}
         <PdfUploaderModal
           isOpen={showUploadModal}
           onClose={() => setShowUploadModal(false)}
           onExtracted={handleExtracted}
         />
-        
-        {/* Notification System */}
-        <Notification />
-        
-        {/* Mobile Header - Fixed at top */}
-        <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="flex items-center space-x-3">
-              <img 
-                src="/pagerushai-logo.png" 
-                alt="PageRush AI" 
-                className="h-5 w-3/4"
-              />
-            </div>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setShowUploadModal(true)}
-                className="p-2 bg-blue-100 rounded-lg text-blue-700 hover:bg-blue-200 transition-colors"
-                title="Upload PDF"
-              >
-                📄
-              </button>
-              <button
-                onClick={() => setShowDocumentManager(!showDocumentManager)}
-                className="p-2 bg-gray-100 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors"
-                title="Documents"
-              >
-                📚
-              </button>
-              <button
-                onClick={() => setShowHistory(!showHistory)}
-                className="p-2 bg-gray-100 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors"
-                title="History"
-              >
-                📊
-              </button>
-              <button
-                onClick={() => setShowFeatureSelector(!showFeatureSelector)}
-                className="p-2 bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg text-white hover:from-green-700 hover:to-emerald-700 transition-colors"
-                title="Study Tools"
-              >
-                ✨
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Spacer for fixed header */}
-        <div className="lg:hidden h-16"></div>
 
         <div className="max-w-6xl mx-auto py-4 lg:py-8 px-4 lg:px-6 space-y-4 lg:space-y-6 relative">
-          
-          {/* Desktop Header */}
-          <div className="hidden lg:flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <img 
-                src="/pagerushai-logo.png" 
-                alt="PageRush AI" 
-                className="h-12 w-auto"
-              />
-              {activeDocuments.length > 0 && (
-                <div className="flex items-center space-x-2">
-                  <span className="text-gray-500">📄</span>
-                  <span className="text-sm font-medium text-gray-700">{activeDocuments.map(doc => doc.name).join(', ')}</span>
-                </div>
-              )}
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => setShowUploadModal(true)}
-                className="px-4 py-2 bg-white/80 backdrop-blur-sm text-gray-700 rounded-lg hover:bg-white transition-all duration-200 shadow-sm border border-gray-200 hover:border-blue-300"
-                title="Upload new document"
-              >
-                📄 Upload
-              </button>
-              <button
-                onClick={() => setShowDocumentManager(!showDocumentManager)}
-                className="px-4 py-2 bg-white/80 backdrop-blur-sm text-gray-700 rounded-lg hover:bg-white transition-all duration-200 shadow-sm border border-gray-200"
-              >
-                📚 Documents ({documents.length})
-              </button>
-              <button
-                onClick={() => setShowHistory(!showHistory)}
-                className="px-4 py-2 bg-white/80 backdrop-blur-sm text-gray-700 rounded-lg hover:bg-white transition-all duration-200 shadow-sm border border-gray-200"
-              >
-                📊 History ({history.length})
-              </button>
-              <button
-              onClick={
-                () => setShowFeatureSelector(!showFeatureSelector)
-              }
-                className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:from-green-700 hover:to-emerald-700 flex items-center space-x-2"
-              >
-                <span>✨</span>
-                <span>Study Tools</span>
-              </button>
-              {/* <button
-                className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:from-purple-700 hover:to-indigo-700 flex items-center space-x-2"
-                onClick={() => setFocusMode(true)}
-              >
-                <span>🎯</span>
-                <span>Focus Mode</span>
-              </button> */}
-            </div>
-          </div>
+          <Header />
 
           {/* Mobile Document Info */}
-          {activeDocuments.length > 0 && (
+          {activeDocuments?.length > 0 && (
             <div className="lg:hidden space-y-2">
-              <div className="text-xs font-medium text-gray-600 px-1">
-                Active Documents ({activeDocuments.length})
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-medium text-gray-600">
+                  Active Documents ({activeDocuments?.length})
+                </span>
+                {documents.length > activeDocuments.length && (
+                  <button
+                    onClick={() => setShowDocumentManager(true)}
+                    className="text-xs text-indigo-600 font-medium"
+                  >
+                    + Add more
+                  </button>
+                )}
               </div>
-              {activeDocuments.map((doc, index) => (
-                <div key={doc.id} className="bg-white/80 backdrop-blur-sm rounded-lg p-3 shadow-sm border border-gray-200">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-gray-500">📄</span>
-                    <span className="text-sm font-medium text-gray-700 truncate">{doc.name}</span>
-                    {index === 0 && (
-                      <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium flex-shrink-0">
-                        Primary
+              <div className="flex flex-wrap gap-2">
+                {activeDocuments.map((doc, index) => (
+                  <div
+                    key={doc.id}
+                    className={`
+                      inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium
+                      transition-all duration-200 max-w-[160px] group
+                      ${index === 0
+                        ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
+                        : 'bg-blue-50 text-blue-700 border border-blue-200'
+                      }
+                    `}
+                  >
+                    <FileText className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="truncate">{doc.name}</span>
+                    {index === 0 && activeDocuments.length > 1 && (
+                      <span className="px-1 py-0.5 bg-indigo-200 text-indigo-800 rounded text-xs flex-shrink-0">
+                        1st
                       </span>
                     )}
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
 
-          {/* Mobile Action Buttons */}
-          {/* <div className="lg:hidden flex flex-wrap gap-2">
-            <button
-              onClick={() => setFocusMode(true)}
-              className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:from-purple-700 hover:to-indigo-700 flex items-center justify-center space-x-2"
-            >
-              <span>🎯</span>
-              <span>Focus Mode</span>
-            </button>
-          </div> */}
-
-          {/* Data Restored Notification intentionally removed for linting */}
-
           {/* Document Manager */}
           {showDocumentManager && (
-            <DocumentManager 
+            <DocumentManager
               documents={documents}
               activeDocument={activeDocuments}
-                              onSelectDocument={setActiveDocuments}
+              onSelectDocument={setActiveDocuments}
               onRemoveDocument={removeDocument}
               onClose={() => setShowDocumentManager(false)}
               onAddMoreDocuments={() => {
@@ -896,28 +586,22 @@ function HomeContent() {
 
           {/* History Panel */}
           {showHistory && (
-            <HistoryPanel 
+            <HistoryPanel
               history={history}
               performanceSummaries={performanceSummaries}
               onLoadFromHistory={loadFromHistory}
-              onClearHistory={clearHistory}
+              onDeleteHistoryItem={deleteHistoryItem}
+              onClearHistory={handleClearHistory}
               onClose={() => setShowHistory(false)}
             />
           )}
 
-          {/* Mobile Bottom Spacer */}
-          <div className="lg:hidden h-8"></div>
-
-          {/* Welcome Section - Show when no documents are loaded */}
+          {/* Welcome Section */}
           {step === 0 && (
             <div className="text-center py-12 lg:py-16">
               <div className="max-w-3xl mx-auto">
                 <div className="flex justify-center mb-8 animate-fadeIn">
-                  <img 
-                    src="/pagerushai-logo.png" 
-                    alt="PageRush AI" 
-                    className="h-24 w-auto"
-                  />
+                  <img src="/pagerushai-logo.png" alt="PageRush AI" className="h-24 w-auto" />
                 </div>
                 <h2 className="text-3xl lg:text-4xl font-bold text-gray-800 mb-4 animate-slideUp">
                   Welcome to PageRush AI
@@ -925,373 +609,155 @@ function HomeContent() {
                 <p className="text-lg text-gray-600 mb-8 max-w-xl mx-auto animate-slideUp">
                   Transform your study materials into interactive learning tools with AI-powered flashcards, quizzes, study guides, and more.
                 </p>
-                
-                {/* Progress Indicator */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 mb-8 shadow-lg border border-gray-200 animate-slideUp">
+
+                <Card variant="glass" className="mb-8 animate-slideUp">
                   <h3 className="text-lg font-semibold text-gray-800 mb-6">Getting Started</h3>
-                  <ProgressIndicator 
-                    currentStep={progressStep}
-                    totalSteps={4}
-                    labels={['Upload Documents', 'Add API Key', 'Choose Tool', 'Start Learning']}
-                  />
-                </div>
+                  <ProgressIndicator currentStep={currentStepIndex} totalSteps={4} labels={labels} />
+                </Card>
 
                 {/* Feature Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 animate-slideUp">
-                  <div className="bg-white/80 backdrop-blur-sm rounded-lg p-5 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-                    <div className="text-3xl mb-3">📚</div>
+                  <Card variant="glass" hover className="text-center">
+                    <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                      <Upload className="w-6 h-6 text-indigo-600" />
+                    </div>
                     <h3 className="font-semibold text-gray-800 mb-2">Upload Documents</h3>
-                    <p className="text-sm text-gray-600">Upload your PDFs and let AI extract the content</p>
-                  </div>
-                  <div className="bg-white/80 backdrop-blur-sm rounded-lg p-5 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-                    <div className="text-3xl mb-3">✨</div>
+                    <p className="text-sm text-gray-500">Upload your PDFs and let AI extract the content</p>
+                  </Card>
+                  <Card variant="glass" hover className="text-center">
+                    <div className="w-12 h-12 bg-violet-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                      <Sparkles className="w-6 h-6 text-violet-600" />
+                    </div>
                     <h3 className="font-semibold text-gray-800 mb-2">Choose Tools</h3>
-                    <p className="text-sm text-gray-600">Select from flashcards, quizzes, study guides, and more</p>
-                  </div>
-                  <div className="bg-white/80 backdrop-blur-sm rounded-lg p-5 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-                    <div className="text-3xl mb-3">🎯</div>
+                    <p className="text-sm text-gray-500">Select from flashcards, quizzes, study guides, and more</p>
+                  </Card>
+                  <Card variant="glass" hover className="text-center">
+                    <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                      <Target className="w-6 h-6 text-emerald-600" />
+                    </div>
                     <h3 className="font-semibold text-gray-800 mb-2">Study Smart</h3>
-                    <p className="text-sm text-gray-600">Learn efficiently with AI-powered adaptive learning</p>
-                  </div>
+                    <p className="text-sm text-gray-500">Learn efficiently with AI-powered adaptive learning</p>
+                  </Card>
                 </div>
 
                 {/* Quick Start CTA */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200 animate-slideUp">
+                <div className="bg-indigo-50 rounded-xl p-6 border border-indigo-100 animate-slideUp">
                   <p className="text-gray-700 font-medium mb-2">Ready to get started?</p>
-                  <p className="text-sm text-gray-600 mb-4">Upload your first document below to begin!</p>
-                  <button
-                    onClick={() => setShowUploadModal(true)}
-                    className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:from-blue-700 hover:to-indigo-700"
-                  >
-                    📄 Upload PDF
-                  </button>
+                  <p className="text-sm text-gray-500 mb-4">Upload your first document below to begin</p>
+                  <Button onClick={() => setShowUploadModal(true)} icon={<Upload className="w-4 h-4" />}>
+                    Upload PDF
+                  </Button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Main Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-            {/* Left Sidebar - Setup + Helpful Resources */}
-            <div className={`lg:col-span-1 space-y-4 lg:space-y-6 transition-all duration-300 ${
-              sidebarCollapsed ? 'lg:col-span-0 lg:w-16' : ''
-            }`}>
-              {/* Collapse/Expand Button */}
-              <div className="hidden lg:flex justify-end">
-                <button
-                  onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                  className="p-2 bg-white/80 backdrop-blur-sm rounded-lg shadow-sm border border-gray-200 hover:bg-white transition-all duration-200"
-                  title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-                >
-                  <span className={`transform transition-transform duration-200 ${
-                    sidebarCollapsed ? 'rotate-180' : ''
-                  }`}>
-                    {sidebarCollapsed ? '→' : '←'}
-                  </span>
-                </button>
-              </div>
-              
-              {/* Mobile Setup Section */}
-              {step === 0 && (
-                <StepHighlight isActive={highlightUpload} className="lg:hidden">
-                  <div data-upload-area>
-                    <PdfUploader onExtracted={handleExtracted} />
-                  </div>
-                </StepHighlight>
-              )}
-              
-              {step === 0 && !sidebarCollapsed && (
-                <StepHighlight isActive={highlightUpload} className="hidden lg:block">
-                  <div data-upload-area>
-                    <PdfUploader onExtracted={handleExtracted} />
-                  </div>
-                </StepHighlight>
-              )}
-              
-              {/* Collapsible Setup Section */}
-              {step >= 1 && !sidebarCollapsed && (
-                <StepHighlight isActive={highlightApiKey}>
-                  <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 overflow-hidden" data-api-key-section>
-                  {/* Progress Indicator for Setup Steps */}
-                  {step < 3 && (
-                    <div className="px-4 lg:px-6 pt-4 pb-2">
-                      <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                        <span>Setup Progress</span>
-                        <span>{step === 1 ? 'Step 1 of 2' : 'Step 2 of 2'}</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-1.5">
-                        <div 
-                          className="bg-gradient-to-r from-blue-500 to-indigo-600 h-1.5 rounded-full transition-all duration-500"
-                          style={{ width: `${(step / 2) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* API Key Section */}
-                  <div className="border-b border-gray-200">
-                    <button
-                      onClick={() => setShowApiKeyInput(!showApiKeyInput)}
-                      className={`w-full px-4 lg:px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 transition-colors ${
-                        step === 1 && !apiKey ? 'bg-blue-50/50 border-l-4 border-l-blue-500' : ''
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
-                          apiKey 
-                            ? 'bg-gradient-to-r from-green-500 to-emerald-600 shadow-lg scale-110' 
-                            : step === 1 
-                            ? 'bg-gradient-to-r from-blue-500 to-indigo-600 animate-pulse-slow shadow-lg'
-                            : 'bg-gray-300'
-                        }`}>
-                          <span className="text-white text-base">
-                            {apiKey ? '✓' : '🔑'}
-                          </span>
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-gray-800 flex items-center">
-                            API Key
-                            {step === 1 && !apiKey && (
-                              <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium animate-pulse-slow">
-                                Required
-                              </span>
-                            )}
-                          </h3>
-                          <p className="text-sm text-gray-500">
-                            {apiKey ? 'Configured and ready' : 'Required for AI features'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {apiKey && (
-                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
-                            ✓ Ready
-                          </span>
-                        )}
-                        <span className={`transform transition-transform duration-200 ${
-                          showApiKeyInput ? 'rotate-180' : ''
-                        }`}>
-                          ▼
-                        </span>
-                      </div>
-                    </button>
-                    {showApiKeyInput && (
-                      <div className="px-4 lg:px-6 pb-4 animate-slideUp">
-                        <ApiKeyInput onChange={setApiKey} />
-                      </div>
-                    )}
-                  </div>
-                </div>
-                </StepHighlight>
-              )}
-
-              {/* Helpful Resources Sidebar */}
-              {!sidebarCollapsed && (
-                <HelpfulResourcesSidebar 
-                  history={history} 
-                  performanceSummaries={performanceSummaries} 
-                  onLoadFromHistory={loadFromHistory} 
-                />
-              )}
-
-              {/* Progress Tracker for Quiz/Exam */}
-              {(feature === 'quiz' || feature === 'exam') && result && !sidebarCollapsed && (
-                <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 p-4">
-                  <h3 className="font-semibold text-gray-800 mb-3 flex items-center">
-                    <span className="mr-2">📊</span>
-                    Progress
-                  </h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Question</span>
-                      <span className="font-medium">{currentQuestionIndex + 1} / {totalQuestions}</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${((currentQuestionIndex + 1) / totalQuestions) * 100}%` }}
-                      ></div>
-                    </div>
-                    <div className="text-xs text-gray-500 text-center">
-                      {Math.round(((currentQuestionIndex + 1) / totalQuestions) * 100)}% Complete
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Focus Mode Stats */}
-              {!sidebarCollapsed && <FocusModeStats onEnterFocusMode={() => setFocusMode(true)} />}
-
-              {/* Collapsed Sidebar - Show only icons */}
-              {sidebarCollapsed && (
-                <div className="space-y-4">
-                  {/* Progress Indicator (if quiz/exam active) */}
-                  {(feature === 'quiz' || feature === 'exam') && result && (
-                    <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-sm border border-gray-200 p-3 flex justify-center">
-                      <div className="text-center" title={`Question ${currentQuestionIndex + 1} of ${totalQuestions}`}>
-                        <div className="text-lg font-bold text-blue-600">{currentQuestionIndex + 1}</div>
-                        <div className="text-xs text-gray-500">/ {totalQuestions}</div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Main Content Area */}
-            <div className={`space-y-4 lg:space-y-6 transition-all duration-300 ${
-              sidebarCollapsed ? 'lg:col-span-3' : 'lg:col-span-2'
-            }`}>
-              {/* Feature Selection - Moved to main content area */}
-              {step >= 2 && ((!showQuizGenerator || !showExamGenerator || !result) || showFeatureSelector) && (
+          {/* Main Content Area */}
+          <div className="space-y-4 lg:space-y-6">
+              {/* Feature Selection */}
+              {step >= 2 && ((!showQuizGenerator && !showExamGenerator && !result) || showFeatureSelector) && (
                 <StepHighlight isActive={highlightFeatures}>
-                  <div 
-                    className={`bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 p-4 lg:p-6 transition-all duration-300 ${
-                      step === 2 && !feature ? 'ring-2 ring-blue-500 ring-offset-2' : ''
-                    }`} 
+                  <Card
+                    variant="glass"
+                    className={step === 2 && !feature ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}
                     data-feature-selector
                   >
-                  <div className="text-center mb-4 lg:mb-6">
-                    <div className="flex justify-center mb-4">
-                      <img 
-                        src="/pagerushai-logo.png" 
-                        alt="PageRush AI" 
-                        className="h-12 w-auto"
-                      />
-                    </div>
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <h2 className="text-xl lg:text-2xl font-bold text-gray-800">✨ Choose Your Study Tool</h2>
-                      {step === 2 && !feature && (
-                        <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium animate-pulse-slow">
-                          Step 2
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-gray-600 text-sm lg:text-base">
-                      {step === 2 && !feature 
-                        ? 'Select a study tool to get started with your documents'
-                        : 'Select how you\'d like to study your materials'}
-                    </p>
-                  </div>
-                  
-                  {/* Helpful hint for first-time users */}
-                  {step === 2 && !feature && showGuide && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 animate-slideUp">
-                      <p className="text-sm text-blue-800 flex items-start">
-                        <span className="mr-2">💡</span>
-                        <span>
-                          <strong>Tip:</strong> Start with <strong>Exam Cram</strong> for smart topic breakdown, or choose <strong>Study Guide</strong> for organized notes. Each tool offers unique learning experiences!
-                        </span>
+                    <div className="text-center mb-4 lg:mb-6">
+                      <div className="flex justify-center mb-4">
+                        <img src="/pagerushai-logo.png" alt="PageRush AI" className="h-12 w-auto" />
+                      </div>
+                      <div className="flex items-center justify-center gap-2 mb-2">
+                        <Sparkles className="w-5 h-5 text-indigo-600" />
+                        <h2 className="text-xl lg:text-2xl font-semibold text-gray-900">Choose Your Study Tool</h2>
+                      </div>
+                      <p className="text-gray-500 text-sm lg:text-base">
+                        {step === 2 && !feature
+                          ? 'Select a study tool to get started with your documents'
+                          : 'Select how you\'d like to study your materials'}
                       </p>
                     </div>
-                  )}
-                  
-                  <FeatureSelector selected={feature} onSelect={handleFeature} />
-                  </div>
+
+                    {step === 2 && !feature && showOnboardingGuide && (
+                      <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 mb-4 animate-slideUp">
+                        <p className="text-sm text-indigo-800 flex items-start gap-2">
+                          <Lightbulb className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                          <span>
+                            <strong>Tip:</strong> Start with <strong>Exam Cram</strong> for smart topic breakdown, or choose{' '}
+                            <strong>Study Guide</strong> for organized notes.
+                          </span>
+                        </p>
+                      </div>
+                    )}
+
+                    <FeatureSelector selected={feature} onSelect={handleFeature} />
+                  </Card>
                 </StepHighlight>
               )}
 
+              {/* Quiz Generator */}
               {showQuizGenerator && (
-                <QuizGenerator 
-                  onGenerate={handleQuizGenerate} 
-                  extractedText={activeDocuments.map(doc => doc.text).join('\n\n---\n\n')} 
-                  apiKey={apiKey}
-                />
+                <QuizGenerator onGenerate={handleQuizGenerate} extractedText={getActiveText()} apiKey={apiKey} />
               )}
+
+              {/* Exam Generator */}
               {showExamGenerator && (
-                <ExamGenerator 
-                  onGenerate={handleExamGenerate} 
-                  extractedText={activeDocuments.map(doc => doc.text).join('\n\n---\n\n')} 
+                <ExamGenerator
+                  onGenerate={handleExamGenerate}
+                  extractedText={getActiveText()}
                   apiKey={apiKey}
                   performanceSummaries={performanceSummaries}
                 />
               )}
 
-                            {!loading && feature === 'examCram' && activeDocuments.length > 0 && (
-                <ExamCram
-                  content={activeDocuments.map(doc => doc.text).join('\n\n---\n\n')}
-                  documentName={activeDocuments.map(doc => doc.name).join(', ')}
+              {/* Study Content */}
+              {(feature === 'smartStudy' || feature === 'examCram' || feature === 'studyGuide') && activeDocuments?.length > 0 && (
+                <SmartStudy
+                  content={getActiveText()}
+                  documentName={activeDocuments.map((d) => d.name).join(', ')}
                   apiKey={apiKey}
-                  onGenerateContent={generateContent}
                 />
               )}
-              {!loading && result && feature === 'studyGuide' && (
-                <StudyGuide 
-                  content={result.result?.candidates?.[0]?.content?.parts?.[0]?.text || ''} 
-                  onRegenerate={() => generateContent('studyGuide')}
-                />
-              )}
+
               {!loading && result && feature === 'flashcards' && (
-                <Flashcards 
-                  cards={parsedFlashcards} 
-                  onRegenerate={() => generateContent('flashcards')}
-                />
+                <Flashcards cards={parsedFlashcards} onRegenerate={() => generateContent('flashcards')} />
               )}
-              {!loading && result && feature === 'quiz' && (
+
+              {result && feature === 'quiz' && (
                 <>
-                  <Quiz 
-                    questions={parseQuiz(result)} 
+                  <Quiz
+                    questions={parsedQuizQuestions}
                     onSubmit={handleQuizSubmit}
                     currentQuestionIndex={currentQuestionIndex}
-                    setCurrentQuestionIndex={setCurrentQuestionIndex}
-                    setTotalQuestions={setTotalQuestions}
+                    setCurrentQuestionIndex={handleSetCurrentQuestionIndex}
+                    setTotalQuestions={handleSetTotalQuestions}
+                    gradingFeedback={quizScore}
                   />
                   {quizScore && <Insights score={quizScore.score} total={quizScore.total} details={quizScore.details || []} />}
                 </>
               )}
+
               {!loading && result && feature === 'exam' && (
                 <>
-                  <Exam 
-                    questions={parseExam(result)} 
+                  <Exam
+                    questions={parsedExamQuestions}
                     onSubmit={handleExamSubmit}
                     feedback={examFeedback}
                     currentQuestionIndex={currentQuestionIndex}
-                    setCurrentQuestionIndex={setCurrentQuestionIndex}
-                    setTotalQuestions={setTotalQuestions}
-                    onSaveResults={(examResults: ExamResult) => {
-                      setPerformanceSummaries(prev => [examResults, ...prev]);
-                      addNotification({
-                        type: 'success',
-                        icon: '💾',
-                        title: 'Exam Results Saved',
-                        message: 'Your exam results have been saved to your history for future review.',
-                      });
+                    setCurrentQuestionIndex={handleSetCurrentQuestionIndex}
+                    setTotalQuestions={handleSetTotalQuestions}
+                    onSaveResults={(examResults: unknown) => {
+                      addPerformanceSummary(examResults as Omit<PerformanceSummary, 'id' | 'timestamp'>);
+                      notify.success('Exam Results Saved', 'Your exam results have been saved to your history.');
                     }}
                   />
                   {quizScore && <Insights score={quizScore.score} total={quizScore.total} details={quizScore.details || []} />}
                 </>
               )}
-            </div>
           </div>
-          
-          {/* Footer with Logo */}
-          <div className="mt-12 lg:mt-16 pt-8 border-t border-gray-200">
-            <div className="text-center">
-              <div className="flex justify-center items-center space-x-4 mb-4">
-                <img 
-                  src="/pagerushai-logo.png" 
-                  alt="PageRush AI" 
-                  className="h-8 w-auto"
-                />
-              </div>
-              <p className="text-sm text-gray-500 mb-2">
-                Transform your study materials into interactive learning tools
-              </p>
-              <p className="text-xs text-gray-400">
-                Powered by AI • Built for Students • By Students (<a href="https://linkedin.com/in/hong-bing" className="text-blue-500">Hong</a>)
-              </p>
-            </div>
-          </div>
+
+          <Footer />
         </div>
       </div>
-    </NotificationProvider>
-  );
-}
-
-export default function Home() {
-  return (
-    <LoadingProvider>
-      <HomeContent />
-    </LoadingProvider>
+    </>
   );
 }

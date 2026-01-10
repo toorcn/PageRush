@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { CheckCircle } from 'lucide-react';
 import LottieLoader from './LottieLoader';
 import StudyGuide from './StudyGuide';
 import Flashcards from './Flashcards';
@@ -12,6 +13,28 @@ const LessonContent = ({ lessonType, content, onComplete, result }) => {
   console.log('LessonContent render:', { lessonType, content: content?.substring(0, 50), result: !!result });
   
   const [quizResult, setQuizResult] = React.useState(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = React.useState(0);
+  const [totalQuestions, setTotalQuestions] = React.useState(0);
+
+  // Handle quiz submission - grade locally since we have the questions
+  const handleQuizSubmit = (answers) => {
+    const actualResult = result || { result: { candidates: [{ content: { parts: [{ text: content }] } }] } };
+    const questions = parseQuiz(actualResult);
+    
+    let numCorrect = 0;
+    const details = questions.map((q, i) => {
+      const isCorrect = answers[i] === q.answer;
+      if (isCorrect) numCorrect++;
+      const status = isCorrect ? 'Correct' : `Incorrect (Correct: ${q.answer})`;
+      return `${i + 1}. ${q.question} — ${status}`;
+    });
+    
+    setQuizResult({
+      numCorrect,
+      totalQuestions: questions.length,
+      details
+    });
+  };
 
   const renderContent = () => {
     if (!content && !result) {
@@ -38,7 +61,13 @@ const LessonContent = ({ lessonType, content, onComplete, result }) => {
         return quizResult ? (
           <Insights score={quizResult.numCorrect} total={quizResult.totalQuestions} details={quizResult.details} />
         ) : (
-          <Quiz questions={parseQuiz(actualResult)} onSubmit={setQuizResult} />
+          <Quiz 
+            questions={parseQuiz(actualResult)} 
+            onSubmit={handleQuizSubmit}
+            currentQuestionIndex={currentQuestionIndex}
+            setCurrentQuestionIndex={setCurrentQuestionIndex}
+            setTotalQuestions={setTotalQuestions}
+          />
         );
       case 'exam':
         return <Exam questions={parseExam(actualResult)} onSubmit={() => onComplete()} />;
@@ -79,7 +108,7 @@ const LessonContent = ({ lessonType, content, onComplete, result }) => {
           onClick={onComplete}
           className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-3 rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center space-x-2"
         >
-          <span>✅</span>
+          <CheckCircle className="w-5 h-5" />
           <span>Complete Lesson</span>
         </button>
       </div>

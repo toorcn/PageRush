@@ -2,10 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { topicContentManager } from '../utils/topicContentManager';
 import LottieLoader from './LottieLoader';
-import { useLoading } from './LoadingProvider';
+import { 
+  BookOpen, Target, Lightbulb, AlertTriangle, BookMarked, ClipboardList,
+  Brain, Link2, Check, ChevronDown, RefreshCw, ChevronLeft, XCircle, RotateCcw, Loader2, X
+} from 'lucide-react';
 
 export default function TopicContentPage({ topic, onBack, content, apiKey, onStartPractice, practiceLoading }) {
-  const { startLoading, stopLoading } = useLoading();
   const [topicContent, setTopicContent] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -23,19 +25,34 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
     if (!topic || !content || !apiKey) return;
 
     setLoading(true);
-    startLoading('global', 'Loading detailed topic content...');
     setError(null);
 
     try {
       const topicContentData = await topicContentManager.getTopicContent(topic, content, apiKey);
-      setTopicContent(topicContentData);
+      // Check if we got valid content
+      if (topicContentData && (topicContentData.detailedDescription || topicContentData.keyPoints?.length > 0)) {
+        setTopicContent(topicContentData);
+      } else {
+        setError('Content generation returned empty results. Please try again.');
+      }
     } catch (error) {
       console.error('Error loading topic content:', error);
-      setError('Failed to load topic content. Please try again.');
+      setError(`Failed to load topic content: ${error.message || 'Unknown error'}. Please try again.`);
     } finally {
       setLoading(false);
-      stopLoading('global');
     }
+  };
+
+  const retryLoadContent = () => {
+    // Clear cached content for this topic to force regeneration
+    if (topic?.id) {
+      try {
+        localStorage.removeItem(`topicContent_${topic.id}`);
+      } catch (e) {
+        console.error('Error clearing cache:', e);
+      }
+    }
+    loadTopicContent();
   };
 
   const toggleSection = (sectionId) => {
@@ -129,8 +146,8 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
           className="w-full p-6 text-left flex items-center justify-between group"
         >
           <div className="flex items-center space-x-3">
-            <div className={`text-2xl ${isCompleted ? 'text-green-600' : textColor}`}>
-              {isCompleted ? '✅' : icon}
+            <div className={`${isCompleted ? 'text-green-600' : textColor}`}>
+              {isCompleted ? <Check className="w-6 h-6" /> : icon}
             </div>
             <div>
               <h3 className={`font-bold text-lg ${textColor} group-hover:underline`}>
@@ -143,13 +160,11 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
           </div>
           <div className="flex items-center space-x-2">
             {isCompleted && (
-              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                ✓ Done
+              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full flex items-center gap-1">
+                <Check className="w-3 h-3" /> Done
               </span>
             )}
-            <span className={`text-lg transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
-              ▼
-            </span>
+            <ChevronDown className={`w-5 h-5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
           </div>
         </button>
         
@@ -183,17 +198,17 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
             {!isCompleted && (
               <button
                 onClick={() => markSectionComplete(sectionId)}
-                className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center gap-1"
               >
-                ✓ Mark as Complete
+                <Check className="w-4 h-4" /> Mark as Complete
               </button>
             )}
             {isCompleted && (
               <button
                 onClick={() => markSectionIncomplete(sectionId)}
-                className="mt-4 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+                className="mt-4 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium flex items-center gap-1"
               >
-                ↺ Mark as Incomplete
+                <RotateCcw className="w-4 h-4" /> Mark as Incomplete
               </button>
             )}
           </div>
@@ -410,19 +425,19 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">📖 {topic?.title}</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2 flex items-center gap-2"><BookOpen className="w-6 h-6" /> {topic?.title}</h2>
             <p className="text-gray-600">Loading detailed content...</p>
           </div>
           <button
             onClick={onBack}
             className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium"
           >
-            ← Back to Topics
+            <ChevronLeft className="w-4 h-4" /> Back to Topics
           </button>
         </div>
         
         <div className="text-center py-12">
-          <div className="animate-spin text-4xl mb-4">⏳</div>
+          <Loader2 className="w-12 h-12 mx-auto mb-4 text-blue-500 animate-spin" />
           <p className="text-gray-600">Loading comprehensive topic content...</p>
         </div>
       </div>
@@ -434,25 +449,33 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">📖 {topic?.title}</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2 flex items-center gap-2"><BookOpen className="w-6 h-6" /> {topic?.title}</h2>
             <p className="text-gray-600">Error loading content</p>
           </div>
           <button
             onClick={onBack}
             className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium"
           >
-            ← Back to Topics
+            <ChevronLeft className="w-4 h-4" /> Back to Topics
           </button>
         </div>
         
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-          <div className="text-red-600 text-lg mb-2">❌ {error}</div>
-          <button
-            onClick={loadTopicContent}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-          >
-            Try Again
-          </button>
+          <div className="text-red-600 text-lg mb-2 flex items-center justify-center gap-2"><XCircle className="w-5 h-5" /> {error}</div>
+          <div className="flex justify-center gap-3">
+            <button
+              onClick={retryLoadContent}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-1"
+            >
+              <RefreshCw className="w-4 h-4" /> Retry (Clear Cache)
+            </button>
+            <button
+              onClick={loadTopicContent}
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -464,7 +487,7 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-3">
-            <div className="text-3xl">📖</div>
+            <BookOpen className="w-8 h-8 text-blue-600" />
             <div>
               <h2 className="text-2xl font-bold text-gray-800">{topic?.title}</h2>
               <p className="text-gray-600">Comprehensive topic content and study materials</p>
@@ -474,7 +497,7 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
             onClick={onBack}
             className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium"
           >
-            ← Back to Topics
+            <ChevronLeft className="w-4 h-4" /> Back to Topics
           </button>
         </div>
 
@@ -516,14 +539,14 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
       {/* Learning Objectives */}
       {topic?.learningObjectives && topic.learningObjectives.length > 0 && (
         <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
-          <h3 className="font-bold text-lg mb-4 text-green-800 flex items-center">
-            <span className="mr-2">🎯</span>
+          <h3 className="font-bold text-lg mb-4 text-green-800 flex items-center gap-2">
+            <Target className="w-5 h-5" />
             Learning Objectives
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {topic.learningObjectives.map((objective, index) => (
               <div key={index} className="flex items-start space-x-2 bg-white rounded-lg p-3 border border-green-200">
-                <span className="text-green-500 mt-1 flex-shrink-0">✓</span>
+                <Check className="w-4 h-4 text-green-500 mt-1 flex-shrink-0" />
                 <span className="text-gray-700 text-sm">{objective}</span>
               </div>
             ))}
@@ -539,7 +562,7 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
             'description',
             'Detailed Explanation',
             topicContent.detailedDescription,
-            '📖',
+            <BookOpen className="w-6 h-6" />,
             'bg-blue-50',
             'text-blue-800',
             'border-blue-200'
@@ -550,7 +573,7 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
             'keyPoints',
             'Key Points',
             topicContent.keyPoints,
-            '🎯',
+            <Target className="w-6 h-6" />,
             'bg-green-50',
             'text-green-800',
             'border-green-200'
@@ -561,7 +584,7 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
             'examples',
             'Examples',
             topicContent.examples,
-            '💡',
+            <Lightbulb className="w-6 h-6" />,
             'bg-green-50',
             'text-green-800',
             'border-green-200'
@@ -575,15 +598,13 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
                 className="w-full p-6 text-left flex items-center justify-between group"
               >
                 <div className="flex items-center space-x-3">
-                  <div className="text-2xl text-red-600">⚠️</div>
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
                   <div>
                     <h3 className="font-bold text-lg text-red-800 group-hover:underline">Common Misconceptions</h3>
                     <p className="text-sm text-red-600">{topicContent.commonMisconceptions.length} misconceptions to avoid</p>
                   </div>
                 </div>
-                <span className={`text-lg transition-transform duration-200 ${expandedSections.has('misconceptions') ? 'rotate-180' : ''}`}>
-                  ▼
-                </span>
+                <ChevronDown className={`w-5 h-5 transition-transform duration-200 ${expandedSections.has('misconceptions') ? 'rotate-180' : ''}`} />
               </button>
               
               {expandedSections.has('misconceptions') && (
@@ -592,7 +613,7 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
                     {topicContent.commonMisconceptions.map((misconception, index) => (
                       <div key={index} className="bg-white rounded-lg p-4 border border-gray-200 hover:border-gray-300 transition-colors">
                         <div className="flex items-start space-x-3">
-                          <span className="text-red-500 mt-1 flex-shrink-0">❌</span>
+                          <X className="w-5 h-5 text-red-500 mt-1 flex-shrink-0" />
                           <div className="flex-1">
                             <div className="prose prose-sm max-w-none mb-2">
                               {renderFormattedText(misconception.misconception)}
@@ -614,9 +635,9 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
                   {!completedSections.has('misconceptions') && (
                     <button
                       onClick={() => markSectionComplete('misconceptions')}
-                      className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                      className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center gap-1"
                     >
-                      ✓ Mark as Complete
+                      <Check className="w-4 h-4" /> Mark as Complete
                     </button>
                   )}
                 </div>
@@ -670,7 +691,7 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
             'studyTips',
             'Study Tips',
             topicContent.studyTips,
-            '📚',
+            <BookMarked className="w-6 h-6" />,
             'bg-purple-50',
             'text-purple-800',
             'border-purple-200'
@@ -681,7 +702,7 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
             'examTips',
             'Exam Tips',
             topicContent.examTips,
-            '📝',
+            <ClipboardList className="w-6 h-6" />,
             'bg-orange-50',
             'text-orange-800',
             'border-orange-200'
@@ -695,15 +716,13 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
                 className="w-full p-6 text-left flex items-center justify-between group"
               >
                 <div className="flex items-center space-x-3">
-                  <div className="text-2xl text-yellow-600">🧠</div>
+                  <Brain className="w-6 h-6 text-yellow-600" />
                   <div>
                     <h3 className="font-bold text-lg text-yellow-800 group-hover:underline">Practice Questions</h3>
                     <p className="text-sm text-yellow-600">{topicContent.practiceQuestions.length} questions to test your knowledge</p>
                   </div>
                 </div>
-                <span className={`text-lg transition-transform duration-200 ${expandedSections.has('practice') ? 'rotate-180' : ''}`}>
-                  ▼
-                </span>
+                <ChevronDown className={`w-5 h-5 transition-transform duration-200 ${expandedSections.has('practice') ? 'rotate-180' : ''}`} />
               </button>
               
               {expandedSections.has('practice') && (
@@ -735,9 +754,9 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
                   {!completedSections.has('practice') && (
                     <button
                       onClick={() => markSectionComplete('practice')}
-                      className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                      className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center gap-1"
                     >
-                      ✓ Mark as Complete
+                      <Check className="w-4 h-4" /> Mark as Complete
                     </button>
                   )}
                 </div>
@@ -753,15 +772,13 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
                 className="w-full p-6 text-left flex items-center justify-between group"
               >
                 <div className="flex items-center space-x-3">
-                  <div className="text-2xl text-indigo-600">🔗</div>
+                  <Link2 className="w-6 h-6 text-indigo-600" />
                   <div>
                     <h3 className="font-bold text-lg text-indigo-800 group-hover:underline">Related Concepts</h3>
                     <p className="text-sm text-indigo-600">{topicContent.relatedConcepts.length} connected topics</p>
                   </div>
                 </div>
-                <span className={`text-lg transition-transform duration-200 ${expandedSections.has('related') ? 'rotate-180' : ''}`}>
-                  ▼
-                </span>
+                <ChevronDown className={`w-5 h-5 transition-transform duration-200 ${expandedSections.has('related') ? 'rotate-180' : ''}`} />
               </button>
               
               {expandedSections.has('related') && (
@@ -780,9 +797,9 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
                   {!completedSections.has('related') && (
                     <button
                       onClick={() => markSectionComplete('related')}
-                      className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                      className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center gap-1"
                     >
-                      ✓ Mark as Complete
+                      <Check className="w-4 h-4" /> Mark as Complete
                     </button>
                   )}
                 </div>
@@ -797,9 +814,9 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
         <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
           <button
             onClick={onBack}
-            className="flex-1 px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
+            className="flex-1 px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center justify-center gap-2"
           >
-            ← Back to Topics
+            <ChevronLeft className="w-4 h-4" /> Back to Topics
           </button>
           <button
             onClick={() => onStartPractice && onStartPractice(topic.id)}
@@ -819,7 +836,7 @@ export default function TopicContentPage({ topic, onBack, content, apiKey, onSta
                 />
               </div>
             ) : (
-              <span>🎯 Start Practice Session</span>
+              <span className="flex items-center gap-2"><Target className="w-5 h-5" /> Start Practice Session</span>
             )}
           </button>
         </div>

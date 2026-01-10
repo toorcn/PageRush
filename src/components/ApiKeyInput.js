@@ -1,5 +1,6 @@
 'use client';
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { Eye, EyeOff, Lock, Check, AlertCircle } from 'lucide-react';
 
 export default function ApiKeyInput({ onChange }) {
   const [key, setKey] = useState('');
@@ -45,7 +46,7 @@ export default function ApiKeyInput({ onChange }) {
               className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors duration-200 p-2 rounded-lg hover:bg-gray-100"
               aria-label={showKey ? 'Hide API key' : 'Show API key'}
             >
-              {showKey ? '👁️' : '👁️‍🗨️'}
+              {showKey ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           </div>
         </label>
@@ -54,7 +55,7 @@ export default function ApiKeyInput({ onChange }) {
         {isValid === true && (
           <div className="flex items-center text-green-600 text-sm lg:text-base bg-green-50/50 p-3 lg:p-4 rounded-lg border border-green-200">
             <div className="w-5 h-5 lg:w-6 lg:h-6 bg-green-500 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-              <span className="text-white text-xs lg:text-sm">✓</span>
+              <Check className="w-3 h-3 lg:w-4 lg:h-4 text-white" />
             </div>
             <span>API key looks valid</span>
           </div>
@@ -62,7 +63,7 @@ export default function ApiKeyInput({ onChange }) {
         {isValid === false && (
           <div className="flex items-center text-red-600 text-sm lg:text-base bg-red-50/50 p-3 lg:p-4 rounded-lg border border-red-200">
             <div className="w-5 h-5 lg:w-6 lg:h-6 bg-red-500 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-              <span className="text-white text-xs lg:text-sm">!</span>
+              <AlertCircle className="w-3 h-3 lg:w-4 lg:h-4 text-white" />
             </div>
             <span>Please enter a valid API key</span>
           </div>
@@ -79,7 +80,7 @@ export default function ApiKeyInput({ onChange }) {
           </ol>
           <div className="mt-3 lg:mt-4 p-3 lg:p-4 bg-white/50 rounded border border-gray-200">
             <p className="text-xs lg:text-sm text-gray-500 flex items-start">
-              <span className="mr-2 mt-0.5">🔒</span>
+              <Lock className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
               <span>Your API key is never stored on our servers and is only used to make requests to Gemini.</span>
             </p>
           </div>
