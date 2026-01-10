@@ -54,30 +54,30 @@ export const MODEL_PRICING: Record<GeminiModel, { input: number; output: number 
 };
 
 // Default model used when no specific action model is configured
-export const DEFAULT_MODEL: GeminiModel = 'gemini-3-flash-preview';
+export const DEFAULT_MODEL: GeminiModel = 'gemini-2.5-flash-lite';
 
 // Action-to-model mapping
 // Customize which model handles each action type
 export const ACTION_MODELS: Record<string, GeminiModel> = {
   // Content generation
-  'gemini-generate': 'gemini-3-flash-preview',
-  'study-guide': 'gemini-3-flash-preview',
-  'flashcards': 'gemini-3-flash-preview',
-  'quiz': 'gemini-3-flash-preview',
-  'lesson': 'gemini-3-flash-preview',
+  'gemini-generate': 'gemini-2.5-flash-lite',
+  'study-guide': 'gemini-2.5-flash-lite',
+  'flashcards': 'gemini-2.5-flash-lite',
+  'quiz': 'gemini-2.5-flash-lite',
+  'lesson': 'gemini-2.5-flash-lite',
   
   // Quiz grading
-  'grade-quiz': 'gemini-3-flash-preview',
+  'grade-quiz': 'gemini-2.5-flash-lite',
   
   // Exam cram features
-  'exam-cram': 'gemini-3-flash-preview',
-  'generate-topic-content': 'gemini-3-flash-preview',
+  'exam-cram': 'gemini-2.5-flash-lite',
+  'generate-topic-content': 'gemini-2.5-flash-lite',
   
   // Focus mode
-  'focus-mode-generate': 'gemini-3-flash-preview',
+  'focus-mode-generate': 'gemini-2.5-flash-lite',
   
   // Question bank
-  'generate-question-bank': 'gemini-3-flash-preview',
+  'generate-question-bank': 'gemini-2.5-flash-lite',
 };
 
 // Helper to get model for an action

@@ -12,30 +12,30 @@ export const MODELS = {
 };
 
 // Default model
-export const DEFAULT_MODEL = MODELS.FLASH_PREVIEW;
+export const DEFAULT_MODEL = MODELS.FLASH_LITE;
 
 // Action-to-model mapping
 // Customize which model handles each action type
 export const ACTION_MODELS = {
   // Content generation
-  'gemini-generate': MODELS.FLASH_PREVIEW,
-  'study-guide': MODELS.FLASH_PREVIEW,
-  'flashcards': MODELS.FLASH_PREVIEW,
-  'quiz': MODELS.FLASH_PREVIEW,
-  'lesson': MODELS.FLASH_PREVIEW,
+  'gemini-generate': MODELS.FLASH_LITE,
+  'study-guide': MODELS.FLASH_LITE,
+  'flashcards': MODELS.FLASH_LITE,
+  'quiz': MODELS.FLASH_LITE,
+  'lesson': MODELS.FLASH_LITE,
   
   // Quiz grading
-  'grade-quiz': MODELS.FLASH_PREVIEW,
+  'grade-quiz': MODELS.FLASH_LITE,
   
   // Exam cram features
-  'exam-cram': MODELS.FLASH_PREVIEW,
-  'generate-topic-content': MODELS.FLASH_PREVIEW,
+  'exam-cram': MODELS.FLASH_LITE,
+  'generate-topic-content': MODELS.FLASH_LITE,
   
   // Focus mode
-  'focus-mode-generate': MODELS.FLASH_PREVIEW,
+  'focus-mode-generate': MODELS.FLASH_LITE,
   
   // Question bank
-  'generate-question-bank': MODELS.FLASH_PREVIEW,
+  'generate-question-bank': MODELS.FLASH_LITE,
 };
 
 // Helper to get model for an action
