@@ -1,150 +1,64 @@
-# PageRush AI - Smart Study Tools
+# PageRush AI
 
-Transform your study materials into interactive learning tools with AI-powered flashcards, quizzes, study guides, and more.
+AI-assisted study workspace for turning PDFs into flashcards, quizzes, exams, and adaptive study plans powered by Google Gemini. Built with Next.js 16 (App Router + `pages/api`), React 19, and Zustand for client-side state.
 
-## 🚀 Features
+## What it does
+- PDF upload + server-side text extraction (`/api/extract-text` using `formidable` + `pdf-parse`, 50MB/file limit).
+- Study tools: Smart Study (study guide), flashcards, quiz and exam generation + grading, focus mode, onboarding guide, history replay.
+- Exam Cram/adaptive learning: topic breakdowns, readiness assessments, practice questions, cached question banks, and token/cost metrics tracking.
+- Client-only Gemini key entry (stored in `localStorage`), progress/history/document caching, and basic PWA metadata (`manifest.json`, mobile-friendly layout).
 
-- **📄 PDF Upload & Processing**: Upload and extract text from PDF documents
-- **🎯 Focus Mode**: Distraction-free study environment with progress tracking
-- **📚 Study Guide Generation**: Create organized notes and summaries
-- **🃏 Interactive Flashcards**: Generate and study with AI-powered flashcards
-- **❓ Quiz Generation**: Test your knowledge with multiple choice questions
-- **📝 Exam Practice**: Full practice exams with mixed question types
-- **🚀 Exam Cram**: Smart topic breakdown and adaptive learning
-- **📊 Performance Analytics**: Track your progress and identify weak areas
-- **📱 Mobile-Optimized**: Fully responsive design with touch-friendly interface
+## Project structure (high level)
+- `src/app`: Next.js app router pages, layout, global styles.
+- `src/pages/api`: Serverless routes for Gemini prompts, quiz/exam grading, topic content, focus mode, question banks, and PDF extraction.
+- `src/components`: UI + feature modules (upload modals, SmartStudy, Quiz/Exam, onboarding, notifications, metrics).
+- `src/stores`: Zustand stores for study state, documents, metrics, notifications, and UI flags.
+- `src/lib/api`: Centralized client + Gemini API wrapper with model selection, pricing, and metrics hooks.
+- `src/utils`: Parsing helpers and adaptive learning utilities (question bank manager, topic content caching).
+- `ADAPTIVE_LEARNING_OPTIMIZATION.md`: Notes on caching/question-bank strategy and performance gains.
 
-## 📱 Mobile Experience
+## Prerequisites
+- Node.js 18.18+ (Next.js 16 requirement)
+- npm 9+
+- A Google Gemini API key (user-provided at runtime; not stored server-side)
 
-The application has been specifically optimized for mobile devices with:
-
-- **Responsive Design**: Adapts seamlessly to all screen sizes
-- **Touch-Friendly Interface**: Large touch targets and intuitive gestures
-- **Mobile Navigation**: Fixed header and bottom navigation for easy access
-- **Floating Action Button**: Quick access to study tools
-- **Optimized Typography**: Readable text sizes and proper spacing
-- **PWA Support**: Install as a native app on mobile devices
-- **Offline Capabilities**: Works with cached data when offline
-- **Smooth Animations**: Hardware-accelerated transitions
-- **Accessibility**: Screen reader support and keyboard navigation
-
-## 🛠️ Technology Stack
-
-- **Frontend**: Next.js 14, React 18, TypeScript
-- **Styling**: Tailwind CSS with custom mobile optimizations
-- **AI Integration**: Google Gemini API
-- **File Processing**: PDF text extraction
-- **State Management**: React hooks and localStorage
-- **PWA**: Service workers and manifest.json
-
-## 🚀 Getting Started
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/pagerush-ai.git
-   cd pagerush-ai
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Get your Gemini API key**
-   - Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
-   - Sign in with your Google account
-   - Create a new API key
-   - Copy the key for use in the app
-
-4. **Run the development server**
-   ```bash
-   npm run dev
-   ```
-
-5. **Open your browser**
-   - Navigate to `http://localhost:3000`
-   - Upload a PDF document
-   - Enter your Gemini API key
-   - Start creating study materials!
-
-## 📱 Mobile Usage
-
-### Installation
-- **iOS**: Open Safari, tap the share button, and select "Add to Home Screen"
-- **Android**: Open Chrome, tap the menu, and select "Add to Home Screen"
-
-### Features
-- **Touch Gestures**: Swipe, tap, and pinch to navigate
-- **Voice Input**: Use voice-to-text for API key entry
-- **Haptic Feedback**: Tactile responses for interactions
-- **Battery Optimization**: Efficient power usage
-- **Data Saver**: Compressed content for slow connections
-
-## 🎯 Study Tools
-
-### 📚 Study Guide
-- Generate organized summaries
-- Highlight key concepts
-- Create structured notes
-
-### 🃏 Flashcards
-- Interactive card flipping
-- Spaced repetition algorithm
-- Progress tracking
-
-### ❓ Quiz Generator
-- Multiple choice questions
-- Instant feedback
-- Performance analytics
-
-### 📝 Exam Practice
-- Timed assessments
-- Mixed question types
-- Detailed explanations
-
-### 🚀 Exam Cram
-- Smart topic breakdown
-- Adaptive learning paths
-- Focus on weak areas
-
-## 🔧 Configuration
-
-### Environment Variables
-```env
-NEXT_PUBLIC_GEMINI_API_URL=https://generativelanguage.googleapis.com
+## Run locally
+```bash
+npm install
+npm run dev        # starts Next.js with Turbopack on 0.0.0.0:3000
 ```
+Then open `http://localhost:3000`, upload a PDF, and enter your Gemini API key in the UI.
 
-### API Key Security
-- API keys are stored locally in the browser
-- Never transmitted to external servers
-- Used only for direct Gemini API calls
+## Environment / configuration
+- No required `.env` for local dev; Gemini key is entered in-app and kept in `localStorage`.
+- Optional: If you need a different Gemini base URL, configure it in `src/lib/api/gemini.ts` or `src/lib/gemini-config.js` (defaults to `https://generativelanguage.googleapis.com`).
+- Vercel config: `vercel.json` sets CORS headers for `/api/extract-text` and allows long-running PDF parses (200s function limit).
 
-## 📊 Performance
+## Key behaviors
+- Uploads: PDFs are parsed server-side; text is merged and returned. Temporary files are cleaned post-parse; unsupported files are rejected.
+- Generation: All study flows call Gemini via `/api/gemini-generate` and specialized endpoints (exam cram, focus mode, question bank).
+- Grading: Quiz/exam grading uses `/api/grade-quiz`; MCQ grading for cached banks can happen client-side per `questionBankManager`.
+- State: Documents, history, performance summaries, and the Gemini key are persisted in `localStorage`; onboarding includes migration of legacy keys/history.
+- Metrics: Token usage and estimated cost are computed client-side from Gemini usage metadata (`setMetricsCallback` in `src/lib/api/gemini.ts`).
 
-- **Fast Loading**: Optimized bundle sizes
-- **Smooth Interactions**: 60fps animations
-- **Efficient Caching**: Smart data persistence
-- **Minimal Network**: Reduced API calls
+## Useful scripts
+- `npm run dev` — local development (Turbopack)
+- `npm run build` — production build
+- `npm run start` — start built app
+- `npm run lint` — Next.js ESLint
+*(No automated test script is configured; component/unit tests exist in `src/components/**` and `src/utils/**`.)*
 
-## 🤝 Contributing
+## Deployment notes
+- Designed for Vercel. Serverless routes rely on Node APIs (e.g., `formidable`, `fs`) allowed in Vercel functions.
+- Ensure build target Node ≥18.18.
+- If hosting elsewhere, keep the CORS headers from `next.config.ts`/`vercel.json` for `/api/extract-text`.
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test on mobile devices
-5. Submit a pull request
+## Privacy & security
+- Gemini API key is never sent to your servers beyond the user’s requests; it is stored locally in the browser.
+- Uploaded PDFs are processed server-side only to extract text for the active session; temporary files are removed after parsing.
+- No analytics/telemetry beyond optional metrics derived from Gemini responses shown to the user.
 
-## 📄 License
-
-MIT License - see LICENSE file for details
-
-## 🆘 Support
-
-- **Documentation**: Check the inline code comments
-- **Issues**: Report bugs on GitHub
-- **Discussions**: Join community discussions
-- **Email**: support@pagerush.ai
-
----
-
-**Made with ❤️ for students everywhere**
+## Resources
+- Adaptive learning design: `ADAPTIVE_LEARNING_OPTIMIZATION.md`
+- Icons/assets/PWA: `public/`
+- Questions or issues: open a GitHub issue or email `hong@polytera.dev` .
