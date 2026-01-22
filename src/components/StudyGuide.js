@@ -238,7 +238,7 @@ const DefinitionBox = ({ term, definition }) => (
 );
 
 // Progress ring component
-const ProgressRing = ({ progress, size = 60, strokeWidth = 6 }) => {
+const StudyProgressRing = ({ progress, size = 60, strokeWidth = 6 }) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const offset = circumference - (progress / 100) * circumference;
@@ -327,7 +327,7 @@ const StudyStatsDashboard = ({ stats, checklistItems }) => {
       <div className="grid grid-cols-4 gap-2 sm:gap-4">
         <div className="bg-slate-700/50 rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">
           <div className="hidden sm:flex justify-center mb-2">
-            <ProgressRing progress={progress} size={50} strokeWidth={5} />
+            <StudyProgressRing progress={progress} size={50} strokeWidth={5} />
           </div>
           <div className="text-lg sm:text-2xl font-bold text-blue-400">{progress}%</div>
           <div className="text-[10px] sm:text-xs text-slate-400 mt-0.5 sm:mt-1">Done</div>

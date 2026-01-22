@@ -284,10 +284,16 @@ export default function Quiz({ questions, onSubmit, currentQuestionIndex, setCur
     return { topicPerformance, strongTopics, weakTopics };
   };
 
+  // Helper function to calculate percentage with single decimal precision
+  const calculatePercentage = (correct, total) => {
+    if (total === 0) return 0;
+    return parseFloat(((correct / total) * 100).toFixed(1));
+  };
+
   const performanceSummary = generatePerformanceSummary();
   const numCorrect = feedback.filter(Boolean).length;
   const totalQuestions = questions.length;
-  const percentCorrect = Math.round((numCorrect / totalQuestions) * 1000) / 10; // Single decimal
+  const percentCorrect = calculatePercentage(numCorrect, totalQuestions);
 
   if (!questions || !questions.length) {
     return (

@@ -57,7 +57,7 @@ const StudyTimer = ({ sessionTime, isRunning, onToggle, onBreak }) => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const showBreakReminder = sessionTime > 0 && sessionTime % 1500 === 0 && sessionTime > 0; // Every 25 mins
+  const showBreakReminder = sessionTime > 0 && sessionTime % 1500 === 0; // Every 25 mins
 
   return (
     <div className="flex items-center gap-2 sm:gap-3 bg-slate-100 rounded-lg px-2 sm:px-3 py-2">
